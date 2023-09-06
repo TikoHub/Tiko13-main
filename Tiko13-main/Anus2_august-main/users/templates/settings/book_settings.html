@@ -1,0 +1,300 @@
+{% load youtube_embed_url %}
+{% load static %}
+<!-- rest of your HTML -->
+
+<html>
+<head>
+    <title>Book Settings</title>
+</head>
+<body>
+<link rel="stylesheet" href="{% static 'css/illustration_image_delete.css' %}">
+<h2>Book Settings</h2>
+
+<button id="settingsBtn">Settings</button>
+<button id="textBtn">Text</button>
+<button id="illustrationsBtn">Illustrations</button>
+<button id="salesBtn">Sales</button>
+
+<div id="settings">
+    <h3>Settings</h3>
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/book_create.css' %}">
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="row">
+        <div class="col">
+            <label for="name">Book Name:</label>
+            {{ book_form.name }}
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <label for="bookType">Type of book:</label>
+                <select name="book_type">
+                {% for type, display_name in book_type_form.fields.book_type.choices %}
+                <option value="{{ type }}">{{ display_name }}</option>
+                {% endfor %}
+              </select>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <label for="co_author">Co-Author 1:</label>
+            {{ book_form.co_author }}
+        </div>
+        <div class="col">
+            <label for="co_author2">Co-Author 2:</label>
+            <!-- You may need to adjust the field name here -->
+            {{ book_form.co_author2 }}
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col">
+            <label for="genre">Genre:</label>
+            {{ book_form.genre }}
+        </div>
+
+        <div class="col">
+            <label for="series">Series:</label>
+              <select id="series" name="series">
+                <option value="" {% if not book.series %}selected{% endif %}>No Cycle</option>
+                {% for series in user_series %}
+                    <option value="{{ series.id }}" {% if book.series.id == series.id %}selected{% endif %}>{{ series.name }}</option>
+                {% endfor %}
+            </select>
+
+        </div>
+
+    </div>
+    <div class="row">
+        <div class="col">
+            <label for="genre2">Genre 2:</label>
+            <!-- You may need to adjust the field name here -->
+            {{ book_form.genre2 }}
+        </div>
+        <div class="col">
+            <label for="genre3">Genre 3:</label>
+            <!-- You may need to adjust the field name here -->
+            {{ book_form.genre3 }}
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <label for="abstract">Abstract:</label>
+            {{ book_form.abstract }}
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <label for="author_remark">Author's remark:</label>
+            {{ book_form.author_remark }}
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+             <input type="checkbox" id="display_paragraphs_indent" name="display_paragraphs_indent">
+                <label for="display_paragraphs_indent">Display all paragraphs with an indent</label>
+        </div>
+        <div class="col">
+            <input type="checkbox" id="copyright_protection" name="copyright_protection">
+            <label for="copyright_protection">Copyright protection</label>
+        </div>
+        <div class="col">
+            {{ book_form.is_adult }}<label for="is_adult">Is adult?</label>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <label for="who_can_see">Who can see the book?</label>
+              <select id="who_can_see" name="who_can_see">
+                <option value="nobody">Nobody</option>
+                <option value="anybody">Anybody</option>
+                <option value="friends">Friends</option>
+                <option value="followers">Followers</option>
+              </select>
+        </div>
+        <div class="col">
+            <label for="who_can_download">Who can download the book?</label>
+              <select id="who_can_download" name="who_can_download">
+                <option value="nobody">Nobody</option>
+                <option value="anybody">Anybody</option>
+                <option value="friends">Friends</option>
+                <option value="followers">Followers</option>
+              </select>
+        </div>
+        <div class="col">
+             <label for="who_can_comment">Who can leave a comment on the book's page?</label>
+                  <select id="who_can_comment" name="who_can_comment">
+                    <option value="nobody">Nobody</option>
+                    <option value="anybody">Anybody</option>
+                    <option value="friends">Friends</option>
+                    <option value="followers">Followers</option>
+                  </select>
+        </div>
+
+
+    </div>
+<div class="row">
+    <div class="col">
+        <label for="price">Price:</label>
+        {{ book_form.price }}
+    </div>
+</div>
+<div class="row">
+    <div class="col">
+        <label for="coverpage">Cover Page:</label>
+        {{ book_form.coverpage }}
+    </div>
+</div>
+<div class="row">
+    <div class="col">
+        <label for="description">Description:</label>
+        {{ book_form.description }}
+    </div>
+</div>
+<div class="row">
+    <div class="col">
+        <label for="status">Status:</label>
+        {{ book_form.status }}
+    </div>
+</div>
+    <button type="submit">Save</button>
+</form>
+
+
+{% endblock content %}
+</div>
+
+<div id="text" style="display: none;">
+    <h3>Text</h3>
+    <h4>This book is in drafts and only you can see it.
+    To have the ability to publish the book, it is necessary to publish at least one part of it.</h4>
+    <div class="row">
+        <div class="col">
+            <label for="status">Status:</label>
+            {{ book_form.status }}
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <button type="submit" class="btn btn-primary">Publish</button>
+            <select id="publishScope" class="form-control">
+                <option>Current Chapter</option>
+                <option>The Whole Book</option>
+            </select>
+        </div>
+    </div>
+        <form method="post">
+            {% csrf_token %}
+            <h2>{{ chapter.title }} Chapter 1 : {{ chapter.additional_title }}</h2>
+            {{ chapter_form.as_p }}
+            <button type="submit" class="btn btn-primary">Publish</button>
+        </form>
+
+
+</div>
+
+<div id="illustrations" style="display: none;">
+    <h3>Illustrations</h3>
+        <p>Here you can upload illustrations for your book and provide a link to a book trailer.
+        The following formats are allowed: jpg, jpeg, png. Up to 30 files can be uploaded. The maximum file size is 5.0 MB.
+        The uploaded illustration must not violate copyright and related rights.</p>
+    <h2>Upload Illustration:</h2>
+            <form action="{% url 'upload_illustration' %}" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="file" name="image" required>
+                <button type="submit">Upload Illustration</button>
+            </form>
+
+
+        <h2>Illustrations:</h2>
+
+            {% if illustrations %}
+                {% for illustration in illustrations %}
+                    <div class="image-container">
+                    <img src="{{ illustration.image.url }}" style="max-width: 400px; max-height: 400px;">
+                     <form class="delete-form" action="{% url 'delete_illustration' illustration.id %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit">Delete</button>
+                    </form>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p>You have not uploaded any illustration yet.</p>
+            {% endif %}
+            <h2>Trailers:</h2>
+
+                <form action="{% url 'upload_trailer' %}" method="post">
+                    {% csrf_token %}
+                    {{ form.as_p }}
+                    <button type="submit">Upload Trailer Link</button>
+                </form>
+
+                {% for trailer in trailers %}
+                    <iframe width="560" height="315" src="{{ trailer.link|convert_to_embed_url }}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                    <form action="{% url 'delete_trailer' trailer.id %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit">Delete Trailer</button>
+                    </form>
+                {% empty %}
+                    <p>No trailers uploaded yet.</p>
+                {% endfor %}
+
+
+
+
+
+    <p id="fileSizeWarning" style="display: none; color: red;">File size must be less than 5 MB.</p>
+
+
+
+</div>
+
+<div id="sales" style="display: none;">
+    <h3>Sales</h3>
+    <!-- Add sales features here -->
+</div>
+
+<script>
+document.getElementById('settingsBtn').onclick = function() {
+    hideAll();
+    document.getElementById('settings').style.display = 'block';
+};
+
+document.getElementById('textBtn').onclick = function() {
+    hideAll();
+    document.getElementById('text').style.display = 'block';
+};
+
+document.getElementById('illustrationsBtn').onclick = function() {
+    hideAll();
+    document.getElementById('illustrations').style.display = 'block';
+};
+
+document.getElementById('salesBtn').onclick = function() {
+    hideAll();
+    document.getElementById('sales').style.display = 'block';
+};
+
+document.getElementById('fileInput').onchange = function() {
+    var fileSize = this.files[0].size / 1024 / 1024; // in MB
+    if (fileSize > 5) {
+        document.getElementById('fileSizeWarning').style.display = 'block';
+        this.value = '';
+    } else {
+        document.getElementById('fileSizeWarning').style.display = 'none';
+    }
+};
+
+function hideAll() {
+    document.getElementById('settings').style.display = 'none';
+    document.getElementById('text').style.display = 'none';
+    document.getElementById('illustrations').style.display = 'none';
+    document.getElementById('sales').style.display = 'none';
+}
+</script>
+
+</body>
+</html>

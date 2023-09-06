@@ -1,0 +1,17 @@
+{% extends 'default.html' %} 
+{% block title%}book{%endblock title%}
+{% block content %}
+    <h1>Подробная информация</h1>
+    {% for user in user %}
+        <table>
+            {{ user.name }}
+            {{ user.user_dis }}
+            {{ user.create_at }}
+            {{ user.instagram }}
+            {{ user.facebook }}
+        </table>
+    {% endfor %} 
+    <!--button><a href="">Все избранные</a></button-->
+    <button><a href="{% url 'book_create' %}">Добавить книгу</a></button>
+{% endblock content %}
+

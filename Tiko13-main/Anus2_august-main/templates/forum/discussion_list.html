@@ -1,0 +1,14 @@
+{% extends "default.html" %}
+{% block content %}
+  <h1>Discussion List</h1>
+
+  <ul>
+    {% for discussion in discussions %}
+      <li>
+       <a href="{% url 'forum:discussion_detail' pk=discussion.pk %}">{{ discussion.title }}</a>
+      </li>
+    {% empty %}
+      <li>No discussions found.</li>
+    {% endfor %}
+  </ul>
+{% endblock %}

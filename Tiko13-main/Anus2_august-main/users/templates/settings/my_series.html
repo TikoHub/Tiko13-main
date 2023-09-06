@@ -1,0 +1,21 @@
+<h1> MY SERIES </h1>
+
+{% for series in user_series %}
+    <div>
+        <a href = '{% url 'series_update' series.id %}'><button><h2>{{ series.name }}</h2></button></a>
+        <p>Description: {{ series.description }}</p>
+        <p>Author's remark: {{ series.author_remark }}</p>
+        {% if series.series_finished %}
+            <p>Series finished</p>
+        {% else %}
+            <p>Series still on process</p>
+        {% endif %}
+
+        <h3>Books in this series:</h3>
+        <ul>
+            {% for book in series.book_set.all %}
+                <li><a href="{% url 'book_detail' book.id %}">{{ book.name }}</a></li>
+            {% endfor %}
+        </ul>
+    </div>
+{% endfor %}

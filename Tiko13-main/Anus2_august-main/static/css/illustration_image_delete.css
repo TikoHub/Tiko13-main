@@ -1,0 +1,15 @@
+.image-container {
+    position: relative;
+    display: inline-block; /* So it only takes up as much space as it needs */
+}
+
+.delete-form {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: none; /* Hide it by default */
+}
+
+.image-container:hover .delete-form {
+    display: block; /* Show the delete button when hovering over the image */
+}

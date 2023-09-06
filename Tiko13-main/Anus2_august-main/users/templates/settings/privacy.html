@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Privacy Settings</title>
+</head>
+<body>
+    <h1>Privacy Settings</h1>
+    <form method="POST" action="{% url 'settings-privacy' %}">
+        {% csrf_token %}
+        <label for="auto_add_reading">Automatically add reading books into my library</label>
+        <select name="auto_add_reading" id="auto_add_reading">
+            <option value="true" {% if user.profile.auto_add_reading %}selected{% endif %}>On</option>
+            <option value="false" {% if not user.profile.auto_add_reading %}selected{% endif %}>Off</option>
+        </select>
+
+
+        <h2>Who can see My Library</h2>
+        <select name="see_my_library">
+            {% for value, label in user.profile.PRIVACY_CHOICES %}
+                <option value="{{ value }}" {% if user.profile.library_privacy == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+
+        <hr>
+
+        <h2>Who can comment my profile</h2>
+        <select name="comment_my_profile">
+            <option value="nobody">Nobody</option>
+            <option value="only_friends">Only Friends</option>
+            <option value="only_followers">Only Followers</option>
+            <option value="anyone">Anyone</option>
+        </select>
+        <hr>
+
+        <h2>Who can message me</h2>
+        <select name="message_me">
+            <option value="nobody">Nobody</option>
+            <option value="only_friends">Only Friends</option>
+            <option value="only_followers">Only Followers</option>
+            <option value="anyone">Anyone</option>
+        </select>
+        <hr>
+
+        <h2>Who can see all my comments</h2>
+        <select name="see_my_comments">
+            <option value="nobody">Nobody</option>
+            <option value="only_friends">Only Friends</option>
+            <option value="only_followers">Only Followers</option>
+            <option value="anyone">Anyone</option>
+        </select>
+        <hr>
+
+        <input type="submit" value="Save">
+    </form>
+</body>
+</html>

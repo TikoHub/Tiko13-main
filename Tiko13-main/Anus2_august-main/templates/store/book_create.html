@@ -1,0 +1,150 @@
+{% extends 'default.html' %}
+{% load static %}
+{% block title %}
+Create book
+{% endblock title %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/book_create.css' %}">
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="row">
+        <div class="col">
+            <label for="name">Book Name:</label>
+            {{ form.name }}
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <label for="bookType">Type of book:</label>
+                <select name="book_type">
+                {% for type, display_name in form.fields.book_type.choices %}
+                <option value="{{ type }}">{{ display_name }}</option>
+                {% endfor %}
+              </select>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <label for="co_author">Co-Author 1:</label>
+            {{ form.co_author }}
+        </div>
+        <div class="col">
+            <label for="co_author2">Co-Author 2:</label>
+            <!-- You may need to adjust the field name here -->
+            {{ form.co_author2 }}
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col">
+            <label for="genre">Genre:</label>
+            {{ form.genre }}
+        </div>
+        <div class="col">
+            <label for="series">Series:</label>
+              <select id="series" name="series">
+                <option value="">No Cycle</option>
+                {% for series in user_series %}
+                  <option value="{{ series.id }}">{{ series.name }}</option>
+                {% endfor %}
+              </select>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <label for="genre2">Genre 2:</label>
+            <!-- You may need to adjust the field name here -->
+            {{ form.genre2 }}
+        </div>
+        <div class="col">
+            <label for="genre3">Genre 3:</label>
+            <!-- You may need to adjust the field name here -->
+            {{ form.genre3 }}
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <label for="abstract">Abstract:</label>
+            {{ form.abstract }}
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <label for="author_remark">Author's remark:</label>
+            {{ form.author_remark }}
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+             <input type="checkbox" id="display_paragraphs_indent" name="display_paragraphs_indent">
+                <label for="display_paragraphs_indent">Display all paragraphs with an indent</label>
+        </div>
+        <div class="col">
+            <input type="checkbox" id="copyright_protection" name="copyright_protection">
+            <label for="copyright_protection">Copyright protection</label>
+        </div>
+        <div class="col">
+            {{ form.is_adult }}<label for="is_adult">Is adult?</label>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <label for="who_can_see">Who can see the book?</label>
+              <select id="who_can_see" name="who_can_see">
+                <option value="nobody">Nobody</option>
+                <option value="anybody">Anybody</option>
+                <option value="friends">Friends</option>
+                <option value="followers">Followers</option>
+              </select>
+        </div>
+        <div class="col">
+            <label for="who_can_download">Who can download the book?</label>
+              <select id="who_can_download" name="who_can_download">
+                <option value="nobody">Nobody</option>
+                <option value="anybody">Anybody</option>
+                <option value="friends">Friends</option>
+                <option value="followers">Followers</option>
+              </select>
+        </div>
+        <div class="col">
+             <label for="who_can_comment">Who can leave a comment on the book's page?</label>
+                  <select id="who_can_comment" name="who_can_comment">
+                    <option value="nobody">Nobody</option>
+                    <option value="anybody">Anybody</option>
+                    <option value="friends">Friends</option>
+                    <option value="followers">Followers</option>
+                  </select>
+        </div>
+
+
+    </div>
+<div class="row">
+    <div class="col">
+        <label for="price">Price:</label>
+        {{ form.price }}
+    </div>
+</div>
+<div class="row">
+    <div class="col">
+        <label for="coverpage">Cover Page:</label>
+        {{ form.coverpage }}
+    </div>
+</div>
+<div class="row">
+    <div class="col">
+        <label for="description">Description:</label>
+        {{ form.description }}
+    </div>
+</div>
+<div class="row">
+    <div class="col">
+        <label for="status">Status:</label>
+        {{ form.status }}
+    </div>
+</div>
+    <button type="submit">Continue</button>
+</form>
+
+
+{% endblock content %}

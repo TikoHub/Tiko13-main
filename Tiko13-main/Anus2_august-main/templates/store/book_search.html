@@ -1,0 +1,88 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="../static/css/style.css">
+</head>
+<body>
+<header class="header">
+    <div class="header-logo"><a href="/"><img src="{% static 'images/Anus-1.png' %}" height=75px; width=100px;>
+    <nav class="header-nav">
+        <ul class="header-menu-list">
+            <li><a href="#">Books</a></li>
+            <li><a href="#">Discussions</a></li>
+            <li><a href="#">Contents</a></li>
+            <li><a href="#">My Libary</a></li>
+        </ul>
+    </nav>
+    <form method="get">
+            <input name="header-search" placeholder="Search" type="search" size="30">
+        </form>
+
+        <!--button class="login-button"><a href="" class="login-link">login</a></--button-->
+</header>
+
+
+{% block title %}
+Book Search
+{% endblock title %}
+
+
+{% block content %}
+<h3>Поиск книги</h3>
+<form method="GET">
+    {{ filter.form }}
+    <input type="submit" value="Найти">
+</form>
+<table>
+    <tr>
+        <td>
+            Name
+        </td>
+        <td>
+            Genre
+        </td>
+        <td>
+            Price
+        </td>
+    </tr>
+    {% for book_detail in filter.qs %}
+    <tr>
+        <td>
+            {{ book_detail.name }}
+        </td>
+        <td>
+            {{ book_detail.genre }}
+        </td>
+    <td>
+         <img src=" {{ book_detail.coverpage.url }}" alt="" style = 'width: 168px; height: 236px'>
+    </td>
+    </tr>
+    {% endfor %}
+</table>
+
+{% if is_paginated %}
+            {% if page_obj.has_previous %}
+            <a href="?page=1">First</a>
+            <a href="?page={{ page_obj.previous_page_number}}"><<<</a>
+        {% endif %}
+
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+                <a>{{ num }}</a>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <a href="?page={{ num }}">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}">>>></a>
+            <a href="?page={{ page_obj.paginator.num_page }}">Last</a>
+        {% endif %}
+    {% endif %}
+    <br>
+{% endblock content %}

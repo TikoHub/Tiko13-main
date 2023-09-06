@@ -1,0 +1,16 @@
+{% extends 'default.html' %}
+{% block title %}
+Choose Book Type
+{% endblock title %}
+{% block content %}
+<form method="post" action="{% url 'book_create' %}">
+  {% csrf_token %}
+  <h2>Select Book Type:</h2>
+  <select name="book_type">
+    {% for type, display_name in form.fields.book_type.choices %}
+    <option value="{{ type }}">{{ display_name }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Continue</button>
+</form>
+{% endblock content %}

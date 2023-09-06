@@ -1,0 +1,21 @@
+{% block content %}
+  <h2>Messages</h2>
+  {% if conversations %}
+    <ul>
+      {% for conversation in conversations %}
+        <li>
+          {% for participant in conversation.participants.all %}
+            {% if participant != request.user %}
+              <a href="{% url 'conversation' participant.id %}">
+                Conversation with {{ participant.username }}
+                <a href="{% url 'delete_conversation' participant.id %}">Delete</a>
+              </a>
+            {% endif %}
+          {% endfor %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>You have no conversations.</p>
+  {% endif %}
+{% endblock content %}

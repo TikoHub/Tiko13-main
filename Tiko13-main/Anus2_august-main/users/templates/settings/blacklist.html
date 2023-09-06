@@ -1,0 +1,16 @@
+<h1> BLACKLIST </h1>
+
+{% block content %}
+
+    {% for user in blacklisted_users %}
+        <div>
+            <h3>{{ user.username }}</h3>
+            <form method="post" action="{% url 'remove_from_blacklist' username=user.username %}">
+                {% csrf_token %}
+                <input type="submit" value="Remove from blacklist">
+            </form>
+        </div>
+    {% empty %}
+        <p>You have no users in your blacklist.</p>
+    {% endfor %}
+{% endblock %}

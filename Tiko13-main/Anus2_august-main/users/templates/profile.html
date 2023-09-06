@@ -1,0 +1,101 @@
+{% load static %}
+{% load custom_filters %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="" />
+    <meta name="keywords" content="" />
+	<title>Profile - {{user_profile.user.username}}</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'css/profile.css' %}">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+</head>
+<body>
+			<div class="feature-photo">
+				<form action="../follow" method="POST">
+                {% csrf_token %}
+					<div class="add-btn">
+					<span style="color: white; font-size: 27px; margin-right: 520px;"><b><u><a href="/">Home</a></u></b></span>
+
+                    {% if user_followers == 0 or user_followers == 1%}
+					    <h4>{{ user_followers }} followers</h4>
+                    {% else %}
+					    <h4>{{ user_followers }} follower</h4>
+                    {% endif %}
+					   <h4>{{ user_following }} following</h4>
+
+                    <input type = 'hidden', value="{{ user.username }}"  name='follower'/>
+                    <input type = 'hidden', value="{{ user_object.username }}"  name='user'/>
+
+                    {% if user_object.username == user.username %}
+                        <a href="../settings/main_settings" data-ripple="">Account Settings</a>
+                    {% else %}
+                        <a data-ripple=""><button type="submit" style="background-color: #ffc0cb; border: #ffc0cb;">{{ button_text }}</button></a>
+					{% endif %}
+
+
+                    {% if user_object.username == user.username %}
+                        <p>My Notifications: {{ user.profile.unread_notification_count }} </p>
+                    {% endif %}
+                    </div>
+				</form>
+                    {% if user_object.username == user.username %}
+                        <!-- 'My messages' button for when a user is viewing their own profile -->
+                        <a href="{% url 'messages_list' %}" data-ripple="">My Messages</a>
+                    {% else %}
+                        <!-- 'Send message' button for when a user is viewing someone else's profile -->
+                        <a href="{% url 'conversation' user_id=user_object.id %}" data-ripple="">
+                            <button type="submit" style="background-color: #ffc0cb; border: #ffc0cb;">Send Message</button>
+                        </a>
+                    {% endif %}
+                    {% if show_library_link %}
+                        <a href="{% url 'library' username=user_object.username %}">Library</a>
+                    {% endif %}
+
+
+
+
+                    {% if user_object != request.user and user_object not in request.user.profile.blacklist.all %}
+                        <form method="post" action="{% url 'add_to_blacklist' username=user_object.username %}">
+                            {% csrf_token %}
+                            <input type="submit" value="Add to blacklist">
+                        </form>
+                    {% elif user_object in request.user.profile.blacklist.all %}
+                        <form method="post" action="{% url 'remove_from_blacklist' username=user_object.username %}">
+                            {% csrf_token %}
+                            <input type="submit" value="Remove from blacklist">
+                        </form>
+                    {% endif %}
+            </div>
+				<div class="container-fluid">
+					<div class="row merged">
+						<div class="col-lg-2 col-sm-3">
+							<div class="user-avatar">
+								<figure>
+                                    <img src="{{ user_profile.profileimg.url }}" style="height: 250px; width: 250px;" alt="">
+                                    <h5 style="color: black;white-space: nowrap; width: 110px; font-size: 27px;"><b>{{user_profile.nickname}}</b></h5>
+                                    <h5 style="color: black;white-space: nowrap; width: 110px; font-size: 27px;"><b>{{user_profile.user}}</b></h5>
+                                </figure>
+							</div>
+						</div>
+                        <link rel="stylesheet" type="text/css" href="{% static 'css/profile.css' %}">
+                    </div>
+                </div>
+                        <div class="toggle-buttons">
+                            <button id="profile-toggle" class="active" data-username="{{ user_profile.user.username }}">Profile</button>
+                            <button id="library-toggle" data-username="{{ user_profile.user.username }}">Library</button>
+                            <button id="comments-toggle" data-username="{{ user_profile.user.username }}">Comments</button>
+                            <button id="achievements-toggle" data-username="{{ user_profile.user.username }}">Achievements</button>
+                        </div>
+                        <div id="content-area">
+                            <h2>Welcome to {{ user_profile }} Profile</h2>
+                            <p>This is the initial content that gets displayed when the page loads.</p>
+                            <p>When you click on a toggle button, the content area will be updated dynamically.</p>
+                        </div>
+	<script src="{% static 'js/script.js' %}"></script>
+    <script src="{% static 'js/profile.js' %}"></script>
+</body>
+</html>

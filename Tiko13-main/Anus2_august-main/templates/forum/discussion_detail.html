@@ -1,0 +1,28 @@
+{% block content %}
+  <h1>{{ discussion.title }}</h1>
+  <p>{{ discussion.content }}</p>
+  <p>Created by: {{ discussion.author }}</p>
+  <p>Created at: {{ discussion.created }}</p>
+
+  <!-- Additional fields or details for your Discussion model -->
+
+  <h2>Comments</h2>
+  <ul>
+    {% for comment in discussion.comments.all %}
+    <p>{{ comment.author }} says: {{ comment.content }}</p>
+    {% empty %}
+      <li>No comments found.</li>
+    {% endfor %}
+  </ul>
+
+  <!-- Form for adding a new comment -->
+ <h2>Add a Comment</h2>
+        <form method="post" enctype="multipart/form-data" action="{% url 'forum:comment_create' pk=discussion.pk %}">
+    {% csrf_token %}
+    <div>
+      <label for="comment_content">Content:</label>
+      <textarea id="comment_content" name="content" required></textarea>
+    </div>
+    <button type="submit">Add Comment</button>
+  </form>
+{% endblock %}

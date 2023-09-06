@@ -1,0 +1,11 @@
+<h1> REVIEWS </h1>
+
+{% for review in user_reviews %}
+    <div>
+        <h2>Review for: {{ review.book.name }}</h2>
+        <p>{{ review.text }}</p>
+        <p>Rating: {{ review.rating }}</p>
+        <p>Posted on: {{ review.created|date:"F d, Y H:i" }}</p>
+
+    </div>
+{% endfor %}

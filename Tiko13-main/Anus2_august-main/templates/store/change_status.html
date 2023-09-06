@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <h1>Change Status</h1>
+  <form method="post">
+    {% csrf_token %}
+    <label for="status">Select New Status:</label>
+    <select name="status" id="status">
+      <option value="0" {% if current_status == 0 %}selected{% endif %}>Reading</option>
+      <option value="1" {% if current_status == 1 %}selected{% endif %}>Watchlist</option>
+      <option value="2" {% if current_status == 2 %}selected{% endif %}>Finished</option>
+    </select>
+    <button type="submit">Save</button>
+  </form>
+{% endblock %}

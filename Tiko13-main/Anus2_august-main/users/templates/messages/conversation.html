@@ -1,0 +1,18 @@
+{% block content %}
+    <h2>Conversation with {{ other_user.username }}</h2>
+    {% for message in messages %}
+        <p><strong>{{ message.sender.username }}:</strong> {{ message.text }}</p>
+        {% if message.sender == request.user %}
+            <a href="{% url 'delete_message' message.id %}">Delete</a>
+        {% endif %}
+    {% empty %}
+        <p>No messages yet.</p>
+    {% endfor %}
+
+    <form method="POST">
+        {% csrf_token %}
+        <label for="message">Your message:</label>
+        <input type="text" id="message" name="message">
+        <button type="submit">Send</button>
+    </form>
+{% endblock %}

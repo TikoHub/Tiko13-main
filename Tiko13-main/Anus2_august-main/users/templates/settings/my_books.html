@@ -1,0 +1,64 @@
+<h1> MY BOOKS </h1>
+{% block content %}
+{% for book in my_authored_books %}
+    <div>
+       <img src="{{ book.coverpage.url }}" alt="" style='width: 168px; height: 236px'>
+        <h2>{{ book.name }}</h2>
+        {{ book.author }}
+        {{ book.status }}
+        Last Update: {{ book.updated|date:"F d, Y H:i" }}
+        Is adult? : {{ book.is_adult }}
+        Book Series: {{ book.series }}
+        Comments: {{ book.comment_count }}
+        Reviewed: {{ book.review_count }}
+        Rating: {{ book.rating }}
+        In Library Users: {{ book.in_library_users }}
+        Number of Views: {{ book.views_count }}
+        Characters in Chapters: {{ book.character_count }}
+
+        {% if book.series %}
+            Book Series: <a href="{% url 'series_detail' book.series.id %}">{{ book.series.name }}</a>
+        {% else %}
+            No Series
+        {% endif %}
+
+
+       <a href = '{% url 'book_settings' book.id %}'><button class="settingsBtn" data-book-id="{{book.id}}" data-initial="{{ show_settings  }}">Settings</button></a>
+       <a href = '{% url 'book_settings' book.id %}'><button class="textBtn" data-book-id="{{book.id}}" data-initial="{{ show_text  }}">Text</button></a>
+       <a href = '{% url 'book_detail' book.id %}'><button class="textBtn" data-book-id="{{book.id}}">Book's Page</button></a>
+
+    </div>
+{% endfor %}
+<script>
+  let settingsButtons = document.querySelectorAll('.settingsBtn');
+  let textButtons = document.querySelectorAll('.textBtn');
+
+  console.log('Number of settings buttons:', settingsButtons.length);
+  console.log('Number of text buttons:', textButtons.length);
+
+  settingsButtons.forEach(function(button) {
+    button.addEventListener('click', function() {
+      let bookId = button.getAttribute('data-book-id');
+      console.log('Settings button clicked for book ID:', bookId);
+      hideAll(bookId);
+      document.getElementById('settings' + bookId).style.display = 'block';
+    });
+  });
+
+  textButtons.forEach(function(button) {
+    button.addEventListener('click', function() {
+      let bookId = button.getAttribute('data-book-id');
+      console.log('Text button clicked for book ID:', bookId);
+      hideAll(bookId);
+      document.getElementById('text' + bookId).style.display = 'block';
+    });
+  });
+
+function hideAll(bookId) {
+  console.log('Hiding all sections for book ID:', bookId);
+  document.getElementById('settings' + bookId).style.display = 'none';
+  document.getElementById('text' + bookId).style.display = 'none';
+}
+</script>
+
+{% endblock %}

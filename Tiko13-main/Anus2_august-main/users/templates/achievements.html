@@ -1,0 +1,17 @@
+<h1>My Achievements</h1>
+
+{% if achievements %}
+    <ul>
+        {% for achievement in achievements %}
+            <li>
+                <h3>{{ achievement.name }}</h3>
+                <p>{{ achievement.description }}</p>
+                {% if achievement.image %}
+                    <img src="{{ achievement.image.url }}" alt="{{ achievement.name }} Image" width="200" height="200">
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <p>No achievements yet.</p>
+{% endif %}

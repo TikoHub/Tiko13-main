@@ -1,0 +1,16 @@
+<h1> SOCIAL </h1>
+
+<h1>Friends</h1>
+{% for friend in friends %}
+    <p>{{ friend.username }}</p>
+{% endfor %}
+
+<h1>Followers</h1>
+{% for follower in followers %}
+    <p>{{ follower.username }}</p>
+{% endfor %}
+
+<h1>Following</h1>
+{% for followed in following %}
+    <p>{{ followed.username }}</p>
+{% endfor %}

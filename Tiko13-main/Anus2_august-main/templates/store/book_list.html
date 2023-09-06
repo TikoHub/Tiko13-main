@@ -1,0 +1,88 @@
+{% extends 'default.html' %}
+{% block title%}title{%endblock title%}
+{% block content %}
+<table>
+    <tr>
+        <td>Books Name</td>
+        <td>Genre</td>
+        <td>Description</td>
+    </tr>
+   {% for book in book %}
+  <tr>
+    <td>
+      <a href="{% url 'book_detail' book.id %}">{{ book.name }}</a>
+      <a href="{% url 'book_update' book.id %}"><u>редактировать</u></a>
+      <a href="{% url 'book_delete' book.id %}"><u>удалить</u></a>
+
+      <a href="{% url 'add_to_library' book_id=book.id category='reading' %}">Add to Reading</a>
+      <a href="{% url 'add_to_library' book_id=book.id category='watchlist' %}">Add to Watchlist</a>
+      <a href="{% url 'add_to_library' book_id=book.id category='finished' %}">Add to Finished</a>
+
+
+    </td>
+  </tr>
+            </td>
+            <td>{{ book.genre }}</td>
+            <td>{{ book.description }}</td>
+        </tr>
+
+    {% endfor %}  
+</table>
+    <main>
+		<ul>
+			<li>
+				<article>
+					<h2>Most Popular</h2>
+					<p>Most Popular Books for Today</p>
+                    <img style='position: relative;width: 168px;height: 236px;' src="" alt="" style="width: 168px; height: 236px;">
+					<img style='position: relative;width: 168px;height: 236px;' src="" alt="" style="width: 168px; height: 236px;">
+					<img style='position: relative;width: 168px;height: 236px;' src="" alt="" style="width: 168px; height: 236px;">
+					<img style='position: relative;width: 168px;height: 236px;' src="" alt="" style="width: 168px; height: 236px;">
+					<img style='position: relative;width: 168px;height: 236px;' src="" alt="" style="width: 168px; height: 236px;">
+				</article>
+			</li>
+		</ul>
+		<ul>
+			<li>
+				<article>
+					<h2>NEW</h2>
+					<p>NEW Books for Today</p>
+					<img style='position: relative;width: 168px;height: 236px;' src="" alt="" style="width: 168px; height: 236px;">
+					<img style='position: relative;width: 168px;height: 236px;' src="" alt="" style="width: 168px; height: 236px;">
+					<img style='position: relative;width: 168px;height: 236px;' src="" alt="" style="width: 168px; height: 236px;">
+					<img style='position: relative;width: 168px;height: 236px;' src="" alt="" style="width: 168px; height: 236px;">
+					<img style='position: relative;width: 168px;height: 236px;' src="" alt="" style="width: 168px; height: 236px;">
+				</article>
+			</li>
+		</ul>
+		<ul>
+			<li>
+				<article>
+					<h2>Bestsellers</h2>
+					<p></p>
+					<img style='position: relative;width: 168px;height: 236px;' src="" alt="" style="width: 168px; height: 236px;">
+					<img style='position: relative;width: 168px;height: 236px;' src="" alt="" style="width: 168px; height: 236px;">
+					<img style='position: relative;width: 168px;height: 236px;' src="" alt="" style="width: 168px; height: 236px;">
+					<img style='position: relative;width: 168px;height: 236px;' src="" alt="" style="width: 168px; height: 236px;">
+					<img style='position: relative;width: 168px;height: 236px;' src="" alt="" style="width: 168px; height: 236px;">
+				</article>
+			</li>
+		</ul>
+		<ul>
+			<li>
+				<article>
+					<h2>Reading Now</h2>
+					<p>Discover what people read on a real-time basis</p>
+					<img style='position: relative;width: 168px;height: 236px;' src="" alt="" style="width: 168px; height: 236px;">
+					<img style='position: relative;width: 168px;height: 236px;' src="" alt="" style="width: 168px; height: 236px;">
+					<img style='position: relative;width: 168px;height: 236px;' src="" alt="" style="width: 168px; height: 236px;">
+					<img style='position: relative;width: 168px;height: 236px;' src="" alt="" style="width: 168px; height: 236px;">
+					<img style='position: relative;width: 168px;height: 236px;' src="" alt="" style="width: 168px; height: 236px;">
+				</article>
+			</li>
+		</ul>
+	</main>
+</body>
+</html>
+{% endblock content %}
+['name', 'description','writer','price','created']

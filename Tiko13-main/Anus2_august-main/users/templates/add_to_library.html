@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <h1>Add to Library</h1>
+  <form method="POST" action="{% url 'add_to_library' book_id=book.id category=category %}">
+    {% csrf_token %}
+    <p>Book: {{ book.title }}</p>
+    <p>Category: {{ category }}</p>
+    <button type="submit">Add to Library</button>
+  </form>
+{% endblock %}

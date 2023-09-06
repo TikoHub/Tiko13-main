@@ -1,0 +1,256 @@
+{% extends 'default.html' %}
+{% load static %}
+{% block title %}book{% endblock title %}
+{% block content %}
+    <h1>Подробная информация</h1>
+    <link rel="stylesheet" type="text/css" href="{% static 'css/custom.css' %}">
+    <div>
+        {{ book_detail.name }}
+        {{ book_detail.genre }}
+        {{ book_detail.description }}
+        {{ book_detail.writer }}
+        {{ book_detail.created }}
+        {{ book_detail.price }}
+        <a href="{% url 'review_toggle' pk=book.pk %}">Toggle Comments/Reviews</a>
+    </div>
+
+    <img src="{{ book_detail.coverpage.url }}" alt="" style='width: 168px; height: 236px'>
+    <a href="{% url 'reader' book.id %}">Read a book</a>
+    <h3>{% if book.display_comments %}Comments{% else %}Reviews{% endif %}</h3>
+        <form method="post" action="{% url 'upvote_book' book.id %}">
+            {% csrf_token %}
+            <button type="submit">Upvote</button>
+        </form>
+
+        <form method="post" action="{% url 'downvote_book' book.id %}">
+            {% csrf_token %}
+            <button type="submit">Downvote</button>
+        </form>
+
+    Rating: {{ book_detail.rating }}
+    <p>Views: {{ book_detail.views_count }}</p>
+
+
+{% if book.display_comments %}
+    {% if book %}
+        <form method="POST" action="{% url 'comment_create' pk=book.pk %}">
+            {% csrf_token %}
+            {{ comment_form.text }}
+            <button type="submit">Add Comment</button>
+        </form>
+    {% endif %}
+{% else %}
+    <form method="POST" action="{% url 'review_create' pk=book.pk %}">
+        {% csrf_token %}
+        {{ review_form.name }}
+        {{ review_form.text }}
+        <button type="submit">Add Review</button>
+    </form>
+{% endif %}
+
+
+
+<!-- Display the messages -->
+{% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+<!-- Display the existing comments -->
+{% if book.display_comments %}
+    {% load humanize %}
+    {% for comment in comments %}
+        <div class="comment {% if comment.parent_comment %}comment-reply{% endif %}">
+            {% if comment.parent_comment %}
+                <div class="comment-indent"></div>
+            {% endif %}
+            <div class="comment-content">
+                <p><a href="{% url 'profile' comment.user.username %}">{{ comment.user.username }}</a> {{ comment.timestamp|naturaltime }}</p>
+                <p>{{ comment.text }}</p>
+                <p>Rating: {{ comment.rating }}</p>
+
+                <!-- Like button -->
+                <form class="like-form" data-comment-id="{{ comment.id }}">
+                    {% csrf_token %}
+                    <button type="submit" class="like-button">Like</button>
+                </form>
+
+                <!-- Dislike button -->
+                <form class="dislike-form" data-comment-id="{{ comment.id }}">
+                    {% csrf_token %}
+                    <button type="submit" class="dislike-button">Dislike</button>
+                </form>
+
+                <!-- Reply form -->
+                <form method="POST" action="{% url 'comment_create' pk=book.pk %}">
+                    {% csrf_token %}
+                    {{ comment_form.text }}
+                    <input type="hidden" name="parent_comment_id" value="{{ comment.id }}">
+                    <input type="submit" value="Reply" class="btn btn-default">
+                </form>
+
+
+                {% if comment.parent_comment %}
+                    <p>Parent Comment: <a href="#comment{{ comment.parent_comment.id }}">{{ comment.parent_comment.text }}</a></p>
+                {% endif %}
+
+                {% if comment.user == request.user %}
+                    <form method="POST" action="{% url 'comment_delete' pk=comment.pk %}">
+                        {% csrf_token %}
+                        <button type="submit">Delete</button>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+    {% endfor %}
+{% else %}
+    {% if reviews %}
+        <h2>Reviews</h2>
+            <ul>
+                {% for review in reviews %}
+                    <li style="font-size: 44px;">Review for a {{ book_detail.genre }} {{ book_detail.name }} - {{ book_detail.writer }}</li>
+                    <li style="font-size: 20px;">{{ review.text }}</li>
+                    <p>Rating: {{ review.rating }}</p>
+                    <!-- Like button -->
+                    <form method="POST" action="{% url 'like_review' review_id=review.id %}">
+                        {% csrf_token %}
+                        <button type="submit">Like</button>
+                    </form>
+
+                    <!-- Dislike button -->
+                    <form method="POST" action="{% url 'dislike_review' review_id=review.id %}">
+                        {% csrf_token %}
+                        <button type="submit">Dislike</button>
+                    </form>
+
+                    <li>Views: {{ review.views_count }}</li>
+
+                    <script>
+        setTimeout(function() {
+            var reviewId = {{ review.id }};
+            var url = '/review/increase_views_count/' + reviewId + '/';
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', url);
+            xhr.send();
+            var viewsCountSpan = document.getElementById('views-count-{{ review.id }}');
+            viewsCountSpan.textContent = parseInt(viewsCountSpan.textContent) + 1;
+        }, 5000);
+    </script>
+                {% endfor %}
+            </ul>
+    {% else %}
+        <p>No reviews available.</p>
+    {% endif %}
+{% endif %}
+
+
+
+
+
+<!-- Include jQuery library -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+
+<script>
+   $(document).ready(function() {
+    var likedComments = []; // Array to track comments liked by the user
+    var dislikedComments = []; // Array to track comments disliked by the user
+
+    // Handle the like button click event
+    $(".like-form").submit(function(event) {
+        event.preventDefault();
+        var commentId = $(this).data("comment-id");
+        var url = "/comment/like/" + commentId + "/";
+        var dislikeButton = $(this).closest(".comment").find(".dislike-form button");
+
+        // Check if the comment is already liked by the user
+        if (likedComments.includes(commentId)) {
+            // User has already liked the comment, so remove the like
+            var index = likedComments.indexOf(commentId);
+            likedComments.splice(index, 1);
+        } else {
+            // User hasn't liked the comment, so add the like
+            likedComments.push(commentId);
+
+            // Disable the dislike button
+            dislikeButton.prop("disabled", true);
+
+            // Check if the comment was previously disliked by the user
+            if (dislikedComments.includes(commentId)) {
+                // User has previously disliked the comment, so remove the dislike
+                var dislikeIndex = dislikedComments.indexOf(commentId);
+                dislikedComments.splice(dislikeIndex, 1);
+            }
+        }
+
+        // Send an AJAX POST request to the server
+        $.ajax({
+            type: "POST",
+            url: url,
+            data: {
+                csrfmiddlewaretoken: "{{ csrf_token }}"
+            },
+            success: function(response) {
+                // Update the like count on the page
+                $(".like-count[data-comment-id='" + commentId + "']").html(response.like_count);
+                $(".dislike-count[data-comment-id='" + commentId + "']").html(response.dislike_count);
+            },
+            error: function(xhr, textStatus, errorThrown) {
+                console.log("Error:", errorThrown);
+            }
+        });
+    });
+
+    // Handle the dislike button click event
+    $(".dislike-form").submit(function(event) {
+        event.preventDefault();
+        var commentId = $(this).data("comment-id");
+        var url = "/comment/dislike/" + commentId + "/";
+        var likeButton = $(this).closest(".comment").find(".like-form button");
+
+        // Check if the comment is already disliked by the user
+        if (dislikedComments.includes(commentId)) {
+            // User has already disliked the comment, so remove the dislike
+            var index = dislikedComments.indexOf(commentId);
+            dislikedComments.splice(index, 1);
+        } else {
+            // User hasn't disliked the comment, so add the dislike
+            dislikedComments.push(commentId);
+
+            // Disable the like button
+            likeButton.prop("disabled", true);
+
+            // Check if the comment was previously liked by the user
+            if (likedComments.includes(commentId)) {
+                // User has previously liked the comment, so remove the like
+                var likeIndex = likedComments.indexOf(commentId);
+                likedComments.splice(likeIndex, 1);
+            }
+        }
+
+        // Send an AJAX POST request to the server
+        $.ajax({
+            type: "POST",
+            url: url,
+            data: {
+                csrfmiddlewaretoken: "{{ csrf_token }}"
+            },
+            success: function(response) {
+                // Update the dislike count on the page
+                $(".dislike-count[data-comment-id='" + commentId + "']").html(response.dislike_count);
+                $(".like-count[data-comment-id='" + commentId + "']").html(response.like_count);
+            },
+            error: function(xhr, textStatus, errorThrown) {
+                console.log("Error:", errorThrown);
+            }
+        });
+    });
+});
+
+
+</script>
+{% endblock content %}

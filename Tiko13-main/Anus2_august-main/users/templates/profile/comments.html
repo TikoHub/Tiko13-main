@@ -1,0 +1,54 @@
+{% load static %}
+
+<form id="sortForm">
+  <label for="sort_by">Sort By:</label>
+  <select name="sort_by" id="sort_by">
+    <option value="newest">Newest</option>
+    <option value="oldest">Oldest</option>
+    <option value="popularity">Popularity</option>
+  </select>
+  <button id="sortButton" type="submit">Sort</button>
+</form>
+
+<div id="commentList">
+    <p>Total Comments: {{ comments.count }}</p>
+    <p>Total Responses: {{ total_responses }}</p>
+
+
+  {% if comments %}
+    <ul>
+      {% for comment in comments %}
+        <li>
+          <p>Comment: {{ comment.text }}</p>
+          <p>Book: {{ comment.book.name }}</p>
+          <p>Date: {{ comment.timestamp }}</p>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</div>
+
+<script src="{% static 'js/jquery.min.js' %}"></script>
+<script>
+  $(document).ready(function() {
+    $('#sortForm').on('submit', function(e) {
+      e.preventDefault(); // Prevent form submission
+
+      var sortValue = $('#sort_by').val(); // Get selected sort value
+
+      // Send AJAX request to update the comment list
+      $.ajax({
+        type: 'GET',
+        url: '{% url "get_comments_content" username=username %}',
+        data: { sort_by: sortValue },
+        success: function(response) {
+          $('#commentList').html(response); // Update the comment list with the sorted results
+        },
+        error: function(xhr, errmsg, err) {
+          console.log(xhr.status + ': ' + xhr.responseText);
+        }
+      });
+    });
+  });
+</script>
+

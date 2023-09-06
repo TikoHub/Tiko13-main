@@ -1,0 +1,45 @@
+{% load static %}
+{% block content %}
+    <h1>Library</h1>
+<a href="{% url 'profile' username=user.username %}">Back to Profile</a>
+    <h2>Reading</h2>
+    <ul>
+        {% for book in library.reading_books.all %}
+            <li>{{ book.name }}</li>
+        {% empty %}
+            <li>No books in this category.</li>
+        {% endfor %}
+    </ul>
+
+    <h2>Watchlist</h2>
+    <ul>
+        {% for book in library.watchlist_books.all %}
+            <li>{{ book.name }}</li>
+        {% empty %}
+            <li>No books in this category.</li>
+        {% endfor %}
+    </ul>
+
+    <h2>Finished</h2>
+    <ul>
+        {% for book in library.finished_books.all %}
+            <li>{{ book.name }}</li>
+        {% empty %}
+            <li>No books in this category.</li>
+        {% endfor %}
+    </ul>
+
+
+    <h2>All</h2>
+    <ul>
+        {% for book in library.get_all_books %}
+            <li>{{ book.name }}</li>
+        {% empty %}
+            <li>No books in your library.</li>
+        {% endfor %}
+    </ul>
+
+{% endblock content %}
+
+
+

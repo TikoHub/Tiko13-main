@@ -1,0 +1,38 @@
+{% load static %}
+{% load custom_filters %}
+
+        <section>
+			<div class="bio">
+				<h1>{{user_profile.bio}}</h1>
+			</div>
+		</section>
+
+{% with reviews_count=user_profile.user.reviews.count %}
+  <p>Number of Book Reviews: {{ reviews_count }}</p>
+{% endwith %}
+
+{% with store_comments_count=user_profile.user.store_comments.count %}
+  <p>Number of Book Comments: {{ store_comments_count }}</p>
+{% endwith %}
+
+{% with forum_comments_count=user_profile.user.forum_comments.count %}
+  <p>Number of Forum Comments: {{ forum_comments_count }}</p>
+{% endwith %}
+
+{% with store_comments_count=user_profile.user.store_comments.count %}
+  <p>Number of Comments: {{ store_comments_count }}</p>
+{% endwith %}
+
+<h1>CheckCheck Check {{ user_profile }}</h1>
+<h1>{{ user_profile.user.username }}'s Profile</h1>
+<p>Total Rating: {{ user_profile.user.store_comments.all|calculate_comment_rating }}</p>
+<p>Total Scores: {{ user_profile.user.reviews.all|calculate_review_rating }}</p>
+
+
+
+
+	<script src="{% static 'js/script.js' %}"></script> <!-- Перечекай 03 36 50, там статичными фотки сделали и она стали скролебельны..-->
+</body>
+
+
+</html>

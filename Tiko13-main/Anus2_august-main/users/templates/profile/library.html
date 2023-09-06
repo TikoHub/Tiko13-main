@@ -1,0 +1,57 @@
+{% load static %}
+{% block content %}
+    <h1>My Library</h1>
+    <a href="../profile/{{ user.username }}">My profile</a>
+
+    <button id="readingBtn">Reading</button>
+    <button id="watchlistBtn">Watchlist</button>
+    <button id="finishedBtn">Finished</button>
+    <button id="allBtn">All</button>
+
+    <div id="bookList">
+        <ul>
+            {% for book in books %}
+                <li>{{ book.name }}</li>
+            {% empty %}
+                <li>No books in this category.</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <script src="{% static 'js/jquery.min.js' %}"></script>
+    <script>
+        $(document).ready(function() {
+            // Function to update the book list using AJAX
+            function updateBookList(filterBy) {
+                $.ajax({
+                    type: 'GET',
+                    url: '{% url "get_library_content" username=username %}',
+                    data: { filter_by: filterBy },
+                    success: function(response) {
+                        $('#bookList').html(response); // Update the book list with the filtered results
+                    },
+                    error: function(xhr, errmsg, err) {
+                        console.log(xhr.status + ': ' + xhr.responseText);
+                    }
+                });
+            }
+
+            // Event listeners for the filter buttons
+            $('#readingBtn').click(function() {
+                updateBookList('reading');
+            });
+
+            $('#watchlistBtn').click(function() {
+                updateBookList('watchlist');
+            });
+
+            $('#finishedBtn').click(function() {
+                updateBookList('finished');
+            });
+
+            $('#allBtn').click(function() {
+                updateBookList('all');
+            });
+        });
+    </script>
+{% endblock content %}

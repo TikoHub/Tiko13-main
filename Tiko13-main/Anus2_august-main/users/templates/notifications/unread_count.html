@@ -1,0 +1,20 @@
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script>
+$(document).ready(function() {
+    // Send an AJAX GET request to the server
+    $.ajax({
+      type: "GET",
+      url: "{% url 'unread_notification_count' %}",
+      success: function(response) {
+        // Update the notification count on the page
+        $("#notification-count").text(response.unread_count);
+      },
+      error: function(xhr, textStatus, errorThrown) {
+        console.log("Error:", errorThrown);
+      }
+    });
+});
+</script>
+
+<!-- somewhere in your page... -->
+<span id="notification-count"></span>

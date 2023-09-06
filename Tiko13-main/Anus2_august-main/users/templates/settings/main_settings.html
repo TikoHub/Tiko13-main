@@ -1,0 +1,56 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Settings</title>
+    <!-- Your styles and scripts here -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+
+</head>
+<body>
+    <div class="sidebar">
+        <button class="settings-toggle" id="webpage-settings-toggle">WebPage Settings</button>
+        <button class="settings-toggle" id="notifications-toggle">Notifications</button>
+        <button class="settings-toggle" id="privacy-toggle">Privacy Settings</button>
+        <button class="settings-toggle" id="blacklist-toggle">Blacklist</button>
+        <button class="settings-toggle" id="reviews-toggle">Reviews</button>
+        <button class="settings-toggle" id="social-toggle">Social</button>
+        <button class="settings-toggle" id="my_books-toggle">My Books</button>
+        <button class="settings-toggle" id="my_series-toggle">My Series</button>
+        <button class="settings-toggle" id="my_account-toggle">My Account</button>
+        <button class="settings-toggle" id="security-toggle">Security</button>
+        <button class="settings-toggle" id="purchase_history-toggle">Purchase History</button>
+    </div>
+
+    <div class="content-area" id="settings-content-area">
+        {% if current_tab == "settings/web_settings.html" %}
+            {% include "settings/web_settings.html" %}
+        {% elif current_tab == "notifications" %}
+            {% include "settings/notifications.html" %}
+        {% elif current_tab == "privacy" %}
+            {% include "settings/privacy.html" %}
+        {% elif current_tab == "blacklist" %}
+            {% include "settings/blacklist.html" %}
+        {% elif current_tab == "reviews" %}
+            {% include "settings/reviews_settings.html" %}
+        {% elif current_tab == "social" %}
+            {% include "settings/social.html" %}
+        {% elif current_tab == "my_books" %}
+            {% include "settings/my_books.html" %}
+        {% elif current_tab == "my_series" %}
+            {% include "settings/my_series.html" %}
+        {% elif current_tab == "my_account" %}
+            {% include "settings/my_account.html" %}
+        {% elif current_tab == "security" %}
+            {% include "settings/security.html" %}
+        {% elif current_tab == "purchase_history" %}
+            {% include "settings/purchase_history.html" %}
+        {% else %}
+            <!-- Default content if no tab is selected -->
+            <p>Please select a tab from the sidebar.</p>
+        {% endif %}
+    </div>
+</body>
+<script src="{% static 'js/settings.js' %}"></script>
+</html>
+

@@ -1,0 +1,32 @@
+{% extends 'default.html' %}
+
+{% block content %}
+<div id="text">
+    <div class="row">
+        <div class="col">
+            <label for="status">Status:</label>
+            {{ book_form.status }}
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <button type="submit" class="btn btn-primary">Publish</button>
+            <select id="publishScope" class="form-control">
+                <option>Current Chapter</option>
+                <option>The Whole Book</option>
+            </select>
+        </div>
+    </div>
+</div>
+    {% for key, value in book_data.items %}
+        <p>{{ key }}: {{ value }}</p>
+        {% endfor %}
+
+        <form method="post">
+            {% csrf_token %}
+            <h2>{{ chapter.title }} Chapter 1 : {{ chapter.additional_title }}</h2>
+            {{ form.as_p }}
+            <button type="submit" class="btn btn-primary">Publish</button>
+        </form>
+
+{% endblock %}

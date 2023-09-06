@@ -1,0 +1,33 @@
+{% load static %}
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="../static/css/style.css">
+</head>
+<body>
+<header class="header">
+    <a href="{% url 'books_list' %}"><img src="{% static 'images/Anus-1.png' %}" height=75px; width=100px;></a>
+    <nav class="header-nav">
+        <ul class="header-menu-list">
+
+            <li><a href="#">Books</a></li>
+            <li><a href={% url 'forum:discussion_list' %}>Discussions</a></li>
+            <li><a href="#">Contents</a></li>
+            <li><a href="{% url 'library' username=request.user.username %}">My Library</a></li>
+
+        </ul>
+    </nav>
+            <li><a href={% url 'book_create' %}>AddBookReal</a></li>
+            <li><a href={% url 'create_series' %}>CreateSeries</a></li>
+            <li><a href="{% url 'notifications' %}">notifications</a></li>
+    <form method="get">
+            <input name="header-search" placeholder="Search" type="search" size="30">
+    </form>
+</header>
+
+ {% block content %}
+ {% endblock content %}

@@ -1,0 +1,5 @@
+            <form action="{% url 'upload_trailer' %}" method="post">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button type="submit">Upload Trailer Link</button>
+            </form>

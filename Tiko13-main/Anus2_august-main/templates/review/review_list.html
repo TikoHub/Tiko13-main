@@ -1,0 +1,18 @@
+<!-- review_list.html -->
+{% extends 'default.html' %}
+
+{% block content %}
+  <h1>Reviews</h1>
+  {% if reviews %}
+  <ul>
+    {% for review in reviews %}
+      <li>Review: {{ review.name }}</li>
+      <li>Text: {{ review.text }}</li>
+      <!-- Other review details -->
+    {% endfor %}
+  </ul>
+{% else %}
+  <p>No reviews available.</p>
+{% endif %}
+
+{% endblock %}

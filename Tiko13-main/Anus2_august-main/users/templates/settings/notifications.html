@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NOTIFICATIONS</title>
+    <!-- Пока не работает, позже разберусь, потихоньку изменяя некоторые нотификейшены на возможные -->
+</head>
+<body>
+    <h1>NOTIFICATIONS Settings</h1>
+    <form action="" method="POST">
+        {% csrf_token %}
+        <h2>General Settings</h2>
+        <label><input type="checkbox" name="group_notifications_by_author"> Group notifications by author</label><br>
+        <label><input type="checkbox" name="do_not_show_books_updates"> Do not show book's updates</label><br>
+        <label><input type="checkbox" name="do_not_show_authors_updates"> Do not show author's updates</label><br>
+        <hr>
+
+        <h2>Book's Updates</h2>
+        <label><input type="checkbox" name="new_ebooks"> New Ebooks</label><br>
+        <label><input type="checkbox" name="reading_list_updates"> Library Reading list updates</label><br>
+        <label><input type="checkbox" name="watchlist_updates"> Library Watchlist updates</label><br>
+        <label><input type="checkbox" name="completed_ebooks_reading_list"> Completed ebooks in the reading list</label><br>
+        <label><input type="checkbox" name="completed_ebooks_watchlist"> Completed ebooks in the watch list</label><br>
+        <label><input type="checkbox" name="ebooks_on_sales"> Ebooks on sales</label><br>
+        <label><input type="checkbox" name="group_notifications_by_author_book"> Group notifications by author</label><br>
+        <hr>
+
+        <h2>Social Updates</h2>
+        <label><input type="checkbox" name="new_reviews"> New Reviews</label><br>
+        <label><input type="checkbox" name="new_blog_posts"> New Blog posts</label><br>
+        <label><input type="checkbox" name="new_followers"> New Followers</label><br>
+        <label><input type="checkbox" name="new_achievements"> New Achievements</label><br>
+        <label><input type="checkbox" name="responses_to_my_comments"> Responses to my comments</label><br>
+        <label><input type="checkbox" name="new_illustrations"> New Illustrations</label><br>
+        <hr>
+
+        <input type="submit" value="Save">
+    </form>
+</body>
+</html>

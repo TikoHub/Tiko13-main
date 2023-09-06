@@ -1,0 +1,12 @@
+{% extends 'default.html' %}
+
+{% block title %}Create Comment{% endblock title %}
+
+{% block content %}
+  <h3>Leave your comment</h3>
+  <form method="POST" action="{% url 'comment_create' %}">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Add Comment</button>
+  </form>
+{% endblock content %}

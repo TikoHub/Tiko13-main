@@ -1,0 +1,68 @@
+.small-text-input {
+  width: 200px;
+  height: 20px;
+}
+/* Styling for the main comment container */
+.comment {
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid #ccc;
+}
+
+/* Styling for child comments */
+.comment.comment-reply {
+  margin-left: 20px; /* Indent child comments */
+}
+
+/* Styling for the indentation element */
+.comment-indent {
+  width: 20px; /* Adjust the width of the indentation */
+  display: inline-block;
+}
+
+/* Styling for the comment content */
+.comment-content {
+  display: inline-block;
+}
+
+/* Styling for the link to the parent comment */
+.comment-content p a {
+  color: #999;
+}
+
+/* Styling for the like and dislike buttons */
+.like-button,
+.dislike-button {
+  background-color: #ccc;
+  border: none;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+/* Styling for the reply form */
+.comment-form {
+  margin-top: 10px;
+}
+
+.comment-form textarea {
+  width: 100%;
+  height: 40px; /* Adjust the height of the textarea */
+}
+
+/* Styling for the delete button */
+.comment-form button[type="submit"] {
+  background-color: #f00;
+  color: #fff;
+  border: none;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+.nested-comment {
+    margin-left: 2em;  /* Adjust the indentation as desired */
+    border-left: 2px solid #ccc;  /* Add a left border to visually connect with parent comment */
+    padding-left: 1em;  /* Add some padding to separate the nested comment content from the border */
+}
+
+.text {
+    width: 100%;
+}

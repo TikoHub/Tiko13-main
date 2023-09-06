@@ -1,0 +1,20 @@
+{% for notification in notifications %}
+    {% if notification.notification_type == 'follow' %}
+        {{ notification.sender.user.username }} followed you
+    {% elif notification.notification_type == 'comment' %}
+        {{ notification.sender.user.username }} replied to your comment
+    {% endif %}
+
+    <!-- Create a form for each notification to mark it as read -->
+    <form method="POST" action="{% url 'read_notification' notification.id %}">
+        {% csrf_token %}
+        <!-- Hidden field to carry the notification id -->
+        <input type="hidden" name="notification_id" value="{{ notification.id }}">
+
+        <!-- Button to submit the form and mark the notification as read -->
+        <button type="submit">Mark as Read</button>
+    </form>
+{% empty %}
+    <p>No notifications.</p>
+{% endfor %}
+

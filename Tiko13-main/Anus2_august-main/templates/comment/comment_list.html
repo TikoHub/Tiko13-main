@@ -1,0 +1,40 @@
+{% extends 'default.html' %}
+
+{% block title %} Comment {% endblock title %}
+
+{% block content %}
+{% if comment_list %}
+    {% for comment in comment_list %}
+    <div>
+        <table>
+            <tr>
+                <td>User:</td>
+                <td>{{ comment.user }}</td>
+            </tr>
+            <tr>
+                <td>Book:</td>
+                <td>{{ comment.book }}</td>
+            </tr>
+            <tr>
+                <td>Text:</td>
+                <td>{{ comment.text }}</td>
+            </tr>
+            <tr>
+                <td>Created:</td>
+                <td>{{ comment.created }}</td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    <form method="POST" action="{% url 'comment_delete' comment.pk %}">
+                        {% csrf_token %}
+                        <button type="submit">Delete</button>
+                    </form>
+                </td>
+            </tr>
+        </table>
+    </div>
+    {% endfor %}
+{% else %}
+    <h3>No comments available.</h3>
+{% endif %}
+{% endblock content %}
