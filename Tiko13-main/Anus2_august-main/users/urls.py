@@ -1,12 +1,13 @@
-from django.urls import path
+from django.urls import path, include
 from . import views
 
 urlpatterns = [
-    path('signup', views.signup, name='signup'),
-    path('signin', views.signin, name='signin'),
+    #path('signup', views.signup, name='signup'),
+    #path('signin', views.UserSigninAPIView.as_view(), name='signin'),
+    path('auth/', include('djoser.urls')),
     path('settings/main_settings', views.settings, name='main_settings'),
     path('follow', views.follow, name='follow'),
-    path('logout', views.logout, name='logout'),
+   # path('logout', views.logout, name='logout'),
     path('profile/<str:username>', views.profile, name='profile'),
     path('add_to_library/<int:book_id>/<str:category>/', views.add_to_library, name='add_to_library'),
     path('<str:username>/library/',views.my_library_view, name='library'),

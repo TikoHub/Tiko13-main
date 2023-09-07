@@ -24,12 +24,9 @@ from .models import Book, Comment, Review
 from .serializer import BookSerializer, CommentSerializer, ReviewSerializer, ChapterSerializers
 
 
-
-
 class BooksListAPIView(generics.ListAPIView):
     queryset = Book.objects.order_by('-id')
     serializer_class = BookSerializer
-
 
 
 class BookDetailAPIView(generics.RetrieveAPIView):
@@ -38,78 +35,24 @@ class BookDetailAPIView(generics.RetrieveAPIView):
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
+
+        # Include additional data here if needed
+        comments = Comment.objects.filter(book=instance)
+        reviews = Review.objects.filter(book=instance)
+
+        # You can serialize the comments and reviews if you want to include them in the response
+        comments_serializer = CommentSerializer(comments, many=True)
+        reviews_serializer = ReviewSerializer(reviews, many=True)
+
+        # You can add any additional data you want to the serialized book data
+        serialized_data = self.get_serializer(instance).data
+        serialized_data['comments'] = comments_serializer.data
+        serialized_data['reviews'] = reviews_serializer.data
+
         instance.increase_views_count(request.user if request.user.is_authenticated else None)
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
 
+        return Response(serialized_data)
 
-    def get_object(self):
-        obj = super().get_object()
-        obj.increase_views_count(self.request.user if self.request.user.is_authenticated else None)
-        return obj
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        book = self.get_object()
-        context['book'] = book
-
-        comments = book.comments.all()
-
-        # Annotate the comments queryset with the likes and dislikes counts
-        comments = comments.annotate(
-            likes_count=Count('likes'),
-            dislikes_count=Count('dislikes')
-        )
-
-        # Calculate the rating for each comment by subtracting dislikes from likes
-        for comment in comments:
-            comment.rating = comment.likes_count - comment.dislikes_count
-
-        # Fetch the reviews queryset and annotate it with the likes and dislikes counts
-        reviews = Review.objects.filter(book=book).annotate(
-            likes_count=Count('review_likes'),
-            dislikes_count=Count('review_dislikes')
-        )
-
-        # Calculate the rating for each review by subtracting dislikes from likes
-        for review in reviews:
-            review.rating = review.likes_count - review.dislikes_count
-
-        comments_rating_sum = sum(comment.rating for comment in comments)
-        reviews_rating_sum = sum(review.rating for review in reviews)
-
-        # Sort the comments and reviews by rating in descending order
-        comments = sorted(comments, key=lambda c: c.rating, reverse=True)
-        reviews = sorted(reviews, key=lambda r: r.rating, reverse=True)
-
-        context['comments'] = comments
-        context['comment_form'] = CommentForm(book=book)  # Pass the book instance to the form
-        context['reviews'] = reviews
-        context['comments_rating_sum'] = comments_rating_sum
-        context['reviews_rating_sum'] = reviews_rating_sum
-        return context
-
-    def post(self, request, *args, **kwargs):
-        book_id = request.POST.get('book')  # Retrieve the book ID from the POST data
-        book = get_object_or_404(Book, id=book_id)  # Get the book instance
-        form = CommentForm(request.POST, book=book)  # Pass the book instance to the form
-
-        if form.is_valid():
-            comment = form.save(commit=False)
-            comment.book = book
-            comment.user = request.user
-            comment.save()
-            return redirect('book_detail', pk=book.pk)
-        else:
-            return HttpResponse('Invalid form submission')
-
-
-def delete_comment(request, comment_id):
-    comment = Comment.objects.get(id=comment_id)
-    book_id = comment.book.id
-    if request.user == comment.user:
-        comment.delete()
-    return redirect('book_detail', pk=book_id)  # Update with the appropriate URL name
 
 
 class BookSearch(ListView):

@@ -1,5 +1,8 @@
 from django.db.models import Count, Q
 from django.shortcuts import render, redirect, get_object_or_404
+from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
+
 from .models import Profile, FollowersCount, Library, Achievement, Illustration, Trailer, WebPageSettings, Notification, Conversation, Message
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -7,7 +10,14 @@ from django.contrib.auth.models import User, auth
 from store.models import Book, Comment, Review, Series
 from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
 from .forms import UploadIllustrationForm, UploadTrailerForm, ProfileForm, WebPageSettingsForm, MessageForm
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, get_user_model, logout
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from .serializers import *
+
+User = get_user_model()
 
 
 @login_required(login_url='signin')
@@ -139,72 +149,34 @@ def follow(request):
     else:
         return redirect('/')
 
+'''
+class UserSigninAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        serializer = UserSigninSerializer(data=request.data)
+        if serializer.is_valid():
+            username = serializer.validated_data['username']
+            password = serializer.validated_data['password']
 
-def signup(request):
-    if request.method == 'POST':
-        username = request.POST['username']
-        email = request.POST['email']
-        password = request.POST['password']
-        password2 = request.POST['password2']
+            user = authenticate(request, username=username, password=password)
+            if user is not None:
+                refresh = RefreshToken.for_user(user)
+                token = {
+                    'access_token': str(refresh.access_token),
+                    'refresh_token': str(refresh)
+                }
 
-        if password == password2:
-            if User.objects.filter(email=email).exists():
-                messages.info(request, 'Email Taken')
-                return redirect('signup')
-            elif User.objects.filter(username=username).exists():
-                messages.info(request, 'Username Taken')
-                return redirect('signup')
+                # Authentication successful
+                # Generate and return JWT token here
+                # You can use the `djangorestframework_simplejwt` library for this purpose
+                # Import necessary functions from `djangorestframework_simplejwt` and create the token
+                # ...
+
+                return Response({'token': token}, status=status.HTTP_200_OK)
             else:
-                user = User.objects.create_user(username=username, email=email, password=password)
-                user.save()
+                return Response({'message': 'Invalid credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-                user_login = auth.authenticate(username=username, password=password)
-                auth.login(request, user_login)
-
-                # Create a profile object for the new user
-                user_model = User.objects.get(username=username)
-                new_profile = Profile.objects.create(user=user_model, id_user=user_model.id)
-                new_profile.save()
-
-                # Create a WebPage_Settings object for the new user
-                new_webpage_settings = WebPageSettings.objects.create(profile=new_profile)
-                new_webpage_settings.save()
-
-                # Create an empty library for the new user
-                my_library = Library.objects.create(user=user_model)
-                my_library.save()
-
-                return redirect('profile/' + username)
-        else:
-            messages.info(request, 'Password Not Matching')
-            return redirect('signup')
-
-    else:
-        return render(request, 'signup.html')
-
-
-def signin(request):
-    if request.method == 'POST':
-        username = request.POST['username']
-        password = request.POST['password']
-
-        user = auth.authenticate(username=username, password=password)
-
-        if user is not None:
-            auth.login(request, user)
-            return redirect('/')
-        else:
-            messages.info(request, 'Credential Invalid')
-            return redirect('signin')
-    else:
-        return render(request, 'signin.html')
-
-
-@login_required(login_url='signin')
-def logout(request):
-    auth.logout(request)
-    return redirect('signin')
-
+'''
 
 def add_to_library(request, book_id, category):
     if request.user.is_authenticated:
