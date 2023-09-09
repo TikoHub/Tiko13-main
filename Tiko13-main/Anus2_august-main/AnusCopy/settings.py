@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'forum',
     'corsheaders',
     'rest_framework',
+    'rest_framework.authtoken',
     'djoser',
 ]
 
@@ -142,4 +143,24 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 
+REST_FRAMEWORK = {
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
+        ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+        ],
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
+    )
+}
 
+DJOSER = {
+    'SERIALIZERS': {
+        'user_create': 'users.serializers.CustomUserCreateSerializer',  # Replace 'your_app' with your app's name
+    },
+    # Other DJOSER settings...
+}

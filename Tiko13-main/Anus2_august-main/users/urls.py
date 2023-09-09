@@ -1,10 +1,12 @@
-from django.urls import path, include
+from django.urls import path, include, re_path
 from . import views
 
 urlpatterns = [
     #path('signup', views.signup, name='signup'),
     #path('signin', views.UserSigninAPIView.as_view(), name='signin'),
+    path('drf-auth/', include('rest_framework.urls')),
     path('auth/', include('djoser.urls')),
+    re_path(r'auth/', include('djoser.urls.authtoken')),
     path('settings/main_settings', views.settings, name='main_settings'),
     path('follow', views.follow, name='follow'),
    # path('logout', views.logout, name='logout'),
