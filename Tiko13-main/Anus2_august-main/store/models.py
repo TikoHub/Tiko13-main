@@ -195,4 +195,4 @@ class BookDownvote(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     class Meta:
-        unique_together = ['book', 'user']  #
+        unique_together = ['book', 'user']

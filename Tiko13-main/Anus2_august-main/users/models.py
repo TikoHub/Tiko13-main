@@ -1,8 +1,6 @@
 from django.db import models
-from django.contrib.auth import get_user_model
 from store.models import Book, Review, Comment
-
-User = get_user_model()
+from django.contrib.auth.models import User
 
 
 class Achievement(models.Model):
@@ -39,7 +37,6 @@ class Notification(models.Model):
 
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    id_user = models.IntegerField()
     nickname = models.CharField(max_length=100, blank=True)
     bio = models.TextField(blank=True)
     profileimg = models.ImageField(upload_to='profile_images', default='blank-profile-picture.png')
@@ -107,7 +104,6 @@ class WebPageSettings(models.Model):
     about = models.TextField(blank=True)
     status = models.CharField(max_length=200, blank=True)
     date_of_birth = models.DateField(blank=True, null=True)
-    profile_url = models.CharField(max_length=100, unique=True, blank=True)
     website = models.URLField(max_length=200, blank=True)
     email = models.EmailField(max_length=100, blank=True)
     facebook = models.URLField(max_length=200, blank=True)
@@ -140,5 +136,3 @@ class Message(models.Model):
 
     def __str__(self):
         return self.text
-
-

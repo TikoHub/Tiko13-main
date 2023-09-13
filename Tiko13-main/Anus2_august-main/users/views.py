@@ -1,26 +1,16 @@
-from django.db.models import Count, Q
 from django.shortcuts import render, redirect, get_object_or_404
-from rest_framework.views import APIView
-from rest_framework_simplejwt.tokens import RefreshToken
-
+from django.db.models import Q, Count
 from .models import Profile, FollowersCount, Library, Achievement, Illustration, Trailer, WebPageSettings, Notification, Conversation, Message
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User, auth
+from django.contrib.auth.models import User
 from store.models import Book, Comment, Review, Series
 from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
-from .forms import UploadIllustrationForm, UploadTrailerForm, ProfileForm, WebPageSettingsForm, MessageForm
-from django.contrib.auth import authenticate, login, get_user_model, logout
-from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.response import Response
+from .forms import UploadIllustrationForm, UploadTrailerForm, ProfileForm, WebPageSettingsForm
+from django.contrib.auth import authenticate, login
 from .serializers import *
 
-User = get_user_model()
 
-
-@login_required(login_url='signin')
 def settings(request):
     profile = Profile.objects.get(user=request.user)
     webpage_settings = WebPageSettings.objects.get(profile=profile)
@@ -119,25 +109,6 @@ def profile(request, username):
     return render(request, 'profile.html', context)
 
 
-class CustomUserCreateSerializer(UserCreateSerializer):
-    class Meta(UserCreateSerializer.Meta):
-        model = User  # Replace 'User' with your user model
-        fields = ('id', 'username', 'email', 'password', 'first_name', 'last_name')
-
-    def create(self, validated_data):
-        user = super().create(validated_data)
-
-        # Customize user creation logic here, e.g., create a profile
-        profile, created = Profile.objects.get_or_create(id_user=user.id, defaults={'user': user})
-
-
-        return user
-
-
-
-
-
-@login_required(login_url='signin')
 def follow(request):
     if request.method == 'POST':
         follower_username = request.POST.get('follower', '')
@@ -167,34 +138,6 @@ def follow(request):
     else:
         return redirect('/')
 
-'''
-class UserSigninAPIView(APIView):
-    def post(self, request, *args, **kwargs):
-        serializer = UserSigninSerializer(data=request.data)
-        if serializer.is_valid():
-            username = serializer.validated_data['username']
-            password = serializer.validated_data['password']
-
-            user = authenticate(request, username=username, password=password)
-            if user is not None:
-                refresh = RefreshToken.for_user(user)
-                token = {
-                    'access_token': str(refresh.access_token),
-                    'refresh_token': str(refresh)
-                }
-
-                # Authentication successful
-                # Generate and return JWT token here
-                # You can use the `djangorestframework_simplejwt` library for this purpose
-                # Import necessary functions from `djangorestframework_simplejwt` and create the token
-                # ...
-
-                return Response({'token': token}, status=status.HTTP_200_OK)
-            else:
-                return Response({'message': 'Invalid credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-'''
 
 def add_to_library(request, book_id, category):
     if request.user.is_authenticated:
@@ -340,7 +283,6 @@ def get_comments_content(request, username):
     return render(request, 'profile/comments.html', context)
 
 
-@login_required(login_url='signin')
 def get_achievements_content(request, username):
     user_object = get_object_or_404(User, username=username)
     user_profile = Profile.objects.get(user=user_object)
@@ -352,7 +294,6 @@ def get_achievements_content(request, username):
     return render(request, 'profile/achievements.html', context)
 
 
-@login_required(login_url='signin')
 def get_profile_content(request, username):
     user_object = get_object_or_404(User, username=username)
     user_profile = Profile.objects.get(user=user_object)
@@ -471,10 +412,11 @@ def delete_trailer(request, trailer_id):
 
 
 def web_settings(request):
-    webpage_settings = WebPageSettings.objects.get(profile=Profile.objects.get(user=request.user))
+    profile = Profile.objects.get(user=request.user)
+    webpage_settings, created = WebPageSettings.objects.get_or_create(profile=profile)
 
     if request.method == 'POST':
-        print('POST request received')  # This line will print if a POST request is received
+        print('POST request received')
         profile_form = ProfileForm(request.POST, instance=request.user.profile)
         webpage_settings_form = WebPageSettingsForm(request.POST, instance=webpage_settings)
 
@@ -515,7 +457,7 @@ def read_notification(request, notification_id):
     # Retrieve the notification by id or return 404 if not found
     notification = get_object_or_404(Notification, id=notification_id)
 
-    # Check if the logged in user is the recipient of the notification
+    # Check if the logged-in user is the recipient of the notification
     if request.user.profile == notification.recipient:
         notification.read = True
         notification.save()
@@ -544,22 +486,18 @@ def privacy_settings(request):
     return render(request, 'settings/privacy.html')
 
 
-
-@login_required
 def add_to_blacklist(request, username):
     user_to_blacklist = get_object_or_404(User, username=username)
     request.user.profile.blacklist.add(user_to_blacklist)
     return redirect('profile', username=username)
 
 
-@login_required
 def remove_from_blacklist(request, username):
     user_to_remove = get_object_or_404(User, username=username)
     request.user.profile.blacklist.remove(user_to_remove)
     return redirect('profile', username=username)
 
 
-@login_required
 def blacklist(request):
     blacklisted_users = request.user.profile.blacklist.all()
     return render(request, 'settings/blacklist.html', {'blacklisted_users': blacklisted_users})
@@ -652,7 +590,6 @@ def purchase_history(request):
     return render(request, 'settings/purchase_history.html')
 
 
-from django.db.models import Q, Count
 def conversation_view(request, user_id):
     other_user = get_object_or_404(User, id=user_id)
 
@@ -672,8 +609,6 @@ def conversation_view(request, user_id):
     return render(request, 'messages/conversation.html', {'messages': messages, 'other_user': other_user})
 
 
-
-@login_required
 def messages_list_view(request):
     conversations = Conversation.objects.filter(participants=request.user)
     return render(request, 'messages/messages_list.html', {'conversations': conversations})
