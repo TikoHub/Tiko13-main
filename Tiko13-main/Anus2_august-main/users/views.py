@@ -1,9 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db.models import Q, Count
-from .models import Profile, FollowersCount, Library, Achievement, Illustration, Trailer, WebPageSettings, Notification, Conversation, Message
+from .models import FollowersCount, Achievement, Illustration, Trailer, Notification, Conversation, Message
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
 from store.models import Book, Comment, Review, Series
 from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
 from .forms import UploadIllustrationForm, UploadTrailerForm, ProfileForm, WebPageSettingsForm
@@ -214,11 +213,10 @@ def delete_book_from_library(request, book_id):
     return redirect('library')
 
 
-@login_required(login_url='signin')
 def get_library_content(request, username):
     try:
         user = User.objects.get(username=username)
-        library = user.mylibrary
+        library, created = Library.objects.get_or_create(user=user)
     except User.DoesNotExist:
         # Consider redirecting to an error page or using a message to notify the user.
         return HttpResponse("User does not exist.")
@@ -241,6 +239,7 @@ def get_library_content(request, username):
         'user_object': user
     }
     return render(request, 'profile/library.html', context)
+
 
 
 @login_required(login_url='signin')
