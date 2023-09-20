@@ -28,6 +28,12 @@ DEBUG = True
 ALLOWED_HOSTS = []
 
 # Application definition
+AUTHENTICATION_BACKENDS = (
+    # ...
+    'allauth.account.auth_backends.AuthenticationBackend',
+    'allauth.socialaccount.auth_backends.AuthenticationBackend',
+)
+
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -45,6 +51,11 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'djoser',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
+    'allauth.socialaccount.providers.facebook',
 ]
 
 MIDDLEWARE = [
@@ -152,10 +163,47 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 
-
 DJOSER = {
     'SERIALIZERS': {
-        'user_create': 'users.serializers.CustomUserCreateSerializer',  # Replace 'your_app' with your app's name
+        'user_create': 'users.serializers.CustomUserRegistrationSerializer',  # Updated serializer name
     },
     # Other DJOSER settings...
 }
+
+AUTHENTICATION_BACKENDS = (
+    'allauth.account.auth_backends.AuthenticationBackend',
+)
+
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': ['profile', 'email'],
+        'AUTH_PARAMS': {'access_type': 'online'},
+    },
+    'facebook': {
+        'METHOD': 'oauth2',
+        'SCOPE': ['email', 'public_profile'],
+        'FIELDS': [
+            'id',
+            'email',
+            'name',
+            'first_name',
+            'last_name',
+            'verified',
+            'locale',
+            'timezone',
+            'link',
+            'gender',
+            'updated_time',
+        ],
+        'AUTH_PARAMS': {'auth_type': 'reauthenticate'},
+        'EXCHANGE_TOKEN': True,
+        'VERIFIED_EMAIL': False,
+        'VERSION': 'v12.0',
+    },
+}
+
+LOGIN_REDIRECT_URL = 'your_redirect_url'
+
+LOGIN_URL = 'account_login'
+
+

@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 from .views import BooksCreate, BooksUpdate, BooksDelete, CommentView, CommentCreateView, CommentDetailView, \
     BookSearch, CommentDeleteView, ReviewCreateView, review_toggle, increase_views_count, SelectBookTypeView, SeriesCreateView, \
     BookTextView, SeriesDetailView, SeriesUpdateView, Reader, BooksListAPIView, BookDetailAPIView
