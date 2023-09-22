@@ -1,5 +1,10 @@
+from django.contrib.auth.forms import AuthenticationForm
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db.models import Q, Count
+from rest_framework.decorators import permission_classes, api_view
+from rest_framework.permissions import AllowAny
+from rest_framework.views import APIView
+
 from .models import FollowersCount, Achievement, Illustration, Trailer, Notification, Conversation, Message
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -7,7 +12,11 @@ from store.models import Book, Comment, Review, Series
 from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
 from .forms import UploadIllustrationForm, UploadTrailerForm, ProfileForm, WebPageSettingsForm
 from django.contrib.auth import authenticate, login
+from django.contrib.auth.views import LoginView
 from .serializers import *
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.authtoken.models import Token
 
 
 def settings(request):
@@ -77,6 +86,24 @@ class FollowerHelper:
         friends = following.intersection(followers)
 
         return User.objects.filter(username__in=friends)
+
+class CustomUserLoginView(APIView):
+    serializer_class = CustomUserLoginSerializer
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            email = serializer.validated_data['email']
+            password = serializer.validated_data['password']
+
+            user = authenticate(request, username=email, password=password)
+            if user:
+                login(request, user)
+                token, created = Token.objects.get_or_create(user=user)
+                return Response({'token': token.key})
+            else:
+                return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 def profile(request, username):

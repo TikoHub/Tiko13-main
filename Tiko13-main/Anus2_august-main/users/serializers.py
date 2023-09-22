@@ -1,9 +1,10 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from djoser.serializers import UserCreateSerializer
 from .models import Profile, WebPageSettings, Library
 
 
-class CustomUserRegistrationSerializer(serializers.ModelSerializer):
+class CustomUserRegistrationSerializer(UserCreateSerializer):
     password2 = serializers.CharField(write_only=True, required=True)
     date_of_birth_month = serializers.IntegerField(required=False)
     date_of_birth_year = serializers.IntegerField(required=False)
@@ -26,9 +27,8 @@ class CustomUserRegistrationSerializer(serializers.ModelSerializer):
 
         # Create the user instance
         email = validated_data['email']
-        username = email.split('@')[0]  # Set username based on email
         user = User.objects.create_user(
-            username=username,
+            username=email.split('@')[0],  # Set username based on email
             email=email,
             password=validated_data['password'],
         )
@@ -55,3 +55,9 @@ class CustomUserRegistrationSerializer(serializers.ModelSerializer):
             profile.save()
 
         return user
+
+
+class CustomUserLoginSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(style={'input_type': 'password'})
+

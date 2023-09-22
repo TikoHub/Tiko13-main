@@ -1,6 +1,7 @@
 from django import forms
 from .models import Illustration, Trailer, Profile, WebPageSettings, Message
 import datetime
+from django.contrib.auth.forms import AuthenticationForm
 
 
 class UploadIllustrationForm(forms.ModelForm):

@@ -1,9 +1,13 @@
 from django.urls import path, include, re_path
 from . import views
+from .views import CustomUserLoginView
+from django.views.generic import TemplateView
 
 urlpatterns = [
     #path('signup', views.signup, name='signup'),
     #path('signin', views.UserSigninAPIView.as_view(), name='signin'),
+    #    path('logout/', views.logout, name='logout'),
+    path('api/login/', CustomUserLoginView.as_view(), name='custom_user_login'),
     path('drf-auth/', include('rest_framework.urls')),
     path('auth/', include('djoser.urls')),
     re_path(r'auth/', include('djoser.urls.authtoken')),

@@ -27,11 +27,12 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
-# Application definition
+
 AUTHENTICATION_BACKENDS = (
-    # ...
     'allauth.account.auth_backends.AuthenticationBackend',
-    'allauth.socialaccount.auth_backends.AuthenticationBackend',
+    'django.contrib.auth.backends.ModelBackend',
+    'users.custom_backend.EmailBackend',
+  #  'allauth.socialaccount.auth_backends.AuthenticationBackend',
 )
 
 
@@ -170,9 +171,6 @@ DJOSER = {
     # Other DJOSER settings...
 }
 
-AUTHENTICATION_BACKENDS = (
-    'allauth.account.auth_backends.AuthenticationBackend',
-)
 
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
@@ -205,5 +203,7 @@ SOCIALACCOUNT_PROVIDERS = {
 LOGIN_REDIRECT_URL = 'your_redirect_url'
 
 LOGIN_URL = 'account_login'
+
+ACCOUNT_EMAIL_VERIFICATION = 'none'
 
 
