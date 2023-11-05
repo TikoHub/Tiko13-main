@@ -73,7 +73,7 @@ class SeriesForm(forms.ModelForm):
 class ChapterForm(forms.ModelForm):
     class Meta:
         model = Chapter
-        fields = ['additional_title', 'content']
+        fields = ['title', 'content']
 
     def clean_content(self):
         content = self.cleaned_data.get('content')

@@ -61,6 +61,7 @@ class Book(models.Model):
     is_adult = models.BooleanField(default=False)
     rating = models.IntegerField(default=0)
     views_count = models.PositiveIntegerField(default=0)
+    last_modified = models.DateTimeField(auto_now=True)
 
     def increase_views_count(self, user=None):
         if user is None:
@@ -87,7 +88,7 @@ class Book(models.Model):
 class Chapter(models.Model):
     book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='chapters')
     title = models.CharField(max_length=200, blank=True)  # This will hold the "Chapter X" title
-    additional_title = models.CharField(max_length=200, blank=True)  # This is for the additional title
+    updated = models.DateTimeField(auto_now=True)
     content = models.TextField()
 
     def save(self, *args, **kwargs):
@@ -97,7 +98,17 @@ class Chapter(models.Model):
             num_chapters = Chapter.objects.filter(book=self.book).count()
             self.title = f"Chapter {num_chapters + 1}"
 
+        book = self.book
+        book.updated = timezone.now()
+        book.save()
+
         super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        book = self.book
+        book.last_modified = timezone.now()  # Update the last_modified field of the book
+        book.save()
+        super().delete(*args, **kwargs)
 
 
 class BookView(models.Model):

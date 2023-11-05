@@ -21,7 +21,7 @@ from rest_framework import status
 from rest_framework import generics
 from rest_framework.response import Response
 from .models import Book, Comment, Review
-from .serializer import BookSerializer, CommentSerializer, ReviewSerializer, ChapterSerializers
+from .serializer import *
 
 
 class BooksListAPIView(generics.ListAPIView):
@@ -52,7 +52,6 @@ class BookDetailAPIView(generics.RetrieveAPIView):
         instance.increase_views_count(request.user if request.user.is_authenticated else None)
 
         return Response(serialized_data)
-
 
 
 class BookSearch(ListView):
@@ -90,6 +89,22 @@ class BooksCreate(CreateView):
         return context
 
 
+class BooksCreateAPIView(APIView):
+    """
+    Create a new book.
+    """
+
+    def post(self, request, *args, **kwargs):
+        serializer = BookSerializer(data=request.data, context={'user': request.user})
+
+        if serializer.is_valid():
+            book = serializer.save()
+            request.session['book_id'] = book.id
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 class BookTextView(FormView):
     template_name = 'store/book_text.html'
     form_class = ChapterForm
@@ -117,6 +132,27 @@ class BookTextView(FormView):
 
     def get_success_url(self):
         return reverse('book_detail', args=(self.book.id,))
+
+
+class BookTextAPIView(APIView):
+    """
+    Add text to a book.
+    """
+
+    def post(self, request, *args, **kwargs):
+        book_id = request.session.get('book_id', None)
+
+        if not book_id:
+            return Response({"error": "Book ID not found in session."}, status=status.HTTP_400_BAD_REQUEST)
+
+        book = get_object_or_404(Book, id=book_id)
+        serializer = ChapterSerializer(data=request.data)
+
+        if serializer.is_valid():
+            chapter = serializer.save(book=book)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @method_decorator(staff_member_required, name='dispatch')

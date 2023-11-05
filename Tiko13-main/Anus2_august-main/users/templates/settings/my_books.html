@@ -25,7 +25,7 @@
 
        <a href = '{% url 'book_settings' book.id %}'><button class="settingsBtn" data-book-id="{{book.id}}" data-initial="{{ show_settings  }}">Settings</button></a>
        <a href = '{% url 'book_settings' book.id %}'><button class="textBtn" data-book-id="{{book.id}}" data-initial="{{ show_text  }}">Text</button></a>
-       <a href = '{% url 'book_detail' book.id %}'><button class="textBtn" data-book-id="{{book.id}}">Book's Page</button></a>
+       <a href = '{% url 'book_detail_api' book.id %}'><button class="textBtn" data-book-id="{{book.id}}">Book's Page</button></a>
 
     </div>
 {% endfor %}

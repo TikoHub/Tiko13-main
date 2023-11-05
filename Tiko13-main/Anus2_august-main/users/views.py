@@ -2,10 +2,10 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db.models import Q, Count
 from rest_framework.decorators import permission_classes, api_view
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 
-from .models import FollowersCount, Achievement, Illustration, Trailer, Notification, Conversation, Message
+from .models import FollowersCount, Achievement, Illustration, Trailer, Notification, Conversation, Message, Profile, WebPageSettings, Library
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from store.models import Book, Comment, Review, Series
@@ -17,6 +17,8 @@ from .serializers import *
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
+from django.contrib.auth.models import User
+import re
 
 
 def settings(request):
@@ -43,6 +45,8 @@ def settings(request):
 class FollowerHelper:
     @staticmethod
     def is_following(follower, user):
+        if not follower.is_authenticated or not user.is_authenticated:
+            return False
         return FollowersCount.objects.filter(follower=follower, user=user).exists()
 
     @staticmethod
@@ -87,6 +91,44 @@ class FollowerHelper:
 
         return User.objects.filter(username__in=friends)
 
+
+@api_view(['POST'])
+def register(request):
+    serializer = CustomUserRegistrationSerializer(data=request.data)
+    if serializer.is_valid():
+        # Extract validated data
+        validated_data = serializer.validated_data
+
+        # Create the user instance
+        email = validated_data['email']
+        user = User.objects.create_user(
+            username=None,
+            email=email,
+            password=validated_data['password'],
+        )
+
+        # Create the profile, library, and webpage_settings
+        profile, _ = Profile.objects.get_or_create(user=user)
+        WebPageSettings.objects.get_or_create(profile=profile)
+        Library.objects.get_or_create(user=user)
+
+        # Set optional fields if provided
+        user.first_name = validated_data.get('first_name', '')
+        user.last_name = validated_data.get('last_name', '')
+        user.save()
+
+        # Set date of birth if provided
+        dob_month = validated_data.get('date_of_birth_month')
+        dob_year = validated_data.get('date_of_birth_year')
+        if dob_month and dob_year:
+            profile.date_of_birth = f"{dob_month}/{dob_year}"
+            profile.save()
+
+        return Response({'status': 'User created'}, status=status.HTTP_201_CREATED)
+    else:
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 class CustomUserLoginView(APIView):
     serializer_class = CustomUserLoginSerializer
 
@@ -103,7 +145,32 @@ class CustomUserLoginView(APIView):
                 return Response({'token': token.key})
             else:
                 return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+def followers_list(request, username):
+    try:
+        user = User.objects.get(username=username)
+    except User.DoesNotExist:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+    followers = FollowerHelper.get_followers(user)
+    serializer = UserSerializer(followers, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+def following_list(request, username):
+    try:
+        user = User.objects.get(username=username)
+    except User.DoesNotExist:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+    following = FollowerHelper.get_following(user)
+    serializer = UserSerializer(following, many=True)
+    return Response(serializer.data)
 
 
 def profile(request, username):
@@ -125,12 +192,17 @@ def profile(request, username):
     user_followers = FollowerHelper.get_followers_count(user)
     user_following = FollowerHelper.get_following_count(user)
 
+    followers_mini_list = FollowerHelper.get_followers(user)[:10]
+    following_mini_list = FollowerHelper.get_following(user)[:10]
+
     context = {
         'user_object': user_object,
         'user_profile': user_profile,
         'button_text': button_text,
         'user_followers': user_followers,
         'user_following': user_following,
+        'followers_mini_list': followers_mini_list,
+        'following_mini_list': following_mini_list,
     }
     return render(request, 'profile.html', context)
 
@@ -214,7 +286,7 @@ def my_library_view(request, username):
         achievement = Achievement.objects.get(name='First steps')
         user_profile.achievements.add(achievement)
 
-    show_library_link = can_view_library(request.user, user)
+    show_library_link = True #can_view_library(request.user, user)
     print("show_library_link:", show_library_link)
 
     context = {
@@ -266,7 +338,6 @@ def get_library_content(request, username):
         'user_object': user
     }
     return render(request, 'profile/library.html', context)
-
 
 
 @login_required(login_url='signin')
@@ -657,3 +728,60 @@ def delete_conversation(request, user_id):
     conversation.delete()
     return redirect('messages_list')
 
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_username(request):
+    new_username = request.data.get('new_username')
+    is_valid, message = validate_username(new_username)
+    if not is_valid:
+        return Response({"error": message}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Check if new_username is provided and not empty
+    if not new_username:
+        return Response({'error': 'No username provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Check if the username already exists
+    if User.objects.filter(username=new_username).exists():
+        return Response({'error': 'Username already taken'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Set the new username
+    request.user.username = new_username
+    request.user.save()
+
+    return Response({'status': 'Username changed'}, status=status.HTTP_200_OK)
+
+
+def validate_username(username):
+    # Length should be more than 4 characters and less than 33
+    if not (3 < len(username) < 33):
+        return False, "Username must be between 4 and 32 characters long."
+
+    # No more than 2 digits at the beginning
+    if re.match(r"^\d{3,}", username):
+        return False, "Username must not have more than 2 digits at the beginning."
+
+    # Should not start or end with an underscore
+    if username.startswith('_') or username.endswith('_'):
+        return False, "Username must not start or end with an underscore."
+
+    # Should not contain two consecutive underscores
+    if '__' in username:
+        return False, "Username must not contain consecutive underscores."
+
+    if not re.match(r"^[A-Za-z0-9_.]+$", username):
+        return False, "Username must only contain letters, digits, underscores, or dots."
+
+    if '.' in username:
+        if username.endswith('.'):
+            return False, "Username must not end with a dot."
+        if username.startswith('.'):
+            return False, "Username must not start with a dot."
+        if '.' in username[1:-1]:  # Checking for a dot not at the first or last character
+            parts = username.split('.')
+            # Ensure the parts around dots have at least three characters
+            for part in parts[1:]:  # Skip the first part because a dot at the start is okay
+                if len(part) < 3:
+                    return False, "There must be at least 3 characters between dots."
+
+    return True, "Username is valid."

@@ -22,19 +22,56 @@
 
                     {% if user_followers == 0 or user_followers == 1%}
 					    <h4>{{ user_followers }} followers</h4>
+                        <ul>
+                        {% for follower in followers_mini_list %}
+                            <li><a href="{% url 'profile' username=follower.username %}">{{ follower.username }}</a></li>
+                        {% empty %}
+                            <li>No followers</li>
+                        {% endfor %}
+                    </ul>
                     {% else %}
 					    <h4>{{ user_followers }} follower</h4>
+                        <ul>
+                        {% for follower in followers_mini_list %}
+                            <li><a href="{% url 'profile' username=follower.username %}">{{ follower.username }}</a></li>
+                        {% empty %}
+                            <li>No followers</li>
+                        {% endfor %}
+                    </ul>
                     {% endif %}
 					   <h4>{{ user_following }} following</h4>
+
+                </div>
+                <div>
+                    <!-- Mini-list for following -->
+                    <ul>
+                        {% for following in following_mini_list %}
+                            <li><a href="{% url 'profile' username=following.username %}">{{ following.username }}</a></li>
+                        {% empty %}
+                            <li>Not following anyone</li>
+                        {% endfor %}
+                    </ul>
 
                     <input type = 'hidden', value="{{ user.username }}"  name='follower'/>
                     <input type = 'hidden', value="{{ user_object.username }}"  name='user'/>
 
-                    {% if user_object.username == user.username %}
-                        <a href="../settings/main_settings" data-ripple="">Account Settings</a>
-                    {% else %}
-                        <a data-ripple=""><button type="submit" style="background-color: #ffc0cb; border: #ffc0cb;">{{ button_text }}</button></a>
-					{% endif %}
+                    {% if user.is_authenticated %}
+                        {% if user_object.username == user.username %}
+                            <!-- 'Account Settings' and 'My Messages' for the logged-in user viewing their own profile -->
+                            <a href="../settings/main_settings" data-ripple="">Account Settings</a>
+                            <a href="{% url 'messages_list' %}" data-ripple="">My Messages</a>
+                        {% else %}
+                            <!-- 'Follow/Unfollow' button for viewing other profiles -->
+                            <form method="post" action="{% url 'follow' %}">
+                                {% csrf_token %}
+                                <button type="submit" style="background-color: #ffc0cb; border: #ffc0cb;">{{ button_text }}</button>
+                            </form>
+                            <!-- 'Send message' button for viewing other profiles -->
+                            <a href="{% url 'conversation' user_id=user_object.id %}" data-ripple="">
+                                <button type="button" style="background-color: #ffc0cb; border: #ffc0cb;">Send Message</button>
+                            </a>
+                        {% endif %}
+                    {% endif %}
 
 
                     {% if user_object.username == user.username %}
@@ -42,15 +79,7 @@
                     {% endif %}
                     </div>
 				</form>
-                    {% if user_object.username == user.username %}
-                        <!-- 'My messages' button for when a user is viewing their own profile -->
-                        <a href="{% url 'messages_list' %}" data-ripple="">My Messages</a>
-                    {% else %}
-                        <!-- 'Send message' button for when a user is viewing someone else's profile -->
-                        <a href="{% url 'conversation' user_id=user_object.id %}" data-ripple="">
-                            <button type="submit" style="background-color: #ffc0cb; border: #ffc0cb;">Send Message</button>
-                        </a>
-                    {% endif %}
+
                     {% if show_library_link %}
                         <a href="{% url 'library' username=user_object.username %}">Library</a>
                     {% endif %}
@@ -78,6 +107,7 @@
                                     <img src="{{ user_profile.profileimg.url }}" style="height: 250px; width: 250px;" alt="">
                                     <h5 style="color: black;white-space: nowrap; width: 110px; font-size: 27px;"><b>{{user_profile.nickname}}</b></h5>
                                     <h5 style="color: black;white-space: nowrap; width: 110px; font-size: 27px;"><b>{{user_profile.user}}</b></h5>
+
                                 </figure>
 							</div>
 						</div>

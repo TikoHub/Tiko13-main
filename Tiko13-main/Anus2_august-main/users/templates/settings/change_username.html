@@ -1,0 +1,14 @@
+
+{% block content %}
+  <div class="container">
+    <h2>Change Username</h2>
+    <form method="post" action="{% url 'change_username' %}">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="newUsername">New Username:</label>
+        <input type="text" class="form-control" id="newUsername" name="username" placeholder="Enter new username" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Submit</button>
+    </form>
+  </div>
+{% endblock %}

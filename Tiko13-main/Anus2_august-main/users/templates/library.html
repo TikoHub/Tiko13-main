@@ -1,7 +1,7 @@
 {% load static %}
 {% block content %}
     <h1>Library</h1>
-<a href="{% url 'profile' username=user.username %}">Back to Profile</a>
+<a href="{% url 'profile' username=user_object.username %}">Back to Profile</a>
     <h2>Reading</h2>
     <ul>
         {% for book in library.reading_books.all %}

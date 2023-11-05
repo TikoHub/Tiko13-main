@@ -4,21 +4,22 @@ from .views import CustomUserLoginView
 from django.views.generic import TemplateView
 
 urlpatterns = [
-    #path('signup', views.signup, name='signup'),
-    #path('signin', views.UserSigninAPIView.as_view(), name='signin'),
-    #    path('logout/', views.logout, name='logout'),
+    path('register/', views.register, name='register'),
+    path('register_step2/', views.register, name='register_2'),
     path('api/login/', CustomUserLoginView.as_view(), name='custom_user_login'),
     path('drf-auth/', include('rest_framework.urls')),
+    path('social-auth/', include('social_django.urls', namespace='social')),       #Пока сюда смотри
     path('auth/', include('djoser.urls')),
     re_path(r'auth/', include('djoser.urls.authtoken')),
     path('accounts/', include('allauth.urls')),
     path('auth/', include('allauth.socialaccount.urls')),
     path('settings/main_settings', views.settings, name='main_settings'),
     path('follow', views.follow, name='follow'),
-   # path('logout', views.logout, name='logout'),
-    path('profile/<str:username>', views.profile, name='profile'),
+    path('conversation/<int:user_id>/', views.conversation_view, name='conversation'),
+    path('messages_list/', views.messages_list_view, name='messages_list'),
+    path('<str:username>/', views.profile, name='profile'),
     path('add_to_library/<int:book_id>/<str:category>/', views.add_to_library, name='add_to_library'),
-    path('<str:username>/library/',views.my_library_view, name='library'),
+    path('<str:username>/library/', views.my_library_view, name='library'),
     path('delete_book/<int:book_id>/', views.delete_book_from_library, name='delete_book_from_library'),
     path('get_library_content/<str:username>/', views.get_library_content, name='get_library_content'),
     path('get_comments_content/<str:username>/', views.get_comments_content, name='get_comments_content'),
@@ -48,10 +49,12 @@ urlpatterns = [
     path('notifications/unread_count/', views.notification_count, name='unread_notification_count'),
     path('notifications/notifications/', views.notifications, name='notifications'),
     path('notifications/read/<int:notification_id>/', views.read_notification, name='read_notification'),
-    path('conversation/<int:user_id>/', views.conversation_view, name='conversation'),
-    path('messages_list/', views.messages_list_view, name='messages_list'),
     path('delete_message/<int:message_id>/', views.delete_message, name='delete_message'),
     path('delete_conversation/<int:user_id>/', views.delete_conversation, name='delete_conversation'),
+    path('<str:username>/followers/', views.followers_list, name='followers-list'),
+    path('<str:username>/following/', views.following_list, name='following-list'),
+    path('settings/change_username/', views.change_username, name='change_username'),
+
 
 
     # ...add more paths for the other settings

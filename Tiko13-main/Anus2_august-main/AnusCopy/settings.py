@@ -25,14 +25,15 @@ SECRET_KEY = 'django-insecure-a9x4pgg7vxl+_3l-daz)1ie)ots$*r#x=+npeibx1c#i&628m4
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = []  # 02 11 2023 google auth attempt
 
 
 AUTHENTICATION_BACKENDS = (
-    'allauth.account.auth_backends.AuthenticationBackend',
     'django.contrib.auth.backends.ModelBackend',
     'users.custom_backend.EmailBackend',
-  #  'allauth.socialaccount.auth_backends.AuthenticationBackend',
+    'social_core.backends.google.GoogleOAuth2',
+    'social_core.backends.facebook.FacebookOAuth2',
+    'allauth.account.auth_backends.AuthenticationBackend',
 )
 
 
@@ -57,6 +58,9 @@ INSTALLED_APPS = [
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
     'allauth.socialaccount.providers.facebook',
+
+    'social_django',
+
 ]
 
 MIDDLEWARE = [
@@ -70,6 +74,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
     'django.middleware.common.CommonMiddleware',
+    'social_django.middleware.SocialAuthExceptionMiddleware',
 ]
 
 REST_FRAMEWORK = {
@@ -102,10 +107,14 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+
+                'social_django.context_processors.backends',  # <-- Here
+                'social_django.context_processors.login_redirect', # <-- Here
             ],
         },
     },
 ]
+
 
 WSGI_APPLICATION = 'AnusCopy.wsgi.application'
 
@@ -118,6 +127,18 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+'''DATABASES = {           #Рабочая версия, но пока мы не используем постгре
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'Anus_November',
+        'USER': 'postgres',
+        'PASSWORD': 'admin',
+        'HOST': 'localhost',  # Set to the address of your database
+        'PORT': '',  # Leave as an empty string to use the default port
+    }
+}'''
+
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -163,6 +184,8 @@ CART_SESSION_ID = 'cart'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+
 
 DJOSER = {
     'SERIALIZERS': {
@@ -200,10 +223,18 @@ SOCIALACCOUNT_PROVIDERS = {
     },
 }
 
-LOGIN_REDIRECT_URL = 'your_redirect_url'
+SITE_ID = 1
 
-LOGIN_URL = 'account_login'
+LOGIN_REDIRECT_URL = '/'
+LOGIN_URL = 'login'
+LOGOUT_URL = 'logout'
 
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 
+CORS_ALLOW_ALL_ORIGINS = True
 
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = '<1001464138599-8corijje4u9vojhej9q4uo524fboqn5b.apps.googleusercontent.com>'
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = '<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>'
+
+SOCIAL_AUTH_FACEBOOK_KEY = '324062583678664'
+SOCIAL_AUTH_FACEBOOK_SECRET = '2fd18cf8d16966fd00e85b12acfbdb4f'

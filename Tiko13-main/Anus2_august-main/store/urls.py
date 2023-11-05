@@ -33,6 +33,10 @@ urlpatterns = [
     path('series/<int:pk>/', SeriesDetailView.as_view(), name='series_detail'),
     path('series/<int:pk>/update/', SeriesUpdateView.as_view(), name='series_update'),
     path('reader/<int:book_id>/', Reader.as_view(), name='reader'),
+    path('api/book/create/', views.BooksCreateAPIView.as_view(), name='api_book_create'),
+    path('api/book/text/', views.BookTextAPIView.as_view(), name='api_book_text'),
+
+
 
 
 
