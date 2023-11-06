@@ -15,7 +15,7 @@ class Genre(models.Model):
 
 class Series(models.Model):
     name = models.CharField(max_length=200)
-    author = models.ForeignKey(User, on_delete=models.CASCADE, default=None)
+    author = models.ForeignKey(User, on_delete=models.CASCADE, default=None,related_name='authored_series')
     description = models.TextField(default='')
     author_remark = models.TextField(default='')
     series_finished = models.BooleanField(default=False)
@@ -39,7 +39,7 @@ class Book(models.Model):
         ('draft', 'Draft'),
     )
 
-    author = models.ForeignKey(User, on_delete=models.CASCADE, default=None)
+    author = models.ForeignKey(User, on_delete=models.CASCADE, default=None,related_name='authored_books')
     co_author = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
                                   related_name='coauthored_books')
     co_author2 = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,

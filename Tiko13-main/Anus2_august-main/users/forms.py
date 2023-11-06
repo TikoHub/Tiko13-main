@@ -19,7 +19,7 @@ class UploadTrailerForm(forms.ModelForm):
 class ProfileForm(forms.ModelForm):
     class Meta:
         model = Profile
-        fields = ['nickname', 'bio', 'profileimg']
+        fields = ['bio', 'profileimg', 'banner_image', ]
 
 
 class WebPageSettingsForm(forms.ModelForm):

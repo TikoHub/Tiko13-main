@@ -18,6 +18,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import User
+from rest_framework.exceptions import PermissionDenied
 import re
 
 
@@ -205,6 +206,34 @@ def profile(request, username):
         'following_mini_list': following_mini_list,
     }
     return render(request, 'profile.html', context)
+
+
+class ProfileAPIView(APIView):
+    def get(self, request, username, format=None):
+        profile_owner = get_object_or_404(User, username=username)
+
+        if request.user in profile_owner.profile.blacklist.all():
+            raise PermissionDenied("You are not allowed to view this profile.")
+
+        user_profile = Profile.objects.get(user=profile_owner)
+
+        is_following = FollowerHelper.is_following(request.user, profile_owner)
+        button_text = 'Unfollow' if is_following else 'Follow'
+
+        user_followers = FollowerHelper.get_followers_count(profile_owner)
+        user_following = FollowerHelper.get_following_count(profile_owner)
+
+
+        # Serialize the profile data
+        profile_serializer = ProfileSerializer(user_profile)
+
+        context = {
+            'user_profile': profile_serializer.data,
+            'button_text': button_text,
+            'user_followers': user_followers,
+            'user_following': user_following,
+        }
+        return Response(context, status=status.HTTP_200_OK)
 
 
 def follow(request):

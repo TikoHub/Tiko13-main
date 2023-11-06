@@ -1,6 +1,6 @@
 from django.urls import path, include, re_path
 from . import views
-from .views import CustomUserLoginView
+from .views import CustomUserLoginView, ProfileAPIView
 from django.views.generic import TemplateView
 
 urlpatterns = [
@@ -54,6 +54,7 @@ urlpatterns = [
     path('<str:username>/followers/', views.followers_list, name='followers-list'),
     path('<str:username>/following/', views.following_list, name='following-list'),
     path('settings/change_username/', views.change_username, name='change_username'),
+    path('api/profile/<str:username>/', ProfileAPIView.as_view(), name='api-profile'),
 
 
 

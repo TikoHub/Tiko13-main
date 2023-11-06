@@ -19,7 +19,6 @@
                 {% csrf_token %}
 					<div class="add-btn">
 					<span style="color: white; font-size: 27px; margin-right: 520px;"><b><u><a href="/">Home</a></u></b></span>
-
                     {% if user_followers == 0 or user_followers == 1%}
 					    <h4>{{ user_followers }} followers</h4>
                         <ul>
@@ -103,6 +102,12 @@
 					<div class="row merged">
 						<div class="col-lg-2 col-sm-3">
 							<div class="user-avatar">
+                                {% if user_profile.banner_image %}
+                                  <img src="{{ user_profile.banner_image.url }}" alt="Banner Image" style="width:1500px; height:250px;">
+                                {% else %}
+                                  <img src="{% static 'path/to/default/banner/image.png' %}" alt="Default Banner Image" style="width:1500px; height:250px;">
+                                {% endif %}
+
 								<figure>
                                     <img src="{{ user_profile.profileimg.url }}" style="height: 250px; width: 250px;" alt="">
                                     <h5 style="color: black;white-space: nowrap; width: 110px; font-size: 27px;"><b>{{user_profile.nickname}}</b></h5>

@@ -1,6 +1,11 @@
 from django.db import models
 from store.models import Book, Review, Comment
 from django.contrib.auth.models import User
+from django.core.validators import FileExtensionValidator
+from django.core.files.images import get_image_dimensions
+from PIL import Image
+from io import BytesIO
+from django.core.files.uploadedfile import InMemoryUploadedFile
 
 
 class Achievement(models.Model):
@@ -37,13 +42,17 @@ class Notification(models.Model):
 
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    nickname = models.CharField(max_length=100, blank=True)
     bio = models.TextField(blank=True)
     profileimg = models.ImageField(upload_to='profile_images', default='blank-profile-picture.png')
     bookmarks = models.ManyToManyField(Review, related_name='bookmark_profiles', blank=True)
     achievements = models.ManyToManyField(Achievement, blank=True)
     blacklist = models.ManyToManyField(User, related_name="blacklisted_by", blank=True)
     auto_add_reading = models.BooleanField(default=False)
+    banner_image = models.ImageField(
+        upload_to='banner_images',
+        default='default_banner.png',
+        validators=[FileExtensionValidator(['jpg', 'jpeg', 'png'])]
+    )
 
     PRIVACY_CHOICES = (
         ('nobody', 'Nobody'),
@@ -56,6 +65,31 @@ class Profile(models.Model):
         choices=PRIVACY_CHOICES,
         default='anyone',
     )
+
+    def save(self, *args, **kwargs):
+        # Check if an image is present
+        if self.banner_image and not self._state.adding and hasattr(self.banner_image, 'file'):
+            # Open the uploaded image
+            img = Image.open(self.banner_image)
+
+            # Check if image needs to be resized
+            if img.height != 250 or img.width != 1500:
+                # Resize the image
+                img = img.resize((1500, 250), Image.ANTIALIAS)
+
+                # Save the image to a BytesIO object
+                img_io = BytesIO()
+                img.save(img_io, format='JPEG', quality=100)
+
+                # Create a new Django file-like object to save to the model
+                img_file = InMemoryUploadedFile(
+                    img_io, None, f'{self.banner_image.name.split(".")[0]}.jpg', 'image/jpeg',
+                    img_io.tell(), None
+                )
+                self.banner_image = img_file
+
+        super().save(*args, **kwargs)
+
 
     def unread_notification_count(self):
         return self.notifications.filter(read=False).count()

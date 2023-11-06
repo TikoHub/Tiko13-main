@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from .models import Profile
 
 
 class CustomUserRegistrationSerializer(serializers.Serializer):
@@ -26,4 +27,48 @@ class CustomUserLoginSerializer(serializers.Serializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['username', 'first_name', 'last_name']
+        fields = ['id', 'username', 'first_name', 'last_name']
+
+
+class ProfileSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    unread_notification_count = serializers.IntegerField(read_only=True)
+    books_count = serializers.SerializerMethodField()
+    series_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Profile
+        fields = [
+            'user',
+            'bio',
+            'profileimg',
+            'unread_notification_count',
+            'banner_image',
+            'books_count',
+            'series_count',
+            # You might want to add other fields here depending on what you want to expose through your API
+        ]
+        read_only_fields = ('user',)  # if you want the username to be read-only
+
+    def create(self, validated_data):
+        # Custom creation logic if needed
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        # Custom update logic if needed
+        return super().update(instance, validated_data)
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        # If the last name is not provided, you can choose to omit it or return an empty string
+        representation['user']['last_name'] = representation['user'].get('last_name', '')
+        return representation
+
+    def get_books_count(self, obj):
+        # Assuming the related_name for books in User model is 'authored_books'
+        return obj.user.authored_books.count()
+
+    def get_series_count(self, obj):
+        # Assuming the related_name for series in User model is 'authored_series'
+        return obj.user.authored_series.count()
+
