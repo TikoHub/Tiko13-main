@@ -6,8 +6,8 @@ from .models import Profile
 class CustomUserRegistrationSerializer(serializers.Serializer):
     first_name = serializers.CharField(required=True)
     last_name = serializers.CharField(required=False)
-    date_of_birth_month = serializers.IntegerField(required=False)
-    date_of_birth_year = serializers.IntegerField(required=False)
+    dob_month = serializers.IntegerField(required=False, allow_null=True)
+    dob_year = serializers.IntegerField(required=False, allow_null=True)
 
     email = serializers.EmailField(required=True)
     password = serializers.CharField(write_only=True, required=True)

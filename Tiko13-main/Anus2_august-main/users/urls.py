@@ -1,11 +1,10 @@
 from django.urls import path, include, re_path
 from . import views
-from .views import CustomUserLoginView, ProfileAPIView
+from .views import CustomUserLoginView, ProfileAPIView, RegisterView
 from django.views.generic import TemplateView
 
 urlpatterns = [
-    path('register/', views.register, name='register'),
-    path('register_step2/', views.register, name='register_2'),
+    path('register/', RegisterView.as_view(), name='register'),
     path('api/login/', CustomUserLoginView.as_view(), name='custom_user_login'),
     path('drf-auth/', include('rest_framework.urls')),
     path('social-auth/', include('social_django.urls', namespace='social')),       #Пока сюда смотри

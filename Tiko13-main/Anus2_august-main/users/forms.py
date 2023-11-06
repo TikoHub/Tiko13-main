@@ -1,6 +1,7 @@
 from django import forms
 from .models import Illustration, Trailer, Profile, WebPageSettings, Message
 import datetime
+from django.db import models
 from django.contrib.auth.forms import AuthenticationForm
 
 
@@ -23,12 +24,12 @@ class ProfileForm(forms.ModelForm):
 
 
 class WebPageSettingsForm(forms.ModelForm):
+    dob_month = models.IntegerField(null=True, blank=True)
+    dob_year = models.IntegerField(null=True, blank=True)
+
     class Meta:
         model = WebPageSettings
         fields = ['about', 'date_of_birth', 'status', 'website', 'email', 'facebook', 'instagram', 'twitter', 'display_dob_option']
-        widgets = {
-            'date_of_birth': forms.SelectDateWidget(years=range(1900, datetime.date.today().year+1))
-        }
 
 
 class MessageForm(forms.ModelForm):

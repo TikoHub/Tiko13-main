@@ -1,4 +1,5 @@
 from django.contrib.auth.forms import AuthenticationForm
+from django.db import transaction
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db.models import Q, Count
 from rest_framework.decorators import permission_classes, api_view
@@ -14,12 +15,12 @@ from .forms import UploadIllustrationForm, UploadTrailerForm, ProfileForm, WebPa
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.views import LoginView
 from .serializers import *
-from rest_framework import status
+from rest_framework import status, generics
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import User
 from rest_framework.exceptions import PermissionDenied
-import re
+import re, random
 
 
 def settings(request):
@@ -93,41 +94,53 @@ class FollowerHelper:
         return User.objects.filter(username__in=friends)
 
 
-@api_view(['POST'])
-def register(request):
-    serializer = CustomUserRegistrationSerializer(data=request.data)
-    if serializer.is_valid():
-        # Extract validated data
-        validated_data = serializer.validated_data
+class RegisterView(generics.CreateAPIView):
+    serializer_class = CustomUserRegistrationSerializer
 
-        # Create the user instance
-        email = validated_data['email']
-        user = User.objects.create_user(
-            username=None,
-            email=email,
-            password=validated_data['password'],
-        )
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            with transaction.atomic():
+                # Extract validated data
+                validated_data = serializer.validated_data
 
-        # Create the profile, library, and webpage_settings
-        profile, _ = Profile.objects.get_or_create(user=user)
-        WebPageSettings.objects.get_or_create(profile=profile)
-        Library.objects.get_or_create(user=user)
+                # Generate a unique username
+                base_username = validated_data['first_name'].lower()
+                username = f"{base_username}{random.randint(1000, 9999)}"
 
-        # Set optional fields if provided
-        user.first_name = validated_data.get('first_name', '')
-        user.last_name = validated_data.get('last_name', '')
-        user.save()
+                # Ensure the username is unique
+                while User.objects.filter(username=username).exists():
+                    username = f"{base_username}{random.randint(1000, 9999)}"
 
-        # Set date of birth if provided
-        dob_month = validated_data.get('date_of_birth_month')
-        dob_year = validated_data.get('date_of_birth_year')
-        if dob_month and dob_year:
-            profile.date_of_birth = f"{dob_month}/{dob_year}"
-            profile.save()
+                # Create the user instance
+                user = User.objects.create_user(
+                    username=username,
+                    email=validated_data['email'],
+                    password=validated_data['password'],
+                )
 
-        return Response({'status': 'User created'}, status=status.HTTP_201_CREATED)
-    else:
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                # Create the profile, library, and webpage_settings
+                profile, _ = Profile.objects.get_or_create(user=user)
+                WebPageSettings.objects.get_or_create(profile=profile)
+                Library.objects.get_or_create(user=user)
+
+                # Set optional fields if provided
+                user.first_name = validated_data.get('first_name', '')
+                user.last_name = validated_data.get('last_name', '')
+                user.save()
+
+                # Set date of birth if provided
+                dob_month = validated_data.get('date_of_birth_month')
+                dob_year = validated_data.get('date_of_birth_year')
+                if dob_month and dob_year:
+                    profile.dob_month = dob_month
+                    profile.dob_year = dob_year
+                    profile.save()
+
+            return Response({'status': 'User created'}, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class CustomUserLoginView(APIView):
