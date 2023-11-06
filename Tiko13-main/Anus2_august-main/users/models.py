@@ -66,31 +66,6 @@ class Profile(models.Model):
         default='anyone',
     )
 
-    def save(self, *args, **kwargs):
-        # Check if an image is present
-        if self.banner_image and not self._state.adding and hasattr(self.banner_image, 'file'):
-            # Open the uploaded image
-            img = Image.open(self.banner_image)
-
-            # Check if image needs to be resized
-            if img.height != 250 or img.width != 1500:
-                # Resize the image
-                img = img.resize((1500, 250), Image.ANTIALIAS)
-
-                # Save the image to a BytesIO object
-                img_io = BytesIO()
-                img.save(img_io, format='JPEG', quality=100)
-
-                # Create a new Django file-like object to save to the model
-                img_file = InMemoryUploadedFile(
-                    img_io, None, f'{self.banner_image.name.split(".")[0]}.jpg', 'image/jpeg',
-                    img_io.tell(), None
-                )
-                self.banner_image = img_file
-
-        super().save(*args, **kwargs)
-
-
     def unread_notification_count(self):
         return self.notifications.filter(read=False).count()
 

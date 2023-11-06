@@ -103,7 +103,7 @@
 						<div class="col-lg-2 col-sm-3">
 							<div class="user-avatar">
                                 {% if user_profile.banner_image %}
-                                  <img src="{{ user_profile.banner_image.url }}" alt="Banner Image" style="width:1500px; height:250px;">
+                                  <img src="{{ user_profile.banner_image.url }}" alt="Banner Image">
                                 {% else %}
                                   <img src="{% static 'path/to/default/banner/image.png' %}" alt="Default Banner Image" style="width:1500px; height:250px;">
                                 {% endif %}
