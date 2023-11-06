@@ -25,9 +25,14 @@ class CustomUserLoginSerializer(serializers.Serializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
+    at_username = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'first_name', 'last_name']
+        fields = ['id', 'at_username', 'first_name', 'last_name']
+
+    def get_at_username(self, obj):
+        return f"@{obj.username}"
 
 
 class ProfileSerializer(serializers.ModelSerializer):
