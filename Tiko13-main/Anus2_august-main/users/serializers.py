@@ -51,9 +51,8 @@ class ProfileSerializer(serializers.ModelSerializer):
             'banner_image',
             'books_count',
             'series_count',
-            # You might want to add other fields here depending on what you want to expose through your API
         ]
-        read_only_fields = ('user',)  # if you want the username to be read-only
+        read_only_fields = ('user',)
 
     def create(self, validated_data):
         # Custom creation logic if needed

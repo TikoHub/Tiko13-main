@@ -4,7 +4,7 @@ from .views import CustomUserLoginView, ProfileAPIView, RegisterView
 from django.views.generic import TemplateView
 
 urlpatterns = [
-    path('register/', RegisterView.as_view(), name='register'),
+    path('register/', RegisterView.as_view(), name='register'), #Takumi Register
     path('api/login/', CustomUserLoginView.as_view(), name='custom_user_login'),
     path('drf-auth/', include('rest_framework.urls')),
     path('social-auth/', include('social_django.urls', namespace='social')),       #Пока сюда смотри
@@ -53,7 +53,7 @@ urlpatterns = [
     path('<str:username>/followers/', views.followers_list, name='followers-list'),
     path('<str:username>/following/', views.following_list, name='following-list'),
     path('settings/change_username/', views.change_username, name='change_username'),
-    path('api/profile/<str:username>/', ProfileAPIView.as_view(), name='api-profile'),
+    path('api/profile/<str:username>/', ProfileAPIView.as_view(), name='api-profile'), # Takumi Profile
 
 
 

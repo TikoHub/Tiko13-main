@@ -94,6 +94,7 @@ class FollowerHelper:
         return User.objects.filter(username__in=friends)
 
 
+#Takumi Register
 class RegisterView(generics.CreateAPIView):
     serializer_class = CustomUserRegistrationSerializer
 
@@ -221,7 +222,7 @@ def profile(request, username):
     return render(request, 'profile.html', context)
 
 
-class ProfileAPIView(APIView):
+class ProfileAPIView(APIView): # Takumi Profile
     def get(self, request, username, format=None):
         profile_owner = get_object_or_404(User, username=username)
 
