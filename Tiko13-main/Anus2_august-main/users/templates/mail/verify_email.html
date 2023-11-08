@@ -1,0 +1,8 @@
+<!-- Create a simple form for users to enter their verification code -->
+<form method="post">
+    {% csrf_token %}
+    <label for="code">Enter the verification code we sent to your email:</label>
+    <input type="text" name="code" id="code" required>
+    <input type="hidden" name="user_id" value="{{ user_id }}">
+    <button type="submit">Verify</button>
+</form>

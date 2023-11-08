@@ -1,13 +1,14 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Profile
+from store.models import Book, Genre, Series, Comment
 
 
 class CustomUserRegistrationSerializer(serializers.Serializer):
     first_name = serializers.CharField(required=True)
     last_name = serializers.CharField(required=False)
-    dob_month = serializers.IntegerField(required=False, allow_null=True)
-    dob_year = serializers.IntegerField(required=False, allow_null=True)
+    dob_month = serializers.IntegerField(required=False) # Поменять на тру
+    dob_year = serializers.IntegerField(required=False) #Поменять на тру
 
     email = serializers.EmailField(required=True)
     password = serializers.CharField(write_only=True, required=True)
@@ -76,3 +77,57 @@ class ProfileSerializer(serializers.ModelSerializer):
         # Assuming the related_name for series in User model is 'authored_series'
         return obj.user.authored_series.count()
 
+
+class LibraryBookSerializer(serializers.ModelSerializer):
+    author = serializers.StringRelatedField()
+    genre = serializers.SlugRelatedField(
+        slug_field='name',
+        queryset=Genre.objects.all()
+    )
+    subgenres = serializers.StringRelatedField(many=True)
+
+    class Meta:
+        model = Book
+        fields = [
+            'id',
+            'name',
+            'coverpage',
+            'author',
+            'genre',
+            'subgenres',
+            'volume_number',
+        ]
+
+
+class AuthoredBookSerializer(serializers.ModelSerializer):
+    like_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Book
+        fields = ['id', 'name', 'genre', 'subgenres', 'coverpage', 'rating', 'views_count', 'last_modified', 'series',
+                  'volume_number', 'status', 'description', 'author', 'like_count']
+
+
+class SeriesSerializer(serializers.ModelSerializer):
+    books = AuthoredBookSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Series
+        fields = ['id', 'name', 'books']
+
+
+class ParentCommentSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField()  # This will return the string representation of the user.
+
+    class Meta:
+        model = Comment
+        fields = ['id', 'user']
+
+
+class CommentSerializer(serializers.ModelSerializer):
+    parent_comment = ParentCommentSerializer(read_only=True)
+
+    class Meta:
+        model = Comment
+        fields = ['id', 'book', 'text', 'timestamp', 'parent_comment']
+        # Во фронте добавить типа, if parent_comment is null : use book

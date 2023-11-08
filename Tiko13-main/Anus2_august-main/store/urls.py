@@ -35,6 +35,7 @@ urlpatterns = [
     path('reader/<int:book_id>/', Reader.as_view(), name='reader'),
     path('api/book/create/', views.BooksCreateAPIView.as_view(), name='api_book_create'),
     path('api/book/text/', views.BookTextAPIView.as_view(), name='api_book_text'),
+    path('api/comments/<int:comment_id>/delete/', views.delete_comment, name='api_delete_comment'),
 
 
 

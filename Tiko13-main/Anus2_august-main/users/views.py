@@ -1,26 +1,30 @@
-from django.contrib.auth.forms import AuthenticationForm
 from django.db import transaction
-from django.shortcuts import render, redirect, get_object_or_404
-from django.db.models import Q, Count
-from rest_framework.decorators import permission_classes, api_view
-from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.views import APIView
+import random
+import re
 
-from .models import FollowersCount, Achievement, Illustration, Trailer, Notification, Conversation, Message, Profile, WebPageSettings, Library
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from store.models import Book, Comment, Review, Series
-from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
-from .forms import UploadIllustrationForm, UploadTrailerForm, ProfileForm, WebPageSettingsForm
 from django.contrib.auth import authenticate, login
-from django.contrib.auth.views import LoginView
-from .serializers import *
-from rest_framework import status, generics
-from rest_framework.response import Response
-from rest_framework.authtoken.models import Token
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.core.mail import send_mail
+from django.db import transaction
+from django.db.models import Q, Count
+from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
+from django.shortcuts import render, redirect, get_object_or_404
+from rest_framework import status, generics
+from rest_framework.authtoken.models import Token
+from rest_framework.decorators import permission_classes, api_view
 from rest_framework.exceptions import PermissionDenied
-import re, random
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.status import HTTP_404_NOT_FOUND
+from rest_framework.views import APIView
+from store.models import Book, Comment, Review, Series
+
+from .forms import UploadIllustrationForm, UploadTrailerForm, ProfileForm, WebPageSettingsForm
+from .models import FollowersCount, Achievement, Illustration, Trailer, Notification, Conversation, Message, \
+    WebPageSettings, Library, EmailVerification
+from .serializers import *
 
 
 def settings(request):
@@ -138,10 +142,24 @@ class RegisterView(generics.CreateAPIView):
                     profile.dob_year = dob_year
                     profile.save()
 
-            return Response({'status': 'User created'}, status=status.HTTP_201_CREATED)
+                verification_code = random.randint(1000, 9999)
+                # Сюда можно добавить респонс
+                send_mail(
+                    'Verify your account',
+                    f'Your verification code is {verification_code}.',
+                    'from@example.com',  # Use your actual sender email address here
+                    [validated_data['email']],
+                    fail_silently=False,
+                )
+                # Save the verification code to the user's profile or a related model
+                # profile.verification_code = verification_code
+                # profile.save()
+
+                # Return a response indicating that the user needs to verify their email
+                return Response({'status': 'User created, please verify your email'}, status=status.HTTP_201_CREATED)
+
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 class CustomUserLoginView(APIView):
@@ -355,32 +373,34 @@ def delete_book_from_library(request, book_id):
     return redirect('library')
 
 
+@api_view(['GET'])
 def get_library_content(request, username):
     try:
         user = User.objects.get(username=username)
         library, created = Library.objects.get_or_create(user=user)
     except User.DoesNotExist:
-        # Consider redirecting to an error page or using a message to notify the user.
-        return HttpResponse("User does not exist.")
+        return Response({'error': 'User does not exist.'}, status=404)
 
-    filter_by = request.GET.get('filter_by')
+    filter_by = request.query_params.get('filter_by')     #Filter Takumi позже решить + проверить
 
     if filter_by == 'reading':
-        books = library.reading_books.all()
-    elif filter_by == 'watchlist':
-        books = library.watchlist_books.all()
+        books_qs = library.reading_books.all()
+    elif filter_by == 'liked':
+        books_qs = library.liked_books.all()
+    elif filter_by == 'wish_list':
+        books_qs = library.wish_list_books.all()
+    elif filter_by == 'favorites':
+        books_qs = library.favorites_books.all()
     elif filter_by == 'finished':
-        books = library.finished_books.all()
+        books_qs = library.finished_books.all()
     else:
-        books = library.get_all_books()
+        books_qs = library.get_all_books()
 
-    context = {
-        'username': username,
-        'library': library,
-        'books': books,
-        'user_object': user
-    }
-    return render(request, 'profile/library.html', context)
+    # Serialize the book data
+    books_serializer = LibraryBookSerializer(books_qs, many=True)
+
+    # Return the serialized book data in the response
+    return Response(books_serializer.data)
 
 
 @login_required(login_url='signin')
@@ -421,6 +441,73 @@ def get_comments_content(request, username):
         'total_responses': total_responses,
     }
     return render(request, 'profile/comments.html', context)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_comments(request, username):
+    try:
+        user_object = User.objects.get(username=username)
+    except User.DoesNotExist:
+        return Response({'error': 'User does not exist.'}, status=HTTP_404_NOT_FOUND)
+
+    user_comments = Comment.objects.filter(user=user_object)
+
+    # Retrieve the comments based on the sorting parameter
+    sort_by = request.query_params.get('sort_by')
+    if sort_by == 'newest':
+        comments = user_comments.order_by('-timestamp')
+    elif sort_by == 'oldest':
+        comments = user_comments.order_by('timestamp')
+    elif sort_by == 'popularity':
+        comments = user_comments.annotate(num_likes=Count('likes')).order_by('-num_likes')
+    else:
+        comments = user_comments.all()
+
+    # Handle achievements logic as needed
+
+    # Serialize the comment data
+    comments_serializer = CommentSerializer(comments, many=True)
+
+    # Get the total number of responses
+    total_responses = Comment.objects.filter(parent_comment__in=comments).count()
+
+    # Return the serialized comment data
+    return Response({
+        'username': username,
+        'comments': comments_serializer.data,
+        'total_responses': total_responses,
+    })
+# Тико, еще подумай что делать с parent comment-ом при удалении комментария(к примеру, парент коммент у мен был Андрей, но он удалил комментарий, что случается)
+# Должно высвечиваться что комментарий удалён, соответственно, айди комментария остаётся, и только текст удаляется, и если текст удаляется
+# То отображать что комментарий удалён (или узнать еще способы)
+@api_view(['GET'])
+def get_authored_books(request, username):
+    try:
+        user = User.objects.get(username=username)
+        authored_books = Book.objects.filter(author=user)
+    except User.DoesNotExist:
+        return Response({'error': 'User does not exist.'}, status=404)
+
+    # Serialize the book data
+    books_serializer = AuthoredBookSerializer(authored_books, many=True)
+
+    # Return the serialized book data in the response
+    return Response(books_serializer.data)
+
+
+@api_view(['GET'])
+def get_user_series(request, username):
+    try:
+        user = User.objects.get(username=username)
+        user_series = Series.objects.filter(author=user).prefetch_related('books')
+    except User.DoesNotExist:
+        return Response({'error': 'User does not exist.'}, status=404)
+
+    # You can now serialize the series and include the books in each series using your SeriesBookSerializer
+    series_serializer = SeriesSerializer(user_series, many=True, context={'request': request})
+
+    return Response(series_serializer.data)
 
 
 def get_achievements_content(request, username):
@@ -670,7 +757,6 @@ def my_books(request):
         book.comment_count = Comment.objects.filter(book=book).count()
         book.review_count = Review.objects.filter(book=book).count()
         finished_users = Library.objects.filter(finished_books__in=[book]).count()
-        watchlist_users = Library.objects.filter(watchlist_books__in=[book]).count()
         reading_users = Library.objects.filter(reading_books__in=[book]).count()
         book.in_library_users = reading_users + finished_users + watchlist_users
         book.character_count = sum([len(chapter.content) for chapter in book.chapters.all()])
@@ -828,3 +914,42 @@ def validate_username(username):
                     return False, "There must be at least 3 characters between dots."
 
     return True, "Username is valid."
+
+
+def send_verification_email(user):
+    # Generate a random 4-digit number
+    verification_code = str(random.randint(1000, 9999))
+
+    # Create or update the EmailVerification instance
+    EmailVerification.objects.update_or_create(
+        user=user,
+        defaults={'verification_code': verification_code, 'verified': False}
+    )
+
+    # Send an email to the user
+    send_mail(
+        'Your Verification Code',
+        f'Your verification code is: {verification_code}',
+        settings.DEFAULT_FROM_EMAIL,
+        [user.email],
+        fail_silently=False,
+    )
+
+
+def verify_email_view(request):
+    if request.method == 'POST':
+        code = request.POST.get('code')
+        user_id = request.POST.get('user_id')
+        verification_instance = EmailVerification.objects.get(user_id=user_id)
+
+        if verification_instance.verification_code == code:
+            verification_instance.verified = True
+            verification_instance.save()
+            # Redirect to a success page or log the user in
+            return redirect('success_page')
+        else:
+            # Handle incorrect code
+            pass  # You might want to add some error message
+
+    # If GET request or code is incorrect, show the verification form again
+    return render(request, 'mail/verify_email.html')

@@ -54,6 +54,15 @@ urlpatterns = [
     path('<str:username>/following/', views.following_list, name='following-list'),
     path('settings/change_username/', views.change_username, name='change_username'),
     path('api/profile/<str:username>/', ProfileAPIView.as_view(), name='api-profile'), # Takumi Profile
+    path('verify-email/', views.verify_email_view, name='verify-email'),
+    path('api/<str:username>/library', views.get_library_content, name='api_get_library_content'),
+    path('api/<str:username>/books/', views.get_authored_books, name='api_get_authored_books'),
+    path('api/<str:username>/series/', views.get_user_series, name='api_get_user_series'),
+    path('api/<str:username>/comments/', views.get_user_comments, name='api_get_user_comments'),
+
+
+
+
 
 
 

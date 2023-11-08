@@ -238,3 +238,12 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = '<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>'
 
 SOCIAL_AUTH_FACEBOOK_KEY = '324062583678664'
 SOCIAL_AUTH_FACEBOOK_SECRET = '2fd18cf8d16966fd00e85b12acfbdb4f'
+
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_USE_TLS = True
+EMAIL_PORT = 587
+EMAIL_HOST_USER = 'temudjin@wormates.com'
+EMAIL_HOST_PASSWORD = 'ptvgcsrfwpacwppu'
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER

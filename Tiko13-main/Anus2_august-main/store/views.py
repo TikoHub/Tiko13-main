@@ -1,6 +1,9 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, View, TemplateView
-from .models import Book, Comment, CommentLike, CommentDislike, Review, ReviewLike, ReviewDislike, Series, Genre, BookUpvote, BookDownvote, Chapter
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+
+from .models import CommentLike, CommentDislike, ReviewLike, ReviewDislike, Series, Genre, BookUpvote, BookDownvote, Chapter
 from django.contrib.auth.models import User, auth
 from django.contrib.auth.mixins import LoginRequiredMixin
 from .forms import BooksForm, CommentForm, ReviewCreateForm, BookTypeForm, SeriesForm, ChapterForm
@@ -20,7 +23,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework import generics
 from rest_framework.response import Response
-from .models import Book, Comment, Review
+from .models import Book, Comment, Review, BookLike
 from .serializer import *
 
 
@@ -273,6 +276,18 @@ class CommentDeleteView(DeleteView):
         return reverse_lazy('book_detail', kwargs={'pk': self.object.book.pk})
 
 
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_comment(request, comment_id):
+    try:
+        comment = Comment.objects.get(pk=comment_id, user=request.user)
+    except Comment.DoesNotExist:
+        return Response({'error': 'Comment not found or not owned by user.'}, status=status.HTTP_404_NOT_FOUND)
+
+    comment.delete()
+    return Response({'message': 'Comment deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
+
+
 def like_comment(request, comment_id):
     comment = get_object_or_404(Comment, id=comment_id)
 
@@ -452,7 +467,20 @@ class Reader(APIView):
         return Response(serialized_chapters)
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def like_book(request, pk):
+    book = Book.objects.get(pk=pk)
+    BookLike.objects.get_or_create(user=request.user, book=book)
+    return Response({'status': 'book liked'})
 
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def unlike_book(request, pk):
+    book = Book.objects.get(pk=pk)
+    BookLike.objects.filter(user=request.user, book=book).delete()
+    return Response({'status': 'book unliked'})
 
 
 

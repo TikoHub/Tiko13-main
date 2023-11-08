@@ -84,14 +84,20 @@ class FollowersCount(models.Model):
 class Library(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='library')
     reading_books = models.ManyToManyField(Book, related_name='reading_users', blank=True)
-    watchlist_books = models.ManyToManyField(Book, related_name='watchlist_users', blank=True)
+    liked_books = models.ManyToManyField(Book, related_name='liked_users', blank=True)
+    wish_list_books = models.ManyToManyField(Book, related_name='wishlist_users', blank=True)
+    favorites_books = models.ManyToManyField(Book, related_name='favorites_users', blank=True)
     finished_books = models.ManyToManyField(Book, related_name='finished_users', blank=True)
 
     def __str__(self):
         return f"Library - {self.user.username}"
 
     def get_all_books(self):
-        return self.reading_books.all() | self.watchlist_books.all() | self.finished_books.all()
+        # Adjust this method if you want to include all categories
+        return (self.reading_books.all() | self.liked_books.all() |
+                self.wish_list_books.all() | self.favorites_books.all() |
+                self.finished_books.all()).distinct()
+
 
 
 class Illustration(models.Model):
@@ -145,3 +151,10 @@ class Message(models.Model):
 
     def __str__(self):
         return self.text
+
+
+class EmailVerification(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    verification_code = models.CharField(max_length=4)
+    verified = models.BooleanField(default=False)
+    # You might want to add a timestamp to track when the code was sent

@@ -9,8 +9,12 @@ class ChapterSerializers(serializers.ModelSerializer):
 
 
 class BookSerializer(serializers.ModelSerializer):
-    genre = serializers.StringRelatedField()  # This will display the genre's __str__ method result.
     author = serializers.StringRelatedField()  # This will display the author's __str__ method result.
+    genre = serializers.SlugRelatedField(
+        slug_field='name',
+        queryset=Genre.objects.all()
+    )
+    subgenres = serializers.StringRelatedField(many=True)
     character_count = serializers.SerializerMethodField()
 
     def get_character_count(self, obj):
@@ -20,7 +24,7 @@ class BookSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Book
-        fields = ['id', 'name', 'genre', 'author', 'coverpage', 'rating', 'views_count', 'last_modified',
+        fields = ['id', 'name', 'genre', 'subgenres', 'author', 'coverpage', 'rating', 'views_count', 'volume_number', 'last_modified',
                   'character_count']
 
 
