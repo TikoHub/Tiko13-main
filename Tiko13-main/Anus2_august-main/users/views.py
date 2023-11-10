@@ -15,87 +15,19 @@ from rest_framework import status, generics
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import permission_classes, api_view
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.status import HTTP_404_NOT_FOUND
 from rest_framework.views import APIView
 from store.models import Book, Comment, Review, Series
+from .helpers import FollowerHelper
 
-from .forms import UploadIllustrationForm, UploadTrailerForm, ProfileForm, WebPageSettingsForm
+from .forms import UploadIllustrationForm, UploadTrailerForm
 from .models import FollowersCount, Achievement, Illustration, Trailer, Notification, Conversation, Message, \
     WebPageSettings, Library, EmailVerification
 from .serializers import *
 
 
-def settings(request):
-    profile = Profile.objects.get(user=request.user)
-    webpage_settings = WebPageSettings.objects.get(profile=profile)
-
-    if request.method == 'POST':
-        profile_form = ProfileForm(request.POST, request.FILES, instance=profile)
-        webpage_settings_form = WebPageSettingsForm(request.POST, instance=webpage_settings)
-
-        if profile_form.is_valid() and webpage_settings_form.is_valid():
-            profile_form.save()
-            webpage_settings_form.save()
-            return redirect('settings/main_settings')
-
-    else:
-        profile_form = ProfileForm(instance=profile)
-        webpage_settings_form = WebPageSettingsForm(instance=webpage_settings)
-
-    return render(request, 'settings/main_settings.html',
-                  {'profile_form': profile_form, 'webpage_settings_form': webpage_settings_form})
-
-
-class FollowerHelper:
-    @staticmethod
-    def is_following(follower, user):
-        if not follower.is_authenticated or not user.is_authenticated:
-            return False
-        return FollowersCount.objects.filter(follower=follower, user=user).exists()
-
-    @staticmethod
-    def follow(follower, user):
-        if not FollowerHelper.is_following(follower, user):
-            new_follower = FollowersCount.objects.create(follower=follower, user=user)
-            return new_follower
-        return None
-
-    @staticmethod
-    def unfollow(follower, user):
-        if FollowerHelper.is_following(follower, user):
-            delete_follower = FollowersCount.objects.get(follower=follower, user=user)
-            delete_follower.delete()
-
-    @staticmethod
-    def get_followers_count(user):
-        return FollowersCount.objects.filter(user=user).count()
-
-    @staticmethod
-    def get_following_count(follower):
-        return FollowersCount.objects.filter(follower=follower).count()
-
-    @staticmethod
-    def get_followers(user):
-        return User.objects.filter(following_users__user=user)
-
-    @staticmethod
-    def get_following(follower):
-        return User.objects.filter(follower_users__follower=follower)
-
-    @staticmethod
-    def get_friends(user):
-        # Get users followed by 'user'
-        following = set(FollowersCount.objects.filter(follower=user).values_list('user__username', flat=True))
-
-        # Get users who follow 'user'
-        followers = set(FollowersCount.objects.filter(user=user).values_list('follower__username', flat=True))
-
-        # Find mutual following - this is the 'friends' set
-        friends = following.intersection(followers)
-
-        return User.objects.filter(username__in=friends)
 
 
 #Takumi Register
@@ -206,66 +138,34 @@ def following_list(request, username):
     return Response(serializer.data)
 
 
-def profile(request, username):
-    profile_owner = get_object_or_404(User, username=username)
+class ProfileAPIView(APIView):
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
-    if request.user in profile_owner.profile.blacklist.all():
-        return HttpResponse("You are not allowed to view this profile.")
-
-    user_object = User.objects.get(username=username)
-    user_profile = Profile.objects.get(user=user_object)
-
-    follower = request.user
-    user = get_object_or_404(User, username=username)
-
-    is_following = FollowerHelper.is_following(follower, user)
-
-    button_text = 'Unfollow' if is_following else 'Follow'
-
-    user_followers = FollowerHelper.get_followers_count(user)
-    user_following = FollowerHelper.get_following_count(user)
-
-    followers_mini_list = FollowerHelper.get_followers(user)[:10]
-    following_mini_list = FollowerHelper.get_following(user)[:10]
-
-    context = {
-        'user_object': user_object,
-        'user_profile': user_profile,
-        'button_text': button_text,
-        'user_followers': user_followers,
-        'user_following': user_following,
-        'followers_mini_list': followers_mini_list,
-        'following_mini_list': following_mini_list,
-    }
-    return render(request, 'profile.html', context)
-
-
-class ProfileAPIView(APIView): # Takumi Profile
     def get(self, request, username, format=None):
         profile_owner = get_object_or_404(User, username=username)
-
         if request.user in profile_owner.profile.blacklist.all():
-            raise PermissionDenied("You are not allowed to view this profile.")
+            return Response({"detail": "You are not allowed to view this profile."}, status=status.HTTP_403_FORBIDDEN)
 
         user_profile = Profile.objects.get(user=profile_owner)
-
-        is_following = FollowerHelper.is_following(request.user, profile_owner)
-        button_text = 'Unfollow' if is_following else 'Follow'
-
-        user_followers = FollowerHelper.get_followers_count(profile_owner)
-        user_following = FollowerHelper.get_following_count(profile_owner)
-
-
-        # Serialize the profile data
-        profile_serializer = ProfileSerializer(user_profile)
+        profile_serializer = ProfileSerializer(user_profile, context={'request': request})
 
         context = {
             'user_profile': profile_serializer.data,
-            'button_text': button_text,
-            'user_followers': user_followers,
-            'user_following': user_following,
         }
-        return Response(context, status=status.HTTP_200_OK)
+        return Response(profile_serializer.data)
+
+    def put(self, request, username, format=None):
+        if request.user.username != username:
+            return Response({"detail": "You do not have permission to edit this profile."},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        user_profile = request.user.profile
+        serializer = ProfileSerializer(user_profile, data=request.data, partial=True)  # Allow partial update
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 def follow(request):
@@ -510,6 +410,21 @@ def get_user_series(request, username):
     return Response(series_serializer.data)
 
 
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def update_profile_description(request, username):
+    profile = request.user.profile
+    description = request.data.get('description', '')
+
+    # Optionally, validate the description content here
+
+    profile.description = description
+    profile.save()
+    return Response({'message': 'Description updated successfully.'}, status=status.HTTP_200_OK)
+
+
+
+
 def get_achievements_content(request, username):
     user_object = get_object_or_404(User, username=username)
     user_profile = Profile.objects.get(user=user_object)
@@ -638,32 +553,29 @@ def delete_trailer(request, trailer_id):
         return redirect('book_settings')
 
 
-def web_settings(request):
-    profile = Profile.objects.get(user=request.user)
-    webpage_settings, created = WebPageSettings.objects.get_or_create(profile=profile)
+class WebPageSettingsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
 
-    if request.method == 'POST':
-        print('POST request received')
-        profile_form = ProfileForm(request.POST, instance=request.user.profile)
-        webpage_settings_form = WebPageSettingsForm(request.POST, instance=webpage_settings)
+    def get(self, request, *args, **kwargs):
+        try:
+            profile = request.user.profile
+            webpage_settings = WebPageSettings.objects.get(profile=profile)
+        except WebPageSettings.DoesNotExist:
+            return Response({'error': 'WebPageSettings not found.'}, status=404)
 
-        if profile_form.is_valid() and webpage_settings_form.is_valid():
-            profile_form.save()
-            webpage_settings_form.save()
-            return redirect('web_settings')
+        serializer = WebPageSettingsSerializer(webpage_settings)
+        return Response(serializer.data)
+
+    def put(self, request, *args, **kwargs):
+        print(request.data)
+        profile = request.user.profile
+        webpage_settings = WebPageSettings.objects.get(profile=profile)
+        serializer = WebPageSettingsSerializer(webpage_settings, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
         else:
-            print(profile_form.errors)
-            print(webpage_settings_form.errors)
-    else:
-        profile_form = ProfileForm(instance=request.user.profile)
-        webpage_settings_form = WebPageSettingsForm(instance=webpage_settings)
-
-    context = {
-        'profile_form': profile_form,
-        'webpage_settings_form': webpage_settings_form,
-    }
-
-    return render(request, 'settings/web_settings.html', context)
+            return Response(serializer.errors, status=400)
 
 
 def main_settings(request):
@@ -697,6 +609,23 @@ def read_notification(request, notification_id):
 def notification_count(request):
     count = request.user.profile.unread_notification_count()
     return JsonResponse({"unread_count": count})
+
+
+class PrivacySettingsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user_profile = request.user.profile
+        serializer = PrivacySettingsSerializer(user_profile)
+        return Response(serializer.data)
+
+    def put(self, request, *args, **kwargs):
+        user_profile = request.user.profile
+        serializer = PrivacySettingsSerializer(user_profile, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
 
 
 def privacy_settings(request):
@@ -758,7 +687,7 @@ def my_books(request):
         book.review_count = Review.objects.filter(book=book).count()
         finished_users = Library.objects.filter(finished_books__in=[book]).count()
         reading_users = Library.objects.filter(reading_books__in=[book]).count()
-        book.in_library_users = reading_users + finished_users + watchlist_users
+        book.in_library_users = reading_users + finished_users
         book.character_count = sum([len(chapter.content) for chapter in book.chapters.all()])
 
     context = {

@@ -42,28 +42,28 @@ class Notification(models.Model):
 
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    bio = models.TextField(blank=True)
+    about = models.TextField(blank=True)
     profileimg = models.ImageField(upload_to='profile_images', default='blank-profile-picture.png')
     bookmarks = models.ManyToManyField(Review, related_name='bookmark_profiles', blank=True)
     achievements = models.ManyToManyField(Achievement, blank=True)
     blacklist = models.ManyToManyField(User, related_name="blacklisted_by", blank=True)
-    auto_add_reading = models.BooleanField(default=False)
+    auto_add_reading = models.BooleanField(default=True)
+    description = models.TextField(blank=True, null=True) # Не уверен что мне этот метод нравится
     banner_image = models.ImageField(
         upload_to='banner_images',
         default='default_banner.png',
         validators=[FileExtensionValidator(['jpg', 'jpeg', 'png'])]
     )
 
-    PRIVACY_CHOICES = (
-        ('nobody', 'Nobody'),
-        ('followers', 'Only Followers'),
-        ('friends', 'Only Friends'),
-        ('anyone', 'Anyone'),
+    LIBRARY_VISIBILITY_CHOICES = (
+        ('no_one', 'No One'),
+        ('friends', 'Friends Only'),
+        ('everyone', 'Everyone'),
     )
-    library_privacy = models.CharField(
+    library_visibility = models.CharField(
         max_length=10,
-        choices=PRIVACY_CHOICES,
-        default='anyone',
+        choices=LIBRARY_VISIBILITY_CHOICES,
+        default='friends'
     )
 
     def unread_notification_count(self):
@@ -110,21 +110,26 @@ class Trailer(models.Model):
 
 class WebPageSettings(models.Model):
     DOB_CHOICES = (
-        (0, 'Do not show my date of birth'),
-        (1, 'Show only my day and month'),
-        (2, 'Show my date of birth'),
+        (0, 'No One'),
+        (1, 'Friends Only'),
+        (2, 'Everyone'),
+    )
+    GENDER_CHOICES = (
+        ('not_specified', 'Not Specified'),
+        ('female', 'Female'),
+        ('male', 'Male'),
+        ('other', 'Other'),
     )
 
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE)
-    about = models.TextField(blank=True)
-    status = models.CharField(max_length=200, blank=True)
     date_of_birth = models.DateField(blank=True, null=True)
-    website = models.URLField(max_length=200, blank=True)
-    email = models.EmailField(max_length=100, blank=True)
-    facebook = models.URLField(max_length=200, blank=True)
-    instagram = models.URLField(max_length=200, blank=True)
-    twitter = models.URLField(max_length=200, blank=True)
-    display_dob_option = models.IntegerField(choices=DOB_CHOICES, default=0)
+    display_dob_option = models.IntegerField(choices=DOB_CHOICES, default=1)
+    gender = models.CharField(
+        max_length=15,
+        choices=GENDER_CHOICES,
+        default='not_specified',
+        blank=True
+    )
 
     def __str__(self):
         return self.profile.user.username

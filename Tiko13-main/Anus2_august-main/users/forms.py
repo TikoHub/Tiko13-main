@@ -17,20 +17,6 @@ class UploadTrailerForm(forms.ModelForm):
         fields = ('link', )
 
 
-class ProfileForm(forms.ModelForm):
-    class Meta:
-        model = Profile
-        fields = ['bio', 'profileimg', 'banner_image', ]
-
-
-class WebPageSettingsForm(forms.ModelForm):
-    dob_month = models.IntegerField(null=True, blank=True)
-    dob_year = models.IntegerField(null=True, blank=True)
-
-    class Meta:
-        model = WebPageSettings
-        fields = ['about', 'date_of_birth', 'status', 'website', 'email', 'facebook', 'instagram', 'twitter', 'display_dob_option']
-
 
 class MessageForm(forms.ModelForm):
     class Meta:

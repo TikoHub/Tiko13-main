@@ -1,6 +1,6 @@
 from django.urls import path, include, re_path
 from . import views
-from .views import CustomUserLoginView, ProfileAPIView, RegisterView
+from .views import CustomUserLoginView, ProfileAPIView, RegisterView, WebPageSettingsAPIView, PrivacySettingsAPIView
 from django.views.generic import TemplateView
 
 urlpatterns = [
@@ -12,11 +12,10 @@ urlpatterns = [
     re_path(r'auth/', include('djoser.urls.authtoken')),
     path('accounts/', include('allauth.urls')),
     path('auth/', include('allauth.socialaccount.urls')),
-    path('settings/main_settings', views.settings, name='main_settings'),
+#    path('settings/main_settings', views.settings, name='main_settings'),
     path('follow', views.follow, name='follow'),
     path('conversation/<int:user_id>/', views.conversation_view, name='conversation'),
     path('messages_list/', views.messages_list_view, name='messages_list'),
-    path('<str:username>/', views.profile, name='profile'),
     path('add_to_library/<int:book_id>/<str:category>/', views.add_to_library, name='add_to_library'),
     path('<str:username>/library/', views.my_library_view, name='library'),
     path('delete_book/<int:book_id>/', views.delete_book_from_library, name='delete_book_from_library'),
@@ -30,10 +29,10 @@ urlpatterns = [
     path('upload_trailer/', views.upload_trailer, name='upload_trailer'),
     path('delete_illustration/<int:illustration_id>/', views.delete_illustration, name='delete_illustration'),
     path('delete_trailer/<int:trailer_id>/', views.delete_trailer, name='delete_trailer'),
-    path('settings/web_settings/', views.web_settings, name='web_settings'),
+#    path('settings/web_settings/', views.web_settings, name='web_settings'),
     path('main_settings/', views.main_settings, name='main_settings'),
     path('settings/notifications/', views.settings_notifications, name='settings-notifications'),
-    path('settings/privacy/', views.privacy_settings, name='settings-privacy'),
+    #path('settings/privacy/', views.privacy_settings, name='settings-privacy'),
     path('settings/blacklist/', views.blacklist, name='blacklist'),
     path('settings/reviews_settings/', views.reviews, name='reviews_settings'),
     path('settings/social/', views.social, name='social'),
@@ -53,12 +52,16 @@ urlpatterns = [
     path('<str:username>/followers/', views.followers_list, name='followers-list'),
     path('<str:username>/following/', views.following_list, name='following-list'),
     path('settings/change_username/', views.change_username, name='change_username'),
-    path('api/profile/<str:username>/', ProfileAPIView.as_view(), name='api-profile'), # Takumi Profile
+    path('api/<str:username>/', ProfileAPIView.as_view(), name='api-profile'), # Takumi Profile
     path('verify-email/', views.verify_email_view, name='verify-email'),
     path('api/<str:username>/library', views.get_library_content, name='api_get_library_content'),
     path('api/<str:username>/books/', views.get_authored_books, name='api_get_authored_books'),
     path('api/<str:username>/series/', views.get_user_series, name='api_get_user_series'),
     path('api/<str:username>/comments/', views.get_user_comments, name='api_get_user_comments'),
+    path('api/<str:username>/description/', views.update_profile_description, name='api_update_profile_description'),
+    path('api/<str:username>/settings/', WebPageSettingsAPIView.as_view(), name='api_web_settings'),
+    path('settings/privacy/', PrivacySettingsAPIView.as_view(), name='privacy_settings'),
+
 
 
 
