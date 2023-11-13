@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Profile, WebPageSettings
+from .models import Profile, WebPageSettings, EmailVerification
 from store.models import Book, Genre, Series, Comment
 from .helpers import FollowerHelper
 
@@ -146,9 +146,10 @@ class CommentSerializer(serializers.ModelSerializer):
 
 
 class CustomUserSerializer(serializers.ModelSerializer):
+    id = serializers.ReadOnlyField()
     class Meta:
         model = User
-        fields = ('username', 'first_name', 'last_name')
+        fields = ('username', 'first_name', 'last_name', 'id')
 
     def update(self, instance, validated_data):
         instance.username = validated_data.get('username', instance.username)
@@ -159,9 +160,10 @@ class CustomUserSerializer(serializers.ModelSerializer):
 
 
 class CustomProfileSerializer(serializers.ModelSerializer):
+    id = serializers.ReadOnlyField()
     class Meta:
         model = Profile
-        fields = ('about', 'profileimg')  # Only include the fields you want from Profile
+        fields = ('about', 'profileimg', 'id')  # Only include the fields you want from Profile
 
 
 class WebPageSettingsSerializer(serializers.ModelSerializer):
@@ -172,7 +174,7 @@ class WebPageSettingsSerializer(serializers.ModelSerializer):
         model = WebPageSettings
         fields = ('user', 'profile', 'display_dob_option', 'gender', 'date_of_birth')
 
-    def update(self, instance, validated_data):
+    def update(self, instance, validated_data): #working
         user_data = validated_data.pop('user', {})  # Access nested user data
         profile_data = validated_data.pop('profile', {})  # Access nested profile data
 
@@ -201,3 +203,45 @@ class PrivacySettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
         fields = ('auto_add_reading', 'library_visibility')
+
+
+class EmailChangeSerializer(serializers.Serializer):
+    verification_code = serializers.CharField(required=True)
+    new_email = serializers.EmailField(required=True)
+
+    def validate(self, data):
+        user = self.context['request'].user
+        verification_instance = EmailVerification.objects.get(user=user, verification_type='email_change')
+
+        if verification_instance.verification_code != data['verification_code']:
+            raise serializers.ValidationError("Invalid verification code.")
+
+        if user.email == data['new_email']:
+            raise serializers.ValidationError("New email is the same as the current email.")
+
+        if verification_instance.verified:
+            raise serializers.ValidationError("Verification code already used.")
+
+        return data
+
+class PasswordChangeSerializer(serializers.Serializer):
+    verification_code = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True)
+    confirm_new_password = serializers.CharField(required=True)
+
+    def validate(self, data):
+        user = self.context['request'].user
+        verification_instance = EmailVerification.objects.get(user=user, verification_type='password_change')
+
+        if verification_instance.verification_code != data['verification_code']:
+            raise serializers.ValidationError("Invalid verification code.")
+
+        if data['new_password'] != data['confirm_new_password']:
+            raise serializers.ValidationError("New passwords do not match.")
+
+        if verification_instance.verified:
+            raise serializers.ValidationError("Verification code already used.")
+
+        # Additional password validations (e.g., complexity requirements) can be added here.
+
+        return data

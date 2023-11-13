@@ -1,7 +1,13 @@
 from django.urls import path, include, re_path
 from . import views
-from .views import CustomUserLoginView, ProfileAPIView, RegisterView, WebPageSettingsAPIView, PrivacySettingsAPIView
+from .views import CustomUserLoginView, ProfileAPIView, RegisterView, WebPageSettingsAPIView, PrivacySettingsAPIView, VerificationView
 from django.views.generic import TemplateView
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+    TokenVerifyView,
+)
+
 
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'), #Takumi Register
@@ -9,6 +15,11 @@ urlpatterns = [
     path('drf-auth/', include('rest_framework.urls')),
     path('social-auth/', include('social_django.urls', namespace='social')),       #Пока сюда смотри
     path('auth/', include('djoser.urls')),
+    path('auth/', include('djoser.urls.jwt')),
+    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
+
     re_path(r'auth/', include('djoser.urls.authtoken')),
     path('accounts/', include('allauth.urls')),
     path('auth/', include('allauth.socialaccount.urls')),
@@ -53,7 +64,7 @@ urlpatterns = [
     path('<str:username>/following/', views.following_list, name='following-list'),
     path('settings/change_username/', views.change_username, name='change_username'),
     path('api/<str:username>/', ProfileAPIView.as_view(), name='api-profile'), # Takumi Profile
-    path('verify-email/', views.verify_email_view, name='verify-email'),
+    path('verify-email/', VerificationView.as_view(), name='verify-email'),
     path('api/<str:username>/library', views.get_library_content, name='api_get_library_content'),
     path('api/<str:username>/books/', views.get_authored_books, name='api_get_authored_books'),
     path('api/<str:username>/series/', views.get_user_series, name='api_get_user_series'),

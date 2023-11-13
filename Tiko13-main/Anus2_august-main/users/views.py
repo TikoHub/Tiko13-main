@@ -19,6 +19,7 @@ from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnl
 from rest_framework.response import Response
 from rest_framework.status import HTTP_404_NOT_FOUND
 from rest_framework.views import APIView
+from rest_framework_jwt.settings import api_settings
 from store.models import Book, Comment, Review, Series
 from .helpers import FollowerHelper
 
@@ -28,9 +29,6 @@ from .models import FollowersCount, Achievement, Illustration, Trailer, Notifica
 from .serializers import *
 
 
-
-
-#Takumi Register
 class RegisterView(generics.CreateAPIView):
     serializer_class = CustomUserRegistrationSerializer
 
@@ -94,24 +92,29 @@ class RegisterView(generics.CreateAPIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+jwt_payload_handler = api_settings.JWT_PAYLOAD_HANDLER
+jwt_encode_handler = api_settings.JWT_ENCODE_HANDLER
+
+
 class CustomUserLoginView(APIView):
     serializer_class = CustomUserLoginSerializer
 
-    def post(self, request):
+    def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data['email']
             password = serializer.validated_data['password']
 
-            user = authenticate(request, username=email, password=password)
+            user = authenticate(username=email, password=password)
             if user:
-                login(request, user)
-                token, created = Token.objects.get_or_create(user=user)
-                return Response({'token': token.key})
+                payload = jwt_payload_handler(user)
+                token = jwt_encode_handler(payload)
+                return Response({'token': token})
             else:
                 return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 @api_view(['GET'])
@@ -845,40 +848,58 @@ def validate_username(username):
     return True, "Username is valid."
 
 
-def send_verification_email(user):
-    # Generate a random 4-digit number
+def send_verification_email(user, verification_type, new_email=None):
     verification_code = str(random.randint(1000, 9999))
 
-    # Create or update the EmailVerification instance
     EmailVerification.objects.update_or_create(
         user=user,
-        defaults={'verification_code': verification_code, 'verified': False}
+        defaults={
+            'verification_code': verification_code,
+            'verified': False,
+            'verification_type': verification_type,
+            'new_email': new_email if verification_type == 'email_change' else None
+        }
     )
 
-    # Send an email to the user
+    email_subject = 'Your Verification Code'
+    email_body = f'Your verification code is: {verification_code}'
+
+    if verification_type == 'email_change':
+        email_subject = 'Your Email Change Verification Code'
+        email_body = f'Your verification code for changing your email is: {verification_code}'
+    elif verification_type == 'password_change':
+        email_subject = 'Your Password Change Verification Code'
+        email_body = f'Your verification code for changing your password is: {verification_code}'
+
     send_mail(
-        'Your Verification Code',
-        f'Your verification code is: {verification_code}',
+        email_subject,
+        email_body,
         settings.DEFAULT_FROM_EMAIL,
         [user.email],
         fail_silently=False,
     )
 
 
-def verify_email_view(request):
-    if request.method == 'POST':
-        code = request.POST.get('code')
-        user_id = request.POST.get('user_id')
-        verification_instance = EmailVerification.objects.get(user_id=user_id)
+class VerificationView(APIView):
+    permission_classes = [IsAuthenticated]
 
-        if verification_instance.verification_code == code:
+    def post(self, request, *args, **kwargs):
+        code = request.data.get('code')
+        verification_type = request.data.get('verification_type')
+        user = request.user
+        verification_instance = EmailVerification.objects.get(user=user)
+
+        if verification_instance.verification_code == code and not verification_instance.verified:
+            if verification_type == 'email_change':
+                user.email = verification_instance.new_email
+                user.save()
+            elif verification_type == 'password_change':
+                new_password = request.data.get('new_password')
+                user.set_password(new_password)
+                user.save()
+
             verification_instance.verified = True
             verification_instance.save()
-            # Redirect to a success page or log the user in
-            return redirect('success_page')
+            return Response({'status': f'{verification_type} updated successfully'}, status=status.HTTP_200_OK)
         else:
-            # Handle incorrect code
-            pass  # You might want to add some error message
-
-    # If GET request or code is incorrect, show the verification form again
-    return render(request, 'mail/verify_email.html')
+            return Response({'error': 'Invalid verification code'}, status=status.HTTP_400_BAD_REQUEST)
