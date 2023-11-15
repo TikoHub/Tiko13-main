@@ -113,6 +113,7 @@ class CustomUserLoginView(APIView):
                 payload['token_type'] = 'access'
                 payload['jti'] = str(uuid.uuid4())
                 payload['iat'] = datetime.now(timezone.utc)
+                payload['exp'] = datetime.now(timezone.utc) + timedelta(days=7)
                 token = jwt_encode_handler(payload)
                 return Response({'token': token})
             else:
@@ -795,29 +796,6 @@ def delete_conversation(request, user_id):
     return redirect('messages_list')
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def change_username(request):
-    new_username = request.data.get('new_username')
-    is_valid, message = validate_username(new_username)
-    if not is_valid:
-        return Response({"error": message}, status=status.HTTP_400_BAD_REQUEST)
-
-    # Check if new_username is provided and not empty
-    if not new_username:
-        return Response({'error': 'No username provided'}, status=status.HTTP_400_BAD_REQUEST)
-
-    # Check if the username already exists
-    if User.objects.filter(username=new_username).exists():
-        return Response({'error': 'Username already taken'}, status=status.HTTP_400_BAD_REQUEST)
-
-    # Set the new username
-    request.user.username = new_username
-    request.user.save()
-
-    return Response({'status': 'Username changed'}, status=status.HTTP_200_OK)
-
-
 def validate_username(username):
     # Length should be more than 4 characters and less than 33
     if not (3 < len(username) < 33):
@@ -861,18 +839,18 @@ def send_verification_email(user, verification_type, new_email=None):
         defaults={
             'verification_code': verification_code,
             'verified': False,
-            'verification_type': verification_type,
-            'new_email': new_email if verification_type == 'email_change' else None
+           # 'verification_type': verification_type,
+           # 'new_email': new_email if verification_type == 'email_change' else None
         }
     )
 
     email_subject = 'Your Verification Code'
     email_body = f'Your verification code is: {verification_code}'
 
-    if verification_type == 'email_change':
-        email_subject = 'Your Email Change Verification Code'
-        email_body = f'Your verification code for changing your email is: {verification_code}'
-    elif verification_type == 'password_change':
+   # if verification_type == 'email_change':            Закомментил возможность менять эмейл
+   #     email_subject = 'Your Email Change Verification Code'
+   #     email_body = f'Your verification code for changing your email is: {verification_code}'
+    if verification_type == 'password_change':
         email_subject = 'Your Password Change Verification Code'
         email_body = f'Your verification code for changing your password is: {verification_code}'
 
@@ -895,10 +873,10 @@ class VerificationView(APIView):
         verification_instance = EmailVerification.objects.get(user=user)
 
         if verification_instance.verification_code == code and not verification_instance.verified:
-            if verification_type == 'email_change':
-                user.email = verification_instance.new_email
-                user.save()
-            elif verification_type == 'password_change':
+          #  if verification_type == 'email_change':             Закомментил возможность менять Эмейл
+          #      user.email = verification_instance.new_email
+          #      user.save()
+            if verification_type == 'password_change':
                 new_password = request.data.get('new_password')
                 user.set_password(new_password)
                 user.save()

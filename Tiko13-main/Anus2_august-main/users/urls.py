@@ -12,18 +12,15 @@ from rest_framework_simplejwt.views import (
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'), #Takumi Register
     path('api/login/', CustomUserLoginView.as_view(), name='custom_user_login'),
-   # path('drf-auth/', include('rest_framework.urls')),
+    path('drf-auth/', include('rest_framework.urls')),
     path('social-auth/', include('social_django.urls', namespace='social')),       #Пока сюда смотри
     path('auth/', include('djoser.urls')),
     path('auth/', include('djoser.urls.jwt')),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
-
-    #re_path(r'auth/', include('djoser.urls.authtoken')),
     path('accounts/', include('allauth.urls')),
     path('auth/', include('allauth.socialaccount.urls')),
-#    path('settings/main_settings', views.settings, name='main_settings'),
     path('follow', views.follow, name='follow'),
     path('conversation/<int:user_id>/', views.conversation_view, name='conversation'),
     path('messages_list/', views.messages_list_view, name='messages_list'),
@@ -62,7 +59,6 @@ urlpatterns = [
     path('delete_conversation/<int:user_id>/', views.delete_conversation, name='delete_conversation'),
     path('<str:username>/followers/', views.followers_list, name='followers-list'),
     path('<str:username>/following/', views.following_list, name='following-list'),
-    path('settings/change_username/', views.change_username, name='change_username'),
     path('api/<str:username>/', ProfileAPIView.as_view(), name='api-profile'), # Takumi Profile
     path('verify-email/', VerificationView.as_view(), name='verify-email'),
     path('api/<str:username>/library', views.get_library_content, name='api_get_library_content'),
@@ -72,6 +68,7 @@ urlpatterns = [
     path('api/<str:username>/description/', views.update_profile_description, name='api_update_profile_description'),
     path('api/<str:username>/settings/', WebPageSettingsAPIView.as_view(), name='api_web_settings'),
     path('settings/privacy/', PrivacySettingsAPIView.as_view(), name='privacy_settings'),
+    path('api/settings/security', VerificationView.as_view(), name='verify-email'),
 
 
 

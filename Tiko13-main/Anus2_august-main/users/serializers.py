@@ -89,7 +89,6 @@ class ProfileSerializer(serializers.ModelSerializer):
         return FollowerHelper.get_following_count(obj.user)
 
 
-
 class LibraryBookSerializer(serializers.ModelSerializer):
     author = serializers.StringRelatedField()
     genre = serializers.SlugRelatedField(
@@ -205,7 +204,7 @@ class PrivacySettingsSerializer(serializers.ModelSerializer):
         fields = ('auto_add_reading', 'library_visibility')
 
 
-class EmailChangeSerializer(serializers.Serializer):
+'''class EmailChangeSerializer(serializers.Serializer):           # Закомментил возможность менять эмейл
     verification_code = serializers.CharField(required=True)
     new_email = serializers.EmailField(required=True)
 
@@ -223,6 +222,8 @@ class EmailChangeSerializer(serializers.Serializer):
             raise serializers.ValidationError("Verification code already used.")
 
         return data
+'''
+
 
 class PasswordChangeSerializer(serializers.Serializer):
     verification_code = serializers.CharField(required=True)
