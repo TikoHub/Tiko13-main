@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from django.db import transaction
 import random
@@ -111,6 +112,7 @@ class CustomUserLoginView(APIView):
                 payload = jwt_payload_handler(user)
                 payload['token_type'] = 'access'
                 payload['jti'] = str(uuid.uuid4())
+                payload['iat'] = datetime.now(timezone.utc)
                 token = jwt_encode_handler(payload)
                 return Response({'token': token})
             else:
