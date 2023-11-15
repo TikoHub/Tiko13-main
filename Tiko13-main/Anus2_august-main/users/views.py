@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import transaction
 import random
 import re
@@ -12,7 +14,6 @@ from django.db.models import Q, Count
 from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
 from django.shortcuts import render, redirect, get_object_or_404
 from rest_framework import status, generics
-from rest_framework.authtoken.models import Token
 from rest_framework.decorators import permission_classes, api_view
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
@@ -24,7 +25,7 @@ from store.models import Book, Comment, Review, Series
 from .helpers import FollowerHelper
 
 from .forms import UploadIllustrationForm, UploadTrailerForm
-from .models import FollowersCount, Achievement, Illustration, Trailer, Notification, Conversation, Message, \
+from .models import Achievement, Illustration, Trailer, Notification, Conversation, Message, \
     WebPageSettings, Library, EmailVerification
 from .serializers import *
 
@@ -108,6 +109,8 @@ class CustomUserLoginView(APIView):
             user = authenticate(username=email, password=password)
             if user:
                 payload = jwt_payload_handler(user)
+                payload['token_type'] = 'access'
+                payload['jti'] = str(uuid.uuid4())
                 token = jwt_encode_handler(payload)
                 return Response({'token': token})
             else:

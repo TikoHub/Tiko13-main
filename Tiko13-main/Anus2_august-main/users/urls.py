@@ -12,7 +12,7 @@ from rest_framework_simplejwt.views import (
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'), #Takumi Register
     path('api/login/', CustomUserLoginView.as_view(), name='custom_user_login'),
-    path('drf-auth/', include('rest_framework.urls')),
+   # path('drf-auth/', include('rest_framework.urls')),
     path('social-auth/', include('social_django.urls', namespace='social')),       #Пока сюда смотри
     path('auth/', include('djoser.urls')),
     path('auth/', include('djoser.urls.jwt')),
@@ -20,7 +20,7 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
 
-    re_path(r'auth/', include('djoser.urls.authtoken')),
+    #re_path(r'auth/', include('djoser.urls.authtoken')),
     path('accounts/', include('allauth.urls')),
     path('auth/', include('allauth.socialaccount.urls')),
 #    path('settings/main_settings', views.settings, name='main_settings'),
