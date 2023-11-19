@@ -1,10 +1,10 @@
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, date
 
 from django.db import transaction
 import random
 import re
-
+from django.contrib.auth.hashers import make_password
 from django.contrib import messages
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.decorators import login_required
@@ -24,13 +24,14 @@ from rest_framework.views import APIView
 from rest_framework_jwt.settings import api_settings
 from store.models import Book, Comment, Review, Series
 from .helpers import FollowerHelper
+from django.conf import settings
 
 from .forms import UploadIllustrationForm, UploadTrailerForm
 from .models import Achievement, Illustration, Trailer, Notification, Conversation, Message, \
-    WebPageSettings, Library, EmailVerification
+    WebPageSettings, Library, EmailVerification, TemporaryRegistration
 from .serializers import *
 
-
+'''
 class RegisterView(generics.CreateAPIView):
     serializer_class = CustomUserRegistrationSerializer
 
@@ -92,6 +93,105 @@ class RegisterView(generics.CreateAPIView):
 
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+'''
+
+class RegisterView(generics.CreateAPIView):
+    serializer_class = CustomUserRegistrationSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            # Extract validated data
+            validated_data = serializer.validated_data
+
+            # Generate a verification code
+            verification_code = str(random.randint(1000, 9999))
+
+            # Store the registration data temporarily
+            temp_reg = TemporaryRegistration.objects.create(
+                first_name=validated_data['first_name'],
+                last_name=validated_data.get('last_name', ''),
+                email=validated_data['email'],
+                password=validated_data['password'],  # Password lives in temporary storage on server for 10 minutes
+                dob_month=validated_data.get('dob_month'),
+                dob_year=validated_data.get('dob_year'),
+                verification_code=verification_code,
+            )
+            # Send verification email
+            send_mail(
+                'Verify your account',
+                f'Your verification code is {verification_code}.',
+                'from@example.com',  # Use your actual sender email address here
+                [validated_data['email']],
+                fail_silently=False,
+            )
+
+            # Return a response indicating that the user needs to verify their email
+            return Response({'status': 'Please verify your email'}, status=status.HTTP_200_OK)
+
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+def generate_unique_username(base_username):
+    # Generate a unique username using a base username and appending a random number
+    username = f"{base_username}{random.randint(1000, 9999)}"
+    while User.objects.filter(username=username).exists():
+        username = f"{base_username}{random.randint(1000, 9999)}"
+    return username
+
+
+class VerifyRegistrationView(APIView):
+    def post(self, request, *args, **kwargs):
+        serializer = VerificationCodeSerializer(data=request.data)
+        if serializer.is_valid():
+            email = serializer.validated_data['email']
+            code = serializer.validated_data['verification_code']
+
+            try:
+                temp_reg = TemporaryRegistration.objects.get(email=email, verification_code=code)
+                if not temp_reg.is_expired:
+                    # Generate a unique username using a utility function
+                    base_username = temp_reg.first_name.lower()
+                    unique_username = generate_unique_username(base_username)
+
+                    # Create the actual User record
+                    user = User.objects.create_user(
+                        username=unique_username,
+                        email=temp_reg.email,
+                        password=temp_reg.password
+                    )
+
+                    # Set first and last names
+                    user.first_name = temp_reg.first_name
+                    user.last_name = temp_reg.last_name
+                    user.save()
+
+                    # Create or get the user's profile
+                    profile, _ = Profile.objects.get_or_create(user=user)
+                    # Set additional profile fields if needed
+
+                    # Create or get the user's library
+                    Library.objects.get_or_create(user=user)
+
+                    # Set the date of birth in WebPageSettings
+                    dob = date(year=temp_reg.dob_year, month=temp_reg.dob_month, day=1)
+                    WebPageSettings.objects.update_or_create(
+                        profile=profile,
+                        defaults={'date_of_birth': dob}
+                    )
+
+                    # Delete the temporary registration
+                    temp_reg.delete()
+
+                    return Response({'status': 'User registered successfully'}, status=status.HTTP_201_CREATED)
+                else:
+                    return Response({'error': 'Verification code expired'}, status=status.HTTP_400_BAD_REQUEST)
+            except TemporaryRegistration.DoesNotExist:
+                return Response({'error': 'Invalid verification details'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 
 
 jwt_payload_handler = api_settings.JWT_PAYLOAD_HANDLER
@@ -207,7 +307,7 @@ def follow(request):
         return redirect('/')
 
 
-def add_to_library(request, book_id, category):
+'''def add_to_library(request, book_id, category):
     if request.user.is_authenticated:
         book = Book.objects.get(pk=book_id)
         my_library, created = Library.objects.get_or_create(user=request.user)
@@ -224,7 +324,31 @@ def add_to_library(request, book_id, category):
         elif category == 'finished':
             my_library.finished_books.add(book)
 
-    return redirect('library', username=request.user.username)
+    return redirect('library', username=request.user.username)'''
+
+
+class AddToLibraryView(APIView):
+    def post(self, request):
+        user = request.user
+        book_id = request.data.get('book_id')
+        category = request.data.get('category')  # e.g., 'reading', 'wishlist'
+
+        if not book_id or not category:
+            return Response({'error': 'Missing book ID or category'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            book = Book.objects.get(id=book_id)
+            library, _ = Library.objects.get_or_create(user=user)
+
+            # Add book to the specified category
+            getattr(library, f'{category}_books').add(book)
+            return Response({'message': 'Book added successfully'}, status=status.HTTP_200_OK)
+
+        except Book.DoesNotExist:
+            return Response({'error': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 def can_view_library(request_user, user):
@@ -316,7 +440,6 @@ def get_library_content(request, username):
 def get_comments_content(request, username):
     user_object = User.objects.get(username=username)
     user_comments = Comment.objects.filter(user=user_object)
-
     # Get the sorting parameter from the request GET parameters
     sort_by = request.GET.get('sort_by')
 
@@ -591,16 +714,41 @@ def main_settings(request):
     return render(request, 'settings/main_settings.html')
 
 
-def settings_notifications(request):
-    return render(request, 'settings/notifications.html')
+class NotificationSettingsAPIView(generics.RetrieveUpdateAPIView):
+    serializer_class = NotificationSettingSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        # Ensure that a NotificationSetting instance exists for the user
+        obj, created = NotificationSetting.objects.get_or_create(user=self.request.user)
+        return obj
 
 
+@api_view(['GET'])
+def notifications(request):
+    notifications = Notification.objects.filter(recipient=request.user.profile, read=False)
+    serializer = NotificationSerializer(notifications, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['POST'])
+def read_notification(request, notification_id):
+    notification = get_object_or_404(Notification, id=notification_id, recipient=request.user.profile)
+    notification.read = True
+    notification.save()
+    return Response({'status': 'Notification marked as read'})
+
+
+@api_view(['GET'])
+def notification_count(request):
+    count = request.user.profile.unread_notification_count()
+    return Response({"unread_count": count})
+                                                # Тут я удалил старые нотификации, так как еще незатестил её поэтому оставил их
+'''
 def notifications(request):
     # get all unread notifications
     notifications = Notification.objects.filter(recipient=request.user.profile, read=False)
     return render(request, 'notifications/notifications.html', {'notifications': notifications})
-
-
 def read_notification(request, notification_id):
     # Retrieve the notification by id or return 404 if not found
     notification = get_object_or_404(Notification, id=notification_id)
@@ -612,12 +760,11 @@ def read_notification(request, notification_id):
 
     # Redirect back to the notifications page
     return redirect('notifications')
-
-
 @login_required(login_url='signin')
 def notification_count(request):
     count = request.user.profile.unread_notification_count()
     return JsonResponse({"unread_count": count})
+'''
 
 
 class PrivacySettingsAPIView(APIView):
@@ -831,28 +978,18 @@ def validate_username(username):
     return True, "Username is valid."
 
 
-def send_verification_email(user, verification_type, new_email=None):
-    verification_code = str(random.randint(1000, 9999))
-
+def send_verification_email(user, code):
+    # Update or create the EmailVerification record with the provided code
     EmailVerification.objects.update_or_create(
         user=user,
         defaults={
-            'verification_code': verification_code,
-            'verified': False,
-           # 'verification_type': verification_type,
-           # 'new_email': new_email if verification_type == 'email_change' else None
+            'verification_code': code,
+            'verified': False
         }
     )
 
-    email_subject = 'Your Verification Code'
-    email_body = f'Your verification code is: {verification_code}'
-
-   # if verification_type == 'email_change':            Закомментил возможность менять эмейл
-   #     email_subject = 'Your Email Change Verification Code'
-   #     email_body = f'Your verification code for changing your email is: {verification_code}'
-    if verification_type == 'password_change':
-        email_subject = 'Your Password Change Verification Code'
-        email_body = f'Your verification code for changing your password is: {verification_code}'
+    email_subject = 'Your Password Change Verification Code'
+    email_body = f'Your verification code for changing your password is: {code}'
 
     send_mail(
         email_subject,
@@ -863,6 +1000,7 @@ def send_verification_email(user, verification_type, new_email=None):
     )
 
 
+'''
 class VerificationView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -886,3 +1024,51 @@ class VerificationView(APIView):
             return Response({'status': f'{verification_type} updated successfully'}, status=status.HTTP_200_OK)
         else:
             return Response({'error': 'Invalid verification code'}, status=status.HTTP_400_BAD_REQUEST)
+'''
+
+
+class PasswordChangeRequestView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = PasswordChangeRequestSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            user = request.user
+            new_password = serializer.validated_data['new_password']  # Store it in plain text
+            code = str(random.randint(100000, 999999))
+            TemporaryPasswordStorage.create_for_user(user, new_password, code)
+            send_verification_email(user, code)
+            return Response({'status': 'Verification code sent.'}, status=200)
+        return Response(serializer.errors, status=400)
+
+
+class PasswordChangeVerificationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        serializer = PasswordChangeVerificationSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            user = request.user
+            temp_storage = TemporaryPasswordStorage.objects.get(user=user)
+            if not temp_storage.is_expired:
+                plain_new_password = temp_storage.hashed_new_password  # Retrieve the plain new password
+
+                user.set_password(plain_new_password)  # This will hash the password
+                user.save()
+                temp_storage.delete()
+
+                # Verifying if the new password works
+                if authenticate(username=user.username, password=plain_new_password):
+                    # Now using the plain new password for verification
+                    return Response({'status': 'Password updated successfully'}, status=200)
+                else:
+                    return Response({'error': 'New password verification failed'}, status=400)
+            else:
+                return Response({'error': 'Verification code expired'}, status=400)
+        return Response(serializer.errors, status=400)
+
+
+
+
+
+

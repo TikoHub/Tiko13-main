@@ -1,3 +1,7 @@
+import datetime
+
+from django.utils import timezone
+
 from django.db import models
 from store.models import Book, Review, Comment
 from django.contrib.auth.models import User
@@ -15,6 +19,21 @@ class Achievement(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class TemporaryRegistration(models.Model):
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100, blank=True)
+    email = models.EmailField(unique=True)
+    password = models.CharField(max_length=32)
+    dob_month = models.IntegerField(null=True, blank=True)
+    dob_year = models.IntegerField(null=True, blank=True)
+    verification_code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def is_expired(self):
+        return timezone.now() > self.created_at + datetime.timedelta(minutes=10)
 
 
 class Notification(models.Model):
@@ -99,7 +118,6 @@ class Library(models.Model):
                 self.finished_books.all()).distinct()
 
 
-
 class Illustration(models.Model):
     image = models.ImageField(upload_to='static/images/illustrations')
 
@@ -160,6 +178,46 @@ class Message(models.Model):
 
 class EmailVerification(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    verification_code = models.CharField(max_length=4)
+    verification_code = models.CharField(max_length=6)
     verified = models.BooleanField(default=False)
-    # You might want to add a timestamp to track when the code was sent
+
+
+class TemporaryPasswordStorage(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    hashed_new_password = models.CharField(max_length=128)
+    verification_code = models.CharField(max_length=6)
+    expires_at = models.DateTimeField()
+
+    @property
+    def is_expired(self):
+        return timezone.now() > self.expires_at
+
+    @staticmethod
+    def create_for_user(user, hashed_password, code):
+        expiration_duration = datetime.timedelta(hours=1)  # Adjust as needed
+        instance, _ = TemporaryPasswordStorage.objects.update_or_create(
+            user=user,
+            defaults={
+                'hashed_new_password': hashed_password,
+                'verification_code': code,
+                'expires_at': timezone.now() + expiration_duration
+            }
+        )
+        return instance
+
+
+class NotificationSetting(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='notification_settings')
+    group_by_author = models.BooleanField(default=True)
+    show_book_updates = models.BooleanField(default=True)
+    show_author_updates = models.BooleanField(default=True)
+
+    newbooks = models.BooleanField(default=False)
+    library_readling_updates = models.BooleanField(default=True)
+    library_wishlist_updates = models.BooleanField(default=True)
+    library_liked_updates = models.BooleanField(default=True)
+
+    show_review_updates = models.BooleanField(default=True)
+    show_comment_updates = models.BooleanField(default=True)
+    show_follower_updates = models.BooleanField(default=True)
+    show_response_updates = models.BooleanField(default=True)

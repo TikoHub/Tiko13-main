@@ -69,6 +69,9 @@ class Book(models.Model):
     volume_number = models.PositiveIntegerField(null=True, blank=True,
                                                   help_text='The number of the book in the series')
 
+    def get_display_price(self):
+        return "Free" if self.price == 0 else self.price
+
     def increase_views_count(self, user=None):
         if user is None:
             self.views_count += 1
@@ -83,13 +86,13 @@ class Book(models.Model):
     def save(self, *args, **kwargs):
         if not self.series_id:  # If "No Series" was selected or not provided...
             self.series = None
-            self.sequence_number = None  # Reset sequence number if the book is not part of a series
+            self.volume_number = None  # Reset sequence number if the book is not part of a series
         else:
             # If the book is part of a series and doesn't have a sequence number, assign one
-            if self.sequence_number is None:
+            if self.volume_number is None:
                 # Get the current highest sequence number in the series
-                current_max = self.series.books.aggregate(Max('sequence_number'))['sequence_number__max']
-                self.sequence_number = (current_max + 1) if current_max is not None else 1
+                current_max = self.series.books.aggregate(Max('volume_number'))['volume_number__max']
+                self.volume_number = (current_max + 1) if current_max is not None else 1
 
         # Call the "real" save method
         super().save(*args, **kwargs)
@@ -101,6 +104,12 @@ class Book(models.Model):
         # Logic to toggle between comments and reviews
         self.display_comments = not self.display_comments
         self.save()
+
+    def upvote_count(self):
+        return self.upvotes.count()
+
+    def downvote_count(self):
+        return self.downvotes.count()
 
 
 class BookLike(models.Model):

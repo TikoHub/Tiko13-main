@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Profile, WebPageSettings, EmailVerification
-from store.models import Book, Genre, Series, Comment
+from .models import Profile, WebPageSettings, TemporaryPasswordStorage, TemporaryRegistration, Notification, \
+    NotificationSetting
+from store.models import Book, Genre, Series, Comment, BookUpvote
 from .helpers import FollowerHelper
 
 
@@ -18,6 +19,28 @@ class CustomUserRegistrationSerializer(serializers.Serializer):
     def validate(self, data):
         if data['password'] != data['password2']:
             raise serializers.ValidationError("Passwords do not match.")
+        return data
+
+
+class VerificationCodeSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    verification_code = serializers.CharField(required=True)
+
+    def validate(self, data):
+        # Add validation to check if the TemporaryRegistration with the provided
+        # email and verification_code exists and is not expired.
+        try:
+            temp_reg = TemporaryRegistration.objects.get(
+                email=data['email'],
+                verification_code=data['verification_code']
+            )
+            if temp_reg.is_expired:
+                raise serializers.ValidationError("The verification code has expired.")
+        except TemporaryRegistration.DoesNotExist:
+            raise serializers.ValidationError("Invalid verification code or email.")
+
+        # You can add additional validation here if needed
+
         return data
 
 
@@ -111,12 +134,16 @@ class LibraryBookSerializer(serializers.ModelSerializer):
 
 
 class AuthoredBookSerializer(serializers.ModelSerializer):
-    like_count = serializers.IntegerField(read_only=True)
+   # like_count = serializers.IntegerField(read_only=True)
+   upvote_count = serializers.SerializerMethodField()
 
-    class Meta:
+   def get_upvote_count(self, obj):
+       return obj.upvotes.count()
+
+   class Meta:
         model = Book
         fields = ['id', 'name', 'genre', 'subgenres', 'coverpage', 'rating', 'views_count', 'last_modified', 'series',
-                  'volume_number', 'status', 'description', 'author', 'like_count']
+                  'volume_number', 'status', 'description', 'author', 'upvote_count']
 
 
 class SeriesSerializer(serializers.ModelSerializer):
@@ -137,11 +164,16 @@ class ParentCommentSerializer(serializers.ModelSerializer):
 
 class CommentSerializer(serializers.ModelSerializer):
     parent_comment = ParentCommentSerializer(read_only=True)
+    book_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
-        fields = ['id', 'book', 'text', 'timestamp', 'parent_comment']
+        fields = ['id', 'book', 'book_name', 'text', 'timestamp', 'parent_comment']
         # Во фронте добавить типа, if parent_comment is null : use book
+
+    def get_book_name(self, obj):
+        # Return the name of the book associated with this comment
+        return obj.book.name if obj.book else None
 
 
 class CustomUserSerializer(serializers.ModelSerializer):
@@ -225,24 +257,53 @@ class PrivacySettingsSerializer(serializers.ModelSerializer):
 '''
 
 
-class PasswordChangeSerializer(serializers.Serializer):
-    verification_code = serializers.CharField(required=True)
+class PasswordChangeRequestSerializer(serializers.Serializer):
+    current_password = serializers.CharField(required=True)
     new_password = serializers.CharField(required=True)
     confirm_new_password = serializers.CharField(required=True)
 
     def validate(self, data):
         user = self.context['request'].user
-        verification_instance = EmailVerification.objects.get(user=user, verification_type='password_change')
-
-        if verification_instance.verification_code != data['verification_code']:
-            raise serializers.ValidationError("Invalid verification code.")
-
+        if not user.check_password(data['current_password']):
+            raise serializers.ValidationError("Current password is incorrect.")
         if data['new_password'] != data['confirm_new_password']:
             raise serializers.ValidationError("New passwords do not match.")
-
-        if verification_instance.verified:
-            raise serializers.ValidationError("Verification code already used.")
-
-        # Additional password validations (e.g., complexity requirements) can be added here.
-
         return data
+
+
+class PasswordChangeVerificationSerializer(serializers.Serializer):
+    verification_code = serializers.CharField(required=True)
+
+    def validate_verification_code(self, value):
+        user = self.context['request'].user
+        try:
+            temp_storage = TemporaryPasswordStorage.objects.get(user=user, verification_code=value)
+            if temp_storage.is_expired:
+                raise serializers.ValidationError("Verification code expired.")
+            return value
+        except TemporaryPasswordStorage.DoesNotExist:
+            raise serializers.ValidationError("Invalid verification code.")
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ['id', 'recipient', 'sender', 'notification_type', 'read', 'timestamp']
+
+
+class NotificationSettingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NotificationSetting
+        fields = [
+            'group_by_author',
+            'show_book_updates',
+            'show_author_updates',
+            'newbooks',
+            'library_readling_updates',
+            'library_wishlist_updates',
+            'library_liked_updates',
+            'show_review_updates',
+            'show_comment_updates',
+            'show_follower_updates',
+            'show_response_updates',
+        ]

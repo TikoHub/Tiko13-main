@@ -1,7 +1,8 @@
 from django.urls import path, include
 from .views import BooksCreate, BooksUpdate, BooksDelete, CommentView, CommentCreateView, CommentDetailView, \
     BookSearch, CommentDeleteView, ReviewCreateView, review_toggle, increase_views_count, SelectBookTypeView, SeriesCreateView, \
-    BookTextView, SeriesDetailView, SeriesUpdateView, Reader, BooksListAPIView, BookDetailAPIView
+    BookTextView, SeriesDetailView, SeriesUpdateView, Reader, BooksListAPIView, BookDetailAPIView, LikeReviewAPIView, DislikeReviewAPIView, \
+    ReviewCreateAPIView
 from . import views
 
 
@@ -21,11 +22,11 @@ urlpatterns = [
     path('comment/like/<int:comment_id>/', views.like_comment, name='like_comment'),
     path('comment/dislike/<int:comment_id>/', views.dislike_comment, name='dislike_comment'),
     path('comment/create/<int:pk>/<int:parent_comment_id>/', CommentCreateView.as_view(), name='comment_create'),
-    path('review/create/<int:pk>/', ReviewCreateView.as_view(), name='review_create'),
+    path('review/create/<int:pk>/', ReviewCreateAPIView.as_view(), name='review_create'),
     path('book_detail/<int:pk>/toggle/', review_toggle, name='review_toggle'),
     path('review/increase_views_count/<int:review_id>/', increase_views_count, name='increase_views_count'),
-    path('review/<int:review_id>/like/', views.like_review, name='like_review'),
-    path('review/<int:review_id>/dislike/', views.dislike_review, name='dislike_review'),
+    path('review/<int:review_id>/like/', LikeReviewAPIView.as_view(), name='like_review'),
+    path('review/<int:review_id>/dislike/', DislikeReviewAPIView.as_view(), name='dislike_review'),
     path('create_series/', SeriesCreateView.as_view(), name='create_series'),
     path('book_text/', BookTextView.as_view(), name='book_text'),
     path('rating/<int:book_id>/upvote/', views.upvote_book, name='upvote_book'),

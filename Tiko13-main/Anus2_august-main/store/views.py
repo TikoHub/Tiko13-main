@@ -385,6 +385,49 @@ def like_review(request, review_id):
     return redirect(reverse('book_detail', kwargs={'pk': review.book.pk}))
 
 
+class ReviewCreateAPIView(generics.CreateAPIView):
+    queryset = Review.objects.all()
+    serializer_class = ReviewSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        book_id = self.kwargs.get('pk')
+        book = generics.get_object_or_404(Book, pk=book_id)
+        serializer.save(author=self.request.user, book=book)
+
+
+'''class ReviewToggleAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        book = generics.get_object_or_404(Book, pk=pk)
+        book.display_comments = not book.display_comments
+        book.save()
+        return Response({'message': 'Display comments toggled'}, status=status.HTTP_200_OK)'''
+
+
+class LikeReviewAPIView(generics.CreateAPIView):
+    queryset = ReviewLike.objects.all()
+    serializer_class = ReviewLikeSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        review_id = self.kwargs.get('pk')
+        review = generics.get_object_or_404(Review, pk=review_id)
+        # Add logic for liking the review here
+
+
+class DislikeReviewAPIView(generics.CreateAPIView):
+    queryset = ReviewDislike.objects.all()
+    serializer_class = ReviewDislikeSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        review_id = self.kwargs.get('pk')
+        review = generics.get_object_or_404(Review, pk=review_id)
+        # Add logic for disliking the review here
+
+
 def dislike_review(request, review_id):
     review = get_object_or_404(Review, id=review_id)
 
