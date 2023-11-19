@@ -136,6 +136,7 @@ class LibraryBookSerializer(serializers.ModelSerializer):
 class AuthoredBookSerializer(serializers.ModelSerializer):
    # like_count = serializers.IntegerField(read_only=True)
    upvote_count = serializers.SerializerMethodField()
+   author = serializers.StringRelatedField()
 
    def get_upvote_count(self, obj):
        return obj.upvotes.count()
