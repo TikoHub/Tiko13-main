@@ -4,6 +4,7 @@ from .models import Profile, WebPageSettings, TemporaryPasswordStorage, Temporar
     NotificationSetting
 from store.models import Book, Genre, Series, Comment, BookUpvote
 from .helpers import FollowerHelper
+from django.utils.formats import date_format
 
 
 class CustomUserRegistrationSerializer(serializers.Serializer):
@@ -138,13 +139,19 @@ class AuthoredBookSerializer(serializers.ModelSerializer):
    upvote_count = serializers.SerializerMethodField()
    author = serializers.StringRelatedField()
    series = serializers.StringRelatedField()
+   formatted_last_modified = serializers.SerializerMethodField()
 
+   def get_formatted_last_modified(self, obj):
+       return date_format(obj.last_modified, "DATE_FORMAT")
+
+#   def get_formatted_last_modified(self, obj):
+#       return obj.last_modified.strftime('%d/%m/%Y')        Как вариант можно так
    def get_upvote_count(self, obj):
        return obj.upvotes.count()
 
    class Meta:
         model = Book
-        fields = ['id', 'name', 'genre', 'subgenres', 'coverpage', 'rating', 'views_count', 'last_modified', 'series',
+        fields = ['id', 'name', 'genre', 'subgenres', 'coverpage', 'rating', 'views_count', 'formatted_last_modified', 'series',
                   'volume_number', 'status', 'description', 'author', 'upvote_count']
 
 
@@ -167,10 +174,14 @@ class ParentCommentSerializer(serializers.ModelSerializer):
 class CommentSerializer(serializers.ModelSerializer):
     parent_comment = ParentCommentSerializer(read_only=True)
     book_name = serializers.SerializerMethodField()
+    formatted_timestamp = serializers.SerializerMethodField()
+
+    def get_formatted_timestamp(self, obj):
+        return obj.timestamp.strftime('%d/%m/%Y %H:%M')  # Formats the timestamp
 
     class Meta:
         model = Comment
-        fields = ['id', 'book', 'book_name', 'text', 'timestamp', 'parent_comment']
+        fields = ['id', 'book', 'book_name', 'text', 'formatted_timestamp', 'parent_comment']
         # Во фронте добавить типа, if parent_comment is null : use book
 
     def get_book_name(self, obj):
