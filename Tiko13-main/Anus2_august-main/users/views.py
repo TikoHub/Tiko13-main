@@ -577,17 +577,6 @@ def get_achievements_content(request, username):
     return render(request, 'profile/achievements.html', context)
 
 
-def get_profile_content(request, username):
-    user_object = get_object_or_404(User, username=username)
-    user_profile = Profile.objects.get(user=user_object)
-
-    context = {
-        'user_profile': user_profile,
-    }
-
-    return render(request, 'profile/profile.html', context)
-
-
 def achievements(request, username):
     user_profile = Profile.objects.get(user=username)
     achievements = user_profile.achievements.all()

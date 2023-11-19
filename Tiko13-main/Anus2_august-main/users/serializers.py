@@ -322,6 +322,7 @@ class NotificationSettingSerializer(serializers.ModelSerializer):
             'show_response_updates',
         ]
 
+
 class ProfileDescriptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile

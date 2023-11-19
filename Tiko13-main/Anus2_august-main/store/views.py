@@ -39,20 +39,19 @@ class BookDetailAPIView(generics.RetrieveAPIView):
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
 
-        # Include additional data here if needed
+        # Other logic remains the same
         comments = Comment.objects.filter(book=instance)
         reviews = Review.objects.filter(book=instance)
-
-        # You can serialize the comments and reviews if you want to include them in the response
         comments_serializer = CommentSerializer(comments, many=True)
         reviews_serializer = ReviewSerializer(reviews, many=True)
 
-        # You can add any additional data you want to the serialized book data
+        # Serialize the book data
         serialized_data = self.get_serializer(instance).data
         serialized_data['comments'] = comments_serializer.data
         serialized_data['reviews'] = reviews_serializer.data
 
-        instance.increase_views_count(request.user if request.user.is_authenticated else None)
+        # Update view count
+        instance.increase_views_count(request)  # Pass the entire request object
 
         return Response(serialized_data)
 
@@ -382,11 +381,15 @@ def review_toggle(request, pk):
     return redirect('book_detail', pk=pk)
 
 
+@api_view(['GET'])  # or POST, depending on how you want to trigger the view count
 def increase_views_count(request, review_id):
     review = get_object_or_404(Review, id=review_id)
+
     if review.increase_views_count(request.user):
-        return HttpResponse("Views count increased.")
-    return HttpResponse("Cannot increase views count within 24 hours.")
+        return Response({"message": "Views count increased."}, status=status.HTTP_200_OK)
+    else:
+        return Response({"message": "Cannot increase views count within 24 hours."}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 def like_review(request, review_id):
@@ -466,6 +469,14 @@ def dislike_review(request, review_id):
 
     # Redirect back to the same page
     return redirect(reverse('book_detail', kwargs={'pk': review.book.pk}))
+
+@api_view(['GET'])
+def review_detail(request, review_id):
+    review = get_object_or_404(Review, id=review_id)
+    review.increase_views_count(request)
+
+    serializer = ReviewSerializer(review)
+    return Response(serializer.data)
 
 
 def upvote_book(request, book_id):

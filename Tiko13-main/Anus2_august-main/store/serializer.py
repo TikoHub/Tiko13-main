@@ -2,16 +2,17 @@ from rest_framework import serializers
 from .models import Chapter, Book, Comment, Review, Genre, Series, BookView, ReviewLike, ReviewDislike
 from users.models import Profile, FollowersCount
 from django.utils.formats import date_format
+from django.shortcuts import get_object_or_404
 
 
-class ChapterSerializers(serializers.ModelSerializer):
+class ChapterSerializers(serializers.ModelSerializer):       # Основной Чаптер Сериалайзер
 
     class Meta:
         model = Chapter
         fields = ['title', 'content']
 
 
-class ChapterSerializer(serializers.ModelSerializer):
+class ChapterSerializer(serializers.ModelSerializer):      # Для Book_Detail / Content
     added_date = serializers.DateTimeField(source='created', format='%m-%d-%Y')
 
     class Meta:
@@ -19,8 +20,8 @@ class ChapterSerializer(serializers.ModelSerializer):
         fields = ['title', 'added_date']
 
 
-class BookSerializer(serializers.ModelSerializer):
-    author = serializers.StringRelatedField()  # This will display the author's __str__ method result.
+class BookSerializer(serializers.ModelSerializer):     # Основной Сериализатор для Book_Detail
+    author = serializers.StringRelatedField()
     genre = serializers.SlugRelatedField(
         slug_field='name',
         queryset=Genre.objects.all()
@@ -34,19 +35,20 @@ class BookSerializer(serializers.ModelSerializer):
     author_profile_img = serializers.SerializerMethodField()
     author_followers_count = serializers.SerializerMethodField()
 
+    def get_author_profile_img(self, obj):
+        request = self.context.get('request')
+        if obj.author.profile.profileimg and request:
+            return request.build_absolute_uri(obj.author.profile.profileimg.url)
+        return None
+
     def get_upvotes(self, obj):
         return obj.upvote_count()
 
     def get_downvotes(self, obj):
         return obj.downvote_count()
+
     def get_display_price(self, obj):
         return obj.get_display_price()
-
-    def get_author_profile_img(self, obj):
-        profile = Profile.objects.filter(user=obj.author).first()
-        if profile and profile.profileimg:
-            return profile.profileimg.url  # Make sure MEDIA_URL is configured properly in settings
-        return None
 
     def get_author_followers_count(self, obj):
         return FollowersCount.objects.filter(user=obj.author).count()
@@ -61,11 +63,11 @@ class BookSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Book
-        fields = ['id', 'name', 'genre', 'subgenres', 'author', 'coverpage', 'views_count', 'volume_number', 'last_modified', 'price',
+        fields = ['id', 'name', 'genre', 'subgenres', 'author', 'coverpage', 'views_count', 'volume_number', 'last_modified',
                   'is_adult', 'series_name', 'book_type', 'display_price', 'upvotes', 'downvotes', 'author_profile_img', 'author_followers_count']
 
 
-class BookInfoSerializer(serializers.ModelSerializer):
+class BookInfoSerializer(serializers.ModelSerializer):         # Book_Detail/Info
     total_chapters = serializers.SerializerMethodField()
     total_pages = serializers.SerializerMethodField()
     formatted_last_modified = serializers.SerializerMethodField()
@@ -86,7 +88,7 @@ class BookInfoSerializer(serializers.ModelSerializer):
         fields = ['total_chapters', 'total_pages', 'description', 'formatted_last_modified']
 
 
-class BookContentSerializer(serializers.ModelSerializer):
+class BookContentSerializer(serializers.ModelSerializer):        # Book_Detail/Content
     chapters = ChapterSerializer(many=True, read_only=True)
 
     class Meta:
@@ -119,15 +121,21 @@ class BookViewSerializer(serializers.ModelSerializer):
 
 
 class ReviewSerializer(serializers.ModelSerializer):
+    views_count = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = Review
-        fields = ['text', 'book', 'author']
+        fields = ['id', 'text', 'book', 'author', 'views_count']
 
     def create(self, validated_data):
-        # Remove 'author' and 'book' from validated_data since they will be added separately
-        author = validated_data.pop('author', None)
-        book = validated_data.pop('book', None)
-        review = Review.objects.create(author=author, book=book, **validated_data)
+        # Assuming that 'author' comes from the request user and 'book' from the request data
+        user = self.context['request'].user
+        book_id = self.context['request'].data.get('book_id')
+
+        # Fetch the book instance based on the provided book_id
+        book = get_object_or_404(Book, id=book_id)
+
+        review = Review.objects.create(author=user, book=book, **validated_data)
         return review
 
 
