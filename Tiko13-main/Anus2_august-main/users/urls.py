@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.conf.urls.static import static
 from django.urls import path, include, re_path
 from . import views
 from .views import CustomUserLoginView, ProfileAPIView, RegisterView, WebPageSettingsAPIView, PrivacySettingsAPIView, \
@@ -74,4 +76,4 @@ urlpatterns = [
     path('settings/notifications/', NotificationSettingsAPIView.as_view(), name='settings-notifications'),
     # ...add more paths for the other settings
     # ...
-    ]
+    ]  + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
