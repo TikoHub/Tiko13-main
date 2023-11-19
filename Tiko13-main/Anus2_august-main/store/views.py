@@ -57,6 +57,28 @@ class BookDetailAPIView(generics.RetrieveAPIView):
         return Response(serialized_data)
 
 
+@api_view(['GET'])
+def get_book_info(request, book_id):
+    try:
+        book = Book.objects.get(pk=book_id)
+    except Book.DoesNotExist:
+        return Response({'error': 'Book not found'}, status=404)
+
+    serializer = BookInfoSerializer(book)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+def get_book_content(request, book_id):
+    try:
+        book = Book.objects.get(pk=book_id)
+    except Book.DoesNotExist:
+        return Response({'error': 'Book not found'}, status=404)
+
+    serializer = BookContentSerializer(book)
+    return Response(serializer.data)
+
+
 class BookSearch(ListView):
     template_name = 'store/book_search.html'
     queryset = Book.objects.all()

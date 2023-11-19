@@ -414,7 +414,7 @@ def get_library_content(request, username):
     except User.DoesNotExist:
         return Response({'error': 'User does not exist.'}, status=404)
 
-    filter_by = request.query_params.get('filter_by')     #Filter Takumi позже решить + проверить
+    filter_by = request.query_params.get('filter_by')  # Add your filter logic here
 
     if filter_by == 'reading':
         books_qs = library.reading_books.all()
@@ -429,11 +429,12 @@ def get_library_content(request, username):
     else:
         books_qs = library.get_all_books()
 
-    # Serialize the book data
-    books_serializer = LibraryBookSerializer(books_qs, many=True)
+    # Serialize the book data with request context
+    books_serializer = LibraryBookSerializer(books_qs, many=True, context={'request': request})
 
     # Return the serialized book data in the response
     return Response(books_serializer.data)
+
 
 
 @login_required(login_url='signin')
@@ -521,11 +522,12 @@ def get_authored_books(request, username):
     except User.DoesNotExist:
         return Response({'error': 'User does not exist.'}, status=404)
 
-    # Serialize the book data
-    books_serializer = AuthoredBookSerializer(authored_books, many=True)
+    # Serialize the book data with request context
+    books_serializer = AuthoredBookSerializer(authored_books, many=True, context={'request': request})
 
     # Return the serialized book data in the response
     return Response(books_serializer.data)
+
 
 
 @api_view(['GET'])
@@ -542,18 +544,25 @@ def get_user_series(request, username):
     return Response(series_serializer.data)
 
 
-@api_view(['PUT'])
+@api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated])
 def update_profile_description(request, username):
+    if request.user.username != username:
+        return Response({'error': 'You do not have permission to access this profile.'}, status=status.HTTP_403_FORBIDDEN)
+
     profile = request.user.profile
-    description = request.data.get('description', '')
 
-    # Optionally, validate the description content here
+    if request.method == 'GET':
+        serializer = ProfileDescriptionSerializer(profile)
+        return Response(serializer.data)
 
-    profile.description = description
-    profile.save()
-    return Response({'message': 'Description updated successfully.'}, status=status.HTTP_200_OK)
-
+    elif request.method == 'PUT':
+        serializer = ProfileDescriptionSerializer(profile, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'message': 'Description updated successfully.'}, status=status.HTTP_200_OK)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 

@@ -1,11 +1,22 @@
 from rest_framework import serializers
 from .models import Chapter, Book, Comment, Review, Genre, Series, BookView, ReviewLike, ReviewDislike
 from users.models import Profile, FollowersCount
+from django.utils.formats import date_format
+
 
 class ChapterSerializers(serializers.ModelSerializer):
+
     class Meta:
         model = Chapter
         fields = ['title', 'content']
+
+
+class ChapterSerializer(serializers.ModelSerializer):
+    added_date = serializers.DateTimeField(source='created', format='%m-%d-%Y')
+
+    class Meta:
+        model = Chapter
+        fields = ['title', 'added_date']
 
 
 class BookSerializer(serializers.ModelSerializer):
@@ -45,13 +56,42 @@ class BookSerializer(serializers.ModelSerializer):
      #   total_characters = sum(len(chapter.content) for chapter in obj.chapters.all())
       #  return total_characters
 
+    def get_series_name(self, obj):
+        return obj.series.name if obj.series else None
+
     class Meta:
         model = Book
         fields = ['id', 'name', 'genre', 'subgenres', 'author', 'coverpage', 'views_count', 'volume_number', 'last_modified', 'price',
                   'is_adult', 'series_name', 'book_type', 'display_price', 'upvotes', 'downvotes', 'author_profile_img', 'author_followers_count']
 
-    def get_series_name(self, obj):
-        return obj.series.name if obj.series else None
+
+class BookInfoSerializer(serializers.ModelSerializer):
+    total_chapters = serializers.SerializerMethodField()
+    total_pages = serializers.SerializerMethodField()
+    formatted_last_modified = serializers.SerializerMethodField()
+
+    def get_formatted_last_modified(self, obj):
+        return obj.last_modified.strftime('%m/%d/%Y')
+
+    def get_total_chapters(self, obj):
+        # Assuming you have a related set of chapters
+        return obj.chapters.count()
+
+    def get_total_pages(self, obj):
+        # Assuming you have a way to calculate total pages
+        return obj.calculate_total_pages()  # Replace with your method
+
+    class Meta:
+        model = Book
+        fields = ['total_chapters', 'total_pages', 'description', 'formatted_last_modified']
+
+
+class BookContentSerializer(serializers.ModelSerializer):
+    chapters = ChapterSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Book
+        fields = ['chapters']
 
 
 class CommentSerializer(serializers.ModelSerializer):

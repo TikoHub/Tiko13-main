@@ -142,12 +142,13 @@ class AuthoredBookSerializer(serializers.ModelSerializer):
    formatted_last_modified = serializers.SerializerMethodField()
 
    def get_formatted_last_modified(self, obj):
-       return date_format(obj.last_modified, "DATE_FORMAT")
+       return obj.last_modified.strftime('%m/%d/%Y')
 
-#   def get_formatted_last_modified(self, obj):
+   #   def get_formatted_last_modified(self, obj):
 #       return obj.last_modified.strftime('%d/%m/%Y')        Как вариант можно так
    def get_upvote_count(self, obj):
        return obj.upvotes.count()
+
 
    class Meta:
         model = Book
@@ -177,7 +178,7 @@ class CommentSerializer(serializers.ModelSerializer):
     formatted_timestamp = serializers.SerializerMethodField()
 
     def get_formatted_timestamp(self, obj):
-        return obj.timestamp.strftime('%d/%m/%Y %H:%M')  # Formats the timestamp
+        return obj.timestamp.strftime('%m/%d/%Y %H:%M')  # Formats the timestamp
 
     class Meta:
         model = Comment
@@ -320,3 +321,8 @@ class NotificationSettingSerializer(serializers.ModelSerializer):
             'show_follower_updates',
             'show_response_updates',
         ]
+
+class ProfileDescriptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profile
+        fields = ['description']

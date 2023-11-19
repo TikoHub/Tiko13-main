@@ -69,6 +69,10 @@ class Book(models.Model):
     volume_number = models.PositiveIntegerField(null=True, blank=True,
                                                   help_text='The number of the book in the series')
 
+    def calculate_total_pages(self):
+        total_characters = sum(len(chapter.content) for chapter in self.chapters.all())
+        return total_characters // 2500
+
     def get_display_price(self):
         return "Free" if self.price == 0 else self.price
 
@@ -132,6 +136,7 @@ class Chapter(models.Model):
     book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='chapters')
     title = models.CharField(max_length=200, blank=True)  # This will hold the "Chapter X" title
     updated = models.DateTimeField(auto_now=True)
+    created = models.DateTimeField(auto_now_add=True)
     content = models.TextField()
 
     def save(self, *args, **kwargs):

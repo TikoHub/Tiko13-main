@@ -1,6 +1,3 @@
-from django.conf import settings
-from django.conf.urls.static import static
-
 from django.urls import path, include
 from .views import BooksCreate, BooksUpdate, BooksDelete, CommentView, CommentCreateView, CommentDetailView, \
     BookSearch, CommentDeleteView, ReviewCreateView, review_toggle, increase_views_count, SelectBookTypeView, SeriesCreateView, \
@@ -13,6 +10,8 @@ urlpatterns = [
 
     path('', BooksListAPIView.as_view(), name='books_list_api'),
     path('book_detail/<int:pk>/', BookDetailAPIView.as_view(), name='book_detail_api'),
+    path('book_detail/<int:book_id>/info', views.get_book_info, name='get_book_info'),
+    path('book_detail/<int:book_id>/content', views.get_book_content, name='get_book_content'),
     path('add/',BooksCreate.as_view(), name='book_create'),
     path('book_type/', SelectBookTypeView.as_view(), name='book_type'),
     path('<int:pk>/edit/', BooksUpdate.as_view(), name='book_update'),
@@ -47,6 +46,6 @@ urlpatterns = [
 
 
 
-]  + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+]
 
 
