@@ -2,7 +2,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, View, TemplateView
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
-
+from datetime import timedelta
+from django.utils import timezone
 from .models import CommentLike, CommentDislike, ReviewLike, ReviewDislike, Series, Genre, BookUpvote, BookDownvote, Chapter
 from django.contrib.auth.models import User, auth
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -23,9 +24,11 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework import generics
 from rest_framework.response import Response
-from .models import Book, Comment, Review, BookLike
+from .models import Book, Comment, Review, BookLike, ReviewView
+from .utils import get_client_ip
+from .ip_views import check_book_ip_last_viewed, update_book_ip_last_viewed, check_review_ip_last_viewed, update_review_ip_last_viewed
 from .serializer import *
-
+import datetime
 
 class BooksListAPIView(generics.ListAPIView):
     queryset = Book.objects.order_by('-id')
@@ -38,20 +41,18 @@ class BookDetailAPIView(generics.RetrieveAPIView):
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
-
-        # Other logic remains the same
-        comments = Comment.objects.filter(book=instance)
-        reviews = Review.objects.filter(book=instance)
-        comments_serializer = CommentSerializer(comments, many=True)
-        reviews_serializer = ReviewSerializer(reviews, many=True)
-
-        # Serialize the book data
         serialized_data = self.get_serializer(instance).data
-        serialized_data['comments'] = comments_serializer.data
-        serialized_data['reviews'] = reviews_serializer.data
 
-        # Update view count
-        instance.increase_views_count(request)  # Pass the entire request object
+        if 'accept_cookies' in request.COOKIES:
+            # Frontend handles the view count
+            pass
+        else:
+            ip_address = get_client_ip(request)
+            last_viewed = check_book_ip_last_viewed(ip_address, instance)
+            if not last_viewed or (timezone.now() - last_viewed > datetime.timedelta(days=1)):
+                instance.views_count += 1
+                instance.save()
+                update_book_ip_last_viewed(ip_address, instance)
 
         return Response(serialized_data)
 
@@ -279,7 +280,6 @@ class CommentCreateView(CreateView):
         self.object.save()
         return super().form_valid(form)
 
-
     def get_success_url(self):
         return reverse_lazy('book_detail', kwargs={'pk': self.object.book.pk})
 
@@ -293,6 +293,7 @@ class CommentUpdateView(UpdateView):
 class CommentDeleteView(DeleteView):
     template_name = 'comment/comment_delete.html'
     queryset = Comment.objects.all()
+
     def get_success_url(self):
         return reverse_lazy('book_detail', kwargs={'pk': self.object.book.pk})
 
@@ -381,19 +382,47 @@ def review_toggle(request, pk):
     return redirect('book_detail', pk=pk)
 
 
-@api_view(['GET'])  # or POST, depending on how you want to trigger the view count
-def increase_views_count(request, review_id):
-    review = get_object_or_404(Review, id=review_id)
+class ReviewListView(generics.ListCreateAPIView):
+    serializer_class = ReviewSerializer
 
-    if review.increase_views_count(request.user):
-        return Response({"message": "Views count increased."}, status=status.HTTP_200_OK)
-    else:
-        return Response({"message": "Cannot increase views count within 24 hours."}, status=status.HTTP_400_BAD_REQUEST)
+    def get_queryset(self):
+        book_id = self.kwargs.get('book_id')
+        return Review.objects.filter(book_id=book_id)
 
+    def get(self, request, *args, **kwargs):
+        reviews = self.get_queryset()
+        for review in reviews:
+            if 'accept_cookies' in request.COOKIES:
+                # Frontend handles the view count
+                pass
+            else:
+                ip_address = get_client_ip(request)
+                last_viewed = check_review_ip_last_viewed(ip_address, review)
+                if not last_viewed or (timezone.now() - last_viewed > timedelta(days=1)):
+                    review.views_count += 1
+                    review.save()
+                    update_review_ip_last_viewed(ip_address, review)
+
+        return super().get(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        book = get_object_or_404(Book, pk=self.kwargs.get('book_id'))
+        serializer.save(user=self.request.user, book=book)
+
+        # Send notification if the reviewer is not the book's author
+        if book.author != self.request.user:
+            if book.author.notification_settings.show_review_updates:
+                Notification.objects.create(
+                    recipient=book.author,
+                    sender=self.request.user.profile,
+                    notification_type='new_review',
+                    # Additional fields as needed
+                )
 
 
 def like_review(request, review_id):
     review = get_object_or_404(Review, id=review_id)
+    user = request.user
 
     # Check if the user has already disliked the review
     if ReviewDislike.objects.filter(user=request.user, review=review).exists():
@@ -538,9 +567,20 @@ class Reader(APIView):
         chapters = Chapter.objects.filter(book=book)
 
         # Serialize the chapters data and return it as JSON
-        serialized_chapters = [{'title': chapter.title, 'additional_title': chapter.additional_title, 'content': chapter.content} for chapter in chapters]
+        serialized_chapters = [{'title': chapter.title, 'content': chapter.content} for chapter in chapters]
 
         return Response(serialized_chapters)
+
+
+class SingleChapterView(APIView):
+    def get(self, request, book_id, chapter_id):
+        try:
+            chapter = Chapter.objects.get(book_id=book_id, id=chapter_id)
+        except Chapter.DoesNotExist:
+            return Response({'detail': 'Chapter not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        serialized_chapter = ChapterSerializers(chapter).data
+        return Response(serialized_chapter)
 
 
 @api_view(['POST'])

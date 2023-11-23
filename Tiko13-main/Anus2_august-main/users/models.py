@@ -26,8 +26,8 @@ class TemporaryRegistration(models.Model):
     last_name = models.CharField(max_length=100, blank=True)
     email = models.EmailField(unique=True)
     password = models.CharField(max_length=32)
-    dob_month = models.IntegerField(null=True, blank=True)
-    dob_year = models.IntegerField(null=True, blank=True)
+    dob_month = models.IntegerField()
+    dob_year = models.IntegerField()
     verification_code = models.CharField(max_length=6)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -42,11 +42,12 @@ class Notification(models.Model):
         ('like', 'Like'),
         ('comment', 'Comment'),
         ('follow', 'Follow'),
+        ('review_update', 'Review Update'),
     )
 
     recipient = models.ForeignKey('Profile', on_delete=models.CASCADE, related_name='notifications')
     sender = models.ForeignKey('Profile', on_delete=models.CASCADE, related_name='sent_notifications')
-    notification_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    notification_type = models.CharField(max_length=30, choices=TYPE_CHOICES)
     read = models.BooleanField(default=False)
     timestamp = models.DateTimeField(auto_now_add=True)
 
@@ -118,6 +119,47 @@ class Library(models.Model):
                 self.finished_books.all()).distinct()
 
 
+class Wallet(models.Model):
+    profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='wallet')
+    balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+
+    def __str__(self):
+        return f"{self.profile.user.username}'s Wallet"
+
+    def deposit(self, amount):
+        self.balance += amount
+        self.save()
+        WalletTransaction.objects.create(wallet=self, amount=amount, transaction_type='deposit')
+
+    def withdraw(self, amount):
+        if self.balance >= amount:
+            self.balance -= amount
+            self.save()
+            WalletTransaction.objects.create(wallet=self, amount=amount, transaction_type='withdraw')
+            return True
+        return False
+
+    def purchase(self, book, amount):
+        if self.balance >= amount:
+            self.balance -= amount
+            self.save()
+            WalletTransaction.objects.create(wallet=self, amount=amount, transaction_type='purchase',
+                                             related_purchase=book)
+            return True
+        return False
+
+
+class WalletTransaction(models.Model):
+    wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE, related_name='transactions')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    transaction_type = models.CharField(max_length=10, choices=[('deposit', 'Deposit'), ('withdraw', 'Withdraw'), ('purchase', 'Purchase')])
+    timestamp = models.DateTimeField(auto_now_add=True)
+    related_purchase = models.ForeignKey(Book, null=True, blank=True, on_delete=models.SET_NULL)  # Only for purchase transactions
+
+    def __str__(self):
+        return f"{self.wallet.profile.user.username} - {self.transaction_type} - {self.amount}"
+
+
 class Illustration(models.Model):
     image = models.ImageField(upload_to='static/images/illustrations')
 
@@ -140,8 +182,8 @@ class WebPageSettings(models.Model):
     )
 
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE)
-    date_of_birth = models.DateField(blank=True, null=True)
     display_dob_option = models.IntegerField(choices=DOB_CHOICES, default=1)
+    date_of_birth = models.DateField(blank=True, null=True)
     gender = models.CharField(
         max_length=15,
         choices=GENDER_CHOICES,

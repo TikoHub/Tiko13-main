@@ -5,13 +5,14 @@ from .models import Profile, WebPageSettings, TemporaryPasswordStorage, Temporar
 from store.models import Book, Genre, Series, Comment, BookUpvote
 from .helpers import FollowerHelper
 from django.utils.formats import date_format
+from django.utils import timezone
 
 
 class CustomUserRegistrationSerializer(serializers.Serializer):
     first_name = serializers.CharField(required=True)
     last_name = serializers.CharField(required=False)
-    dob_month = serializers.IntegerField(required=False) # Поменять на тру
-    dob_year = serializers.IntegerField(required=False) #Поменять на тру
+    dob_month = serializers.IntegerField(required=True)
+    dob_year = serializers.IntegerField(required=True)
 
     email = serializers.EmailField(required=True)
     password = serializers.CharField(write_only=True, required=True)
@@ -20,6 +21,11 @@ class CustomUserRegistrationSerializer(serializers.Serializer):
     def validate(self, data):
         if data['password'] != data['password2']:
             raise serializers.ValidationError("Passwords do not match.")
+        if data['dob_month'] < 1 or data['dob_month'] > 12:
+            raise serializers.ValidationError("Invalid month.")
+        current_year = timezone.now().year
+        if data['dob_year'] > current_year or data['dob_year'] < (current_year - 100):
+            raise serializers.ValidationError("Invalid year.")
         return data
 
 
@@ -238,7 +244,9 @@ class WebPageSettingsSerializer(serializers.ModelSerializer):
         # Update the WebPageSettings instance
         instance.display_dob_option = validated_data.get('display_dob_option', instance.display_dob_option)
         instance.gender = validated_data.get('gender', instance.gender)
-        instance.date_of_birth = validated_data.get('date_of_birth', instance.date_of_birth)
+        instance.dob_month = validated_data.get('dob_month', instance.dob_month)
+        instance.dob_year = validated_data.get('dob_year', instance.dob_year)
+        instance.dob_day = validated_data.get('dob_day', instance.dob_day)
         instance.save()
 
         return instance
@@ -300,9 +308,15 @@ class PasswordChangeVerificationSerializer(serializers.Serializer):
 
 
 class NotificationSerializer(serializers.ModelSerializer):
+    message = serializers.SerializerMethodField()
+
+    def get_message(self, obj):
+        if obj.notification_type == 'review_update':
+            return f"{obj.sender.user.username} updated a review"
+
     class Meta:
         model = Notification
-        fields = ['id', 'recipient', 'sender', 'notification_type', 'read', 'timestamp']
+        fields = ['id', 'recipient', 'sender', 'notification_type', 'read', 'timestamp', 'message']
 
 
 class NotificationSettingSerializer(serializers.ModelSerializer):

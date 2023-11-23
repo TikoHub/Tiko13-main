@@ -122,10 +122,18 @@ class BookViewSerializer(serializers.ModelSerializer):
 
 class ReviewSerializer(serializers.ModelSerializer):
     views_count = serializers.IntegerField(read_only=True)
+    like_count = serializers.SerializerMethodField()
+    dislike_count = serializers.SerializerMethodField()
+
+    def get_like_count(self, obj):
+        return ReviewLike.objects.filter(review=obj).count()
+
+    def get_dislike_count(self, obj):
+        return ReviewDislike.objects.filter(review=obj).count()
 
     class Meta:
         model = Review
-        fields = ['id', 'text', 'book', 'author', 'views_count']
+        fields = ['id', 'text', 'book', 'author', 'views_count', 'like_count', 'dislike_count']
 
     def create(self, validated_data):
         # Assuming that 'author' comes from the request user and 'book' from the request data

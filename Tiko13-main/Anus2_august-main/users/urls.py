@@ -2,7 +2,7 @@ from django.urls import path, include, re_path
 from . import views
 from .views import CustomUserLoginView, ProfileAPIView, RegisterView, WebPageSettingsAPIView, PrivacySettingsAPIView, \
     PasswordChangeRequestView, PasswordChangeVerificationView, VerifyRegistrationView, NotificationSettingsAPIView, \
-    AddToLibraryView
+    AddToLibraryView, NotificationsAPIView
 from django.views.generic import TemplateView
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -53,7 +53,7 @@ urlpatterns = [
     path('blacklist/<str:username>/remove/', views.remove_from_blacklist, name='remove_from_blacklist'),
     path('blacklist/', views.blacklist, name='blacklist'),
     path('notifications/unread_count/', views.notification_count, name='unread_notification_count'),
-    path('notifications/notifications/', views.notifications, name='notifications'),
+   # path('notifications/notifications/', views.notifications, name='notifications'),
     path('notifications/read/<int:notification_id>/', views.read_notification, name='read_notification'),
     path('delete_message/<int:message_id>/', views.delete_message, name='delete_message'),
     path('delete_conversation/<int:user_id>/', views.delete_conversation, name='delete_conversation'),
@@ -70,6 +70,10 @@ urlpatterns = [
     path('settings/security/', PasswordChangeRequestView.as_view(), name='request-password-change'), #Поле где пароль меняют
     path('settings/verify-password-change/', PasswordChangeVerificationView.as_view(), name='verify-password-change'), # Выскакивающее окно
     path('settings/notifications/', NotificationSettingsAPIView.as_view(), name='settings-notifications'),
+    path('api/notifications/', NotificationsAPIView.as_view(), name='notifications-api'),
+
+
+
     # ...add more paths for the other settings
     # ...
     ]

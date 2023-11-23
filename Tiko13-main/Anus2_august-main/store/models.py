@@ -4,6 +4,7 @@ from django.utils import timezone
 from datetime import timedelta, datetime
 from django.db.models import Max
 from django.conf import settings
+from .utils import get_client_ip
 
 User = get_user_model()
 
@@ -75,25 +76,6 @@ class Book(models.Model):
 
     def get_display_price(self):
         return "Free" if self.price == 0 else self.price
-
-    def increase_views_count(self, request):
-        if request.user.is_authenticated:
-            # Logic for authenticated users
-            last_view = BookView.objects.filter(book=self, user=request.user).order_by('-timestamp').first()
-            if not last_view or (timezone.now() - last_view.timestamp) > timedelta(days=1):
-                self.views_count += 1
-                self.save()
-                BookView.objects.create(book=self, user=request.user)
-        else:
-            # Logic for unauthenticated users using session
-            session_key = f'viewed_book_{self.id}'
-            last_view = request.session.get(session_key)
-
-            if not last_view or (timezone.now() - timezone.make_aware(datetime.fromtimestamp(last_view))) > timedelta(
-                    days=1):
-                self.views_count += 1
-                self.save()
-                request.session[session_key] = timezone.now().timestamp()
 
     def save(self, *args, **kwargs):
         if not self.series_id:  # If "No Series" was selected or not provided...
@@ -169,8 +151,12 @@ class Chapter(models.Model):
 
 class BookView(models.Model):
     book = models.ForeignKey(Book, on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    timestamp = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    last_viewed = models.DateTimeField(auto_now=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+    def is_authenticated_view(self):
+        return self.user is not None
 
 
 class Review(models.Model):
@@ -188,18 +174,6 @@ class Review(models.Model):
     def count_dislikes(self):
         return self.dislikes.count()
 
-    def increase_views_count(self, request):
-        user = request.user if request.user.is_authenticated else None
-        last_view = ReviewView.objects.filter(review=self, user=user).order_by('-timestamp').first()
-
-        if not last_view or (timezone.now() - last_view.timestamp) > timedelta(days=1):
-            self.views_count += 1
-            self.save()
-            ReviewView.objects.update_or_create(review=self, user=user)
-            return True
-        return False
-
-
     def save(self, *args, **kwargs):
         genre = self.book.genre
         name = f"Review for a {genre} {self.book.name} - {self.book.author}"
@@ -208,12 +182,10 @@ class Review(models.Model):
 
 
 class ReviewView(models.Model):
-    review = models.ForeignKey(Review, on_delete=models.CASCADE, related_name='views')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)  # Allow null for unauthenticated users
-    timestamp = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        unique_together = ['review', 'user']
+    review = models.ForeignKey(Review, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)  # Null for anonymous users
+    ip_address = models.GenericIPAddressField(null=True, blank=True)  # For anonymous users
+    timestamp = models.DateTimeField(auto_now_add=True)
 
 
 class Comment(models.Model):

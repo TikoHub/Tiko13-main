@@ -95,6 +95,7 @@ class RegisterView(generics.CreateAPIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 '''
 
+
 class RegisterView(generics.CreateAPIView):
     serializer_class = CustomUserRegistrationSerializer
 
@@ -173,8 +174,11 @@ class VerifyRegistrationView(APIView):
                     # Create or get the user's library
                     Library.objects.get_or_create(user=user)
 
-                    # Set the date of birth in WebPageSettings
+                    print(f"DOB Year: {temp_reg.dob_year}, DOB Month: {temp_reg.dob_month}")
                     dob = date(year=temp_reg.dob_year, month=temp_reg.dob_month, day=1)
+                    print(f"Constructed DOB: {dob}")
+
+                    # Create or update WebPageSettings
                     WebPageSettings.objects.update_or_create(
                         profile=profile,
                         defaults={'date_of_birth': dob}
@@ -722,11 +726,13 @@ class NotificationSettingsAPIView(generics.RetrieveUpdateAPIView):
         return obj
 
 
-@api_view(['GET'])
-def notifications(request):
-    notifications = Notification.objects.filter(recipient=request.user.profile, read=False)
-    serializer = NotificationSerializer(notifications, many=True)
-    return Response(serializer.data)
+class NotificationsAPIView(APIView):
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        notifications = Notification.objects.filter(recipient=user.profile)
+        serializer = NotificationSerializer(notifications, many=True)
+        return Response(serializer.data)
+
 
 
 @api_view(['POST'])

@@ -1,4 +1,5 @@
-from .models import FollowersCount
+from .models import FollowersCount, Notification
+from django.contrib.auth.models import User
 
 class FollowerHelper:
     @staticmethod
@@ -11,6 +12,17 @@ class FollowerHelper:
     def follow(follower, user):
         if not FollowerHelper.is_following(follower, user):
             new_follower = FollowersCount.objects.create(follower=follower, user=user)
+
+            # Check if the user wants to receive new follower notifications
+            if user.notification_settings.new_follower_notifications:
+                # Create a new notification for gaining a new follower
+                Notification.objects.create(
+                    recipient=user,
+                    sender=follower,
+                    notification_type='new_follower',
+                    # Additional fields as needed, such as a message or related content
+                )
+
             return new_follower
         return None
 
