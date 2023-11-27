@@ -1,7 +1,7 @@
 import datetime
 
 from django.utils import timezone
-
+from decimal import Decimal
 from django.db import models
 from store.models import Book, Review, Comment
 from django.contrib.auth.models import User
@@ -108,6 +108,7 @@ class Library(models.Model):
     wish_list_books = models.ManyToManyField(Book, related_name='wishlist_users', blank=True)
     favorites_books = models.ManyToManyField(Book, related_name='favorites_users', blank=True)
     finished_books = models.ManyToManyField(Book, related_name='finished_users', blank=True)
+    purchased_books = models.ManyToManyField(Book, related_name='purchased_by_users', blank=True)
 
     def __str__(self):
         return f"Library - {self.user.username}"
@@ -127,9 +128,13 @@ class Wallet(models.Model):
         return f"{self.profile.user.username}'s Wallet"
 
     def deposit(self, amount):
+        # Convert the amount to Decimal
+        amount = Decimal(amount)
         self.balance += amount
         self.save()
         WalletTransaction.objects.create(wallet=self, amount=amount, transaction_type='deposit')
+
+
 
     def withdraw(self, amount):
         if self.balance >= amount:

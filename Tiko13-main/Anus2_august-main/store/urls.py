@@ -2,7 +2,7 @@ from django.urls import path, include
 from .views import BooksCreate, BooksUpdate, BooksDelete, CommentView, CommentCreateView, CommentDetailView, \
     BookSearch, CommentDeleteView, ReviewCreateView, review_toggle, SelectBookTypeView, SeriesCreateView, \
     BookTextView, SeriesDetailView, SeriesUpdateView, Reader, BooksListAPIView, BookDetailAPIView, LikeReviewAPIView, DislikeReviewAPIView, \
-    ReviewCreateAPIView, ReviewListView, SingleChapterView
+    ReviewCreateAPIView, ReviewListView, SingleChapterView, PurchaseBookView
 from . import views
 
 
@@ -41,6 +41,7 @@ urlpatterns = [
     path('api/book/create/', views.BooksCreateAPIView.as_view(), name='api_book_create'),
     path('api/book/text/', views.BookTextAPIView.as_view(), name='api_book_text'),
     path('api/comments/<int:comment_id>/delete/', views.delete_comment, name='api_delete_comment'),
+    path('book_detail/<int:book_id>/purchase', PurchaseBookView.as_view(), name='wallet-purchase-book'),
 
 
 

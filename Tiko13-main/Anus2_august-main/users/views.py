@@ -28,7 +28,7 @@ from django.conf import settings
 
 from .forms import UploadIllustrationForm, UploadTrailerForm
 from .models import Achievement, Illustration, Trailer, Notification, Conversation, Message, \
-    WebPageSettings, Library, EmailVerification, TemporaryRegistration
+    WebPageSettings, Library, EmailVerification, TemporaryRegistration, Wallet
 from .serializers import *
 
 '''
@@ -1072,6 +1072,39 @@ class PasswordChangeVerificationView(APIView):
         return Response(serializer.errors, status=400)
 
 
+class DepositView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        amount = request.data.get('amount')
+        profile = request.user.profile
+        wallet = get_object_or_404(Wallet, profile=profile)
+        wallet.deposit(amount)
+        return Response({'message': 'Deposit successful'})
+
+
+class WithdrawView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        amount = request.data.get('amount')
+        profile = request.user.profile
+        wallet = get_object_or_404(Wallet, profile=profile)
+        if wallet.withdraw(amount):
+            return Response({'message': 'Withdrawal successful'})
+        else:
+            return Response({'error': 'Insufficient funds'}, status=400)
+
+
+class TransactionHistoryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        profile = request.user.profile
+        wallet = get_object_or_404(Wallet, profile=profile)
+        transactions = WalletTransaction.objects.filter(wallet=wallet)
+        serializer = WalletTransactionSerializer(transactions, many=True)
+        return Response(serializer.data)
 
 
 

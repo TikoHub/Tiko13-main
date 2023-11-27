@@ -2,7 +2,7 @@ from django.urls import path, include, re_path
 from . import views
 from .views import CustomUserLoginView, ProfileAPIView, RegisterView, WebPageSettingsAPIView, PrivacySettingsAPIView, \
     PasswordChangeRequestView, PasswordChangeVerificationView, VerifyRegistrationView, NotificationSettingsAPIView, \
-    AddToLibraryView, NotificationsAPIView
+    AddToLibraryView, NotificationsAPIView, DepositView, WithdrawView, TransactionHistoryView
 from django.views.generic import TemplateView
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -71,7 +71,9 @@ urlpatterns = [
     path('settings/verify-password-change/', PasswordChangeVerificationView.as_view(), name='verify-password-change'), # Выскакивающее окно
     path('settings/notifications/', NotificationSettingsAPIView.as_view(), name='settings-notifications'),
     path('api/notifications/', NotificationsAPIView.as_view(), name='notifications-api'),
-
+    path('wallet/deposit/', DepositView.as_view(), name='wallet-deposit'),
+    path('wallet/withdraw/', WithdrawView.as_view(), name='wallet-withdraw'),
+    path('wallet/transactions/', TransactionHistoryView.as_view(), name='wallet-transactions'),
 
 
     # ...add more paths for the other settings

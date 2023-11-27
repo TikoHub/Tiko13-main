@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, View, TemplateView
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from datetime import timedelta
 from django.utils import timezone
 from .models import CommentLike, CommentDislike, ReviewLike, ReviewDislike, Series, Genre, BookUpvote, BookDownvote, Chapter
@@ -18,7 +18,7 @@ from django.db.models import Count
 from django.urls import reverse_lazy, reverse
 from django.views.generic.edit import FormView
 from django.contrib import messages
-from users.models import Notification, Library
+from users.models import Notification, Library, Wallet
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -558,6 +558,8 @@ class SelectBookTypeView(FormView):
 
 
 class Reader(APIView):
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
     def get(self, request, book_id):
         try:
             book = Book.objects.get(pk=book_id)
@@ -565,11 +567,17 @@ class Reader(APIView):
             return Response({'detail': 'Book not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         chapters = Chapter.objects.filter(book=book)
+        user_has_purchased = book in request.user.library.purchased_books.all()
 
-        # Serialize the chapters data and return it as JSON
-        serialized_chapters = [{'title': chapter.title, 'content': chapter.content} for chapter in chapters]
+        serialized_chapters = []
+        for chapter in chapters:
+            if chapter.is_free or user_has_purchased:
+                serialized_chapters.append({'title': chapter.title, 'content': chapter.content})
+            else:
+                serialized_chapters.append({'title': chapter.title, 'content': 'This content is locked. Please purchase the book to read.'})
 
         return Response(serialized_chapters)
+
 
 
 class SingleChapterView(APIView):
@@ -599,4 +607,22 @@ def unlike_book(request, pk):
     return Response({'status': 'book unliked'})
 
 
+class PurchaseBookView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, book_id):
+        user = request.user
+        profile = user.profile
+        wallet = get_object_or_404(Wallet, profile=profile)
+
+        book = get_object_or_404(Book, id=book_id)
+        book_price = book.price
+
+        if wallet.balance >= book_price:
+            wallet.purchase(book, book_price)
+            user.library.purchased_books.add(book)
+            # Add additional logic if needed, like adding the book to the user's library
+            return Response({'message': 'Book purchased successfully'})
+        else:
+            return Response({'error': 'Insufficient wallet balance'}, status=400)
 

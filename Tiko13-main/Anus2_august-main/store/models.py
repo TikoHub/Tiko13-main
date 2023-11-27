@@ -51,7 +51,7 @@ class Book(models.Model):
     genre = models.ForeignKey(Genre, on_delete=models.CASCADE)
     subgenres = models.ManyToManyField(Genre, related_name='subgenres', blank=True)
     name = models.CharField(max_length=100)
-    price = models.IntegerField()
+    price = models.DecimalField(max_digits=6, decimal_places=2, default=0.00)
     coverpage = models.ImageField(upload_to='static/images/coverpage', default='default_book_img.png')
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
@@ -125,6 +125,7 @@ class BookLike(models.Model):
 class Chapter(models.Model):
     book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='chapters')
     title = models.CharField(max_length=200, blank=True)  # This will hold the "Chapter X" title
+    is_free = models.BooleanField(default=False)
     updated = models.DateTimeField(auto_now=True)
     created = models.DateTimeField(auto_now_add=True)
     content = models.TextField()

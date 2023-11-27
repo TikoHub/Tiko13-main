@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Profile, WebPageSettings, TemporaryPasswordStorage, TemporaryRegistration, Notification, \
-    NotificationSetting
+    NotificationSetting, WalletTransaction
 from store.models import Book, Genre, Series, Comment, BookUpvote
 from .helpers import FollowerHelper
 from django.utils.formats import date_format
@@ -244,9 +244,6 @@ class WebPageSettingsSerializer(serializers.ModelSerializer):
         # Update the WebPageSettings instance
         instance.display_dob_option = validated_data.get('display_dob_option', instance.display_dob_option)
         instance.gender = validated_data.get('gender', instance.gender)
-        instance.dob_month = validated_data.get('dob_month', instance.dob_month)
-        instance.dob_year = validated_data.get('dob_year', instance.dob_year)
-        instance.dob_day = validated_data.get('dob_day', instance.dob_day)
         instance.save()
 
         return instance
@@ -341,3 +338,9 @@ class ProfileDescriptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
         fields = ['description']
+
+
+class WalletTransactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WalletTransaction
+        fields = ['amount', 'transaction_type', 'timestamp', 'related_purchase']
