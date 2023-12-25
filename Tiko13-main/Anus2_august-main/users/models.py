@@ -1,10 +1,11 @@
 import datetime
-
+from django.dispatch import receiver
 from django.utils import timezone
 from decimal import Decimal
 from django.db import models
 from store.models import Book, Review, Comment
 from django.contrib.auth.models import User
+from django.db.models.signals import post_save
 from django.core.validators import FileExtensionValidator
 from django.core.files.images import get_image_dimensions
 from PIL import Image
@@ -268,3 +269,14 @@ class NotificationSetting(models.Model):
     show_comment_updates = models.BooleanField(default=True)
     show_follower_updates = models.BooleanField(default=True)
     show_response_updates = models.BooleanField(default=True)
+
+
+class StripeCustomer(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    stripe_customer_id = models.CharField(max_length=255, null=True, blank=True)
+
+
+@receiver(post_save, sender=User)
+def create_user_payment(sender, instance, created, **kwargs):
+    if created:
+        StripeCustomer.objects.create(user=instance)

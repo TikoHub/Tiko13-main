@@ -24,6 +24,7 @@ urlpatterns = [
     path('', include('store.urls')),
     path('users/', include('users.urls')),
     path('forum/', include('forum.urls')),
+    path('', include('paypal.standard.ipn.urls')),
 
 ]
 

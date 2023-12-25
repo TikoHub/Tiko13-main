@@ -11,7 +11,9 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 from datetime import timedelta
 from pathlib import Path
+from dotenv import load_dotenv
 import os
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -59,6 +61,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.google',
     'allauth.socialaccount.providers.facebook',
     'social_django',
+    'paypal.standard.ipn',
 
 ]#    'rest_framework_simplejwt',
 
@@ -262,13 +265,14 @@ ACCOUNT_EMAIL_VERIFICATION = 'none'
 
 CORS_ALLOW_ALL_ORIGINS = True
 
+#SOCIAL AUTH
 SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = '<1001464138599-8corijje4u9vojhej9q4uo524fboqn5b.apps.googleusercontent.com>'
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = '<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>'
 
 SOCIAL_AUTH_FACEBOOK_KEY = '324062583678664'
 SOCIAL_AUTH_FACEBOOK_SECRET = '2fd18cf8d16966fd00e85b12acfbdb4f'
 
-
+#Send Email
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_USE_TLS = True
@@ -276,3 +280,16 @@ EMAIL_PORT = 587
 EMAIL_HOST_USER = 'temudjin@wormates.com'
 EMAIL_HOST_PASSWORD = 'ptvgcsrfwpacwppu'
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+
+# Stripe
+STRIPE_PUBLIC_KEY_TEST = os.getenv('STRIPE_PUBLIC_KEY_TEST')
+STRIPE_SECRET_KEY_TEST = os.getenv('STRIPE_SECRET_KEY_TEST')
+STRIPE_WEBHOOK_SECRET_TEST = os.getenv('STRIPE_WEBHOOK_SECRET_TEST')
+PRODUCT_PRICE = os.getenv('PRODUCT_PRICE')
+
+REDIRECT_DOMAIN = 'http://127.0.0.1:8000'
+
+# Paypal
+PAYPAL_RECEIVER_EMAIL = 'temudjin@wormates.com'
+PAYPAL_TEST = True

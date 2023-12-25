@@ -1,5 +1,7 @@
 import uuid
 from datetime import datetime, timedelta, timezone, date
+import time
+from decimal import Decimal
 
 from django.db import transaction
 import random
@@ -25,10 +27,12 @@ from rest_framework_jwt.settings import api_settings
 from store.models import Book, Comment, Review, Series
 from .helpers import FollowerHelper
 from django.conf import settings
+from django.views.decorators.csrf import csrf_exempt
+import stripe
 
 from .forms import UploadIllustrationForm, UploadTrailerForm
 from .models import Achievement, Illustration, Trailer, Notification, Conversation, Message, \
-    WebPageSettings, Library, EmailVerification, TemporaryRegistration, Wallet
+    WebPageSettings, Library, EmailVerification, TemporaryRegistration, Wallet, StripeCustomer
 from .serializers import *
 
 '''
@@ -1076,11 +1080,47 @@ class DepositView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        stripe.api_key = settings.STRIPE_SECRET_KEY_TEST
         amount = request.data.get('amount')
+        if not amount:
+            return Response({'error': 'Amount is required'}, status=400)
+
+        amount_in_cents = int(float(amount) * 100)
         profile = request.user.profile
         wallet = get_object_or_404(Wallet, profile=profile)
-        wallet.deposit(amount)
-        return Response({'message': 'Deposit successful'})
+
+        # Ensure Stripe customer exists for the user
+        stripe_customer, created = StripeCustomer.objects.get_or_create(user=request.user)
+        if not stripe_customer.stripe_customer_id:
+            customer = stripe.Customer.create(email=request.user.email)
+            stripe_customer.stripe_customer_id = customer.id
+            stripe_customer.save()
+
+        try:
+            # Create a Stripe Checkout Session
+            checkout_session = stripe.checkout.Session.create(
+                customer=stripe_customer.stripe_customer_id,
+                payment_method_types=['card'],
+                line_items=[{
+                    'price_data': {
+                        'currency': 'usd',
+                        'unit_amount': amount_in_cents,
+                        'product_data': {
+                            'name': f'Deposit into Wallet for {profile.user.username}',
+                        },
+                    },
+                    'quantity': 1,
+                }],
+                mode='payment',
+                success_url=settings.REDIRECT_DOMAIN + '/users/payment_successful?session_id={CHECKOUT_SESSION_ID}',
+                cancel_url=settings.REDIRECT_DOMAIN + '/users/payment_cancelled',
+            )
+            return Response({'url': checkout_session.url})
+        except Exception as e:
+            return Response({'error': str(e)}, status=400)
+
+
+
 
 
 class WithdrawView(APIView):
@@ -1107,5 +1147,76 @@ class TransactionHistoryView(APIView):
         return Response(serializer.data)
 
 
+def payment_successful(request):
+    stripe.api_key = settings.STRIPE_SECRET_KEY_TEST
+    session_id = request.GET.get('session_id')
 
+    try:
+        session = stripe.checkout.Session.retrieve(session_id)
+
+        # Verify the user
+        stripe_customer = StripeCustomer.objects.get(stripe_customer_id=session.customer)
+        if stripe_customer.user != request.user:
+            return JsonResponse({"error": "User mismatch"}, status=401)
+
+        # Update wallet balance
+        amount = session.amount_total / 100  # Convert to dollars
+        wallet, created = Wallet.objects.get_or_create(profile=request.user.profile)
+        wallet.balance += Decimal(amount)
+        wallet.save()
+
+        # Prepare and send the JSON response
+        response_data = {
+            "message": f"Hello {request.user.username}, you added ${amount} to your wallet. Now you have a balance of ${wallet.balance}."
+        }
+        return JsonResponse(response_data)
+
+    except StripeCustomer.DoesNotExist:
+        return JsonResponse({"error": "Stripe customer not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+
+
+def payment_failed(request):
+    return JsonResponse({
+        'message': "Something went wrong! Please try again."
+    })
+
+
+@csrf_exempt
+def stripe_webhook(request):
+    stripe.api_key = settings.STRIPE_SECRET_KEY_TEST
+    endpoint_secret = settings.STRIPE_WEBHOOK_SECRET_TEST  # Set this in your Django settings
+
+    payload = request.body
+    sig_header = request.META['HTTP_STRIPE_SIGNATURE']
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, endpoint_secret
+        )
+    except ValueError as e:
+        return JsonResponse({'status': 'invalid payload'}, status=400)
+    except stripe.error.SignatureVerificationError as e:
+        return JsonResponse({'status': 'invalid signature'}, status=400)
+
+    # Handle the event
+    if event['type'] == 'checkout.session.completed':
+        session = event['data']['object']
+        # Retrieve the user from your database
+        user_id = session.metadata.user_id  # Ensure you send the user ID in the metadata when creating the session
+        user = User.objects.get(id=user_id)
+
+        # Calculate the amount and update the user's wallet
+        amount = session.amount_total / 100  # Convert to dollars
+        wallet, created = Wallet.objects.get_or_create(user=user)
+        wallet.balance += amount
+        wallet.save()
+
+        return JsonResponse({'status': 'success'})
+
+    # ... handle other event types as needed
+
+    return JsonResponse({'status': 'Unhandled event type'}, status=200)
 

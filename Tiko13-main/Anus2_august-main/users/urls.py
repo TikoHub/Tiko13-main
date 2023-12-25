@@ -74,7 +74,9 @@ urlpatterns = [
     path('wallet/deposit/', DepositView.as_view(), name='wallet-deposit'),
     path('wallet/withdraw/', WithdrawView.as_view(), name='wallet-withdraw'),
     path('wallet/transactions/', TransactionHistoryView.as_view(), name='wallet-transactions'),
-
+    path('payment_successful/', views.payment_successful, name='payment_successful'),
+    path('payment_failed/', views.payment_failed, name='payment_failed'),
+    path('stripe_webhook/', views.stripe_webhook, name='stripe_webhook'),
 
     # ...add more paths for the other settings
     # ...
