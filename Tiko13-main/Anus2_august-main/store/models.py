@@ -193,6 +193,7 @@ class Comment(models.Model):
     book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='comments')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='store_comments')
     text = models.TextField()
+    last_modified = models.DateTimeField(auto_now=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     parent_comment = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies')
 
@@ -204,19 +205,19 @@ class Comment(models.Model):
 
 
 class CommentLike(models.Model):
-    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name='comment_likes')
+    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name='likes')
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     class Meta:
-        unique_together = ['comment', 'user']  # To prevent a user from liking a comment multiple times
-
+        unique_together = ['comment', 'user']
 
 class CommentDislike(models.Model):
-    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name='comment_dislikes')
+    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name='dislikes')
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     class Meta:
-        unique_together = ['comment', 'user']  # To prevent a user from disliking a comment multiple times
+        unique_together = ['comment', 'user']
+
 
 
 class ReviewLike(models.Model):

@@ -2,7 +2,7 @@ from django.urls import path, include
 from .views import BooksCreate, BooksUpdate, BooksDelete, CommentView, CommentCreateView, CommentDetailView, \
     BookSearch, CommentDeleteView, ReviewCreateView, review_toggle, SelectBookTypeView, SeriesCreateView, \
     BookTextView, SeriesDetailView, SeriesUpdateView, Reader, BooksListAPIView, BookDetailAPIView, LikeReviewAPIView, DislikeReviewAPIView, \
-    ReviewCreateAPIView, ReviewListView, SingleChapterView, PurchaseBookView
+    ReviewCreateAPIView, ReviewListView, SingleChapterView, PurchaseBookView, CommentListCreateView
 from . import views
 
 
@@ -13,6 +13,7 @@ urlpatterns = [
     path('book_detail/<int:book_id>/info', views.get_book_info, name='get_book_info'),
     path('book_detail/<int:book_id>/content', views.get_book_content, name='get_book_content'),
     path('book_detail/<int:book_id>/review', ReviewListView.as_view(), name='post_review'),
+    path('book_detail/<int:book_id>/comments/', CommentListCreateView.as_view(), name='book-comments'),
     path('add/',BooksCreate.as_view(), name='book_create'),
     path('book_type/', SelectBookTypeView.as_view(), name='book_type'),
     path('<int:pk>/edit/', BooksUpdate.as_view(), name='book_update'),

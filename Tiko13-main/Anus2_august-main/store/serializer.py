@@ -3,6 +3,9 @@ from .models import Chapter, Book, Comment, Review, Genre, Series, BookView, Rev
 from users.models import Profile, FollowersCount
 from django.utils.formats import date_format
 from django.shortcuts import get_object_or_404
+from django.utils.timesince import timesince
+from datetime import datetime, timedelta
+from django.utils import timezone
 
 
 class ChapterSerializers(serializers.ModelSerializer):       # Основной Чаптер Сериалайзер
@@ -97,9 +100,40 @@ class BookContentSerializer(serializers.ModelSerializer):        # Book_Detail/C
 
 
 class CommentSerializer(serializers.ModelSerializer):
+    time_since = serializers.SerializerMethodField()
+    like_count = serializers.IntegerField(source='count_likes', read_only=True)
+    dislike_count = serializers.IntegerField(source='count_dislikes', read_only=True)
+    last_modified = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S")
+    replies = serializers.SerializerMethodField()
+    profileimg = serializers.SerializerMethodField()
+    username = serializers.SerializerMethodField()
+
+    def get_profileimg(self, obj):
+        return obj.user.profile.profileimg.url if obj.user.profile.profileimg else None
+
+    def get_username(self, obj):
+        return obj.user.username
+
     class Meta:
         model = Comment
-        fields = '__all__'
+        fields = ['id', 'book', 'profileimg', 'username', 'text', 'last_modified', 'parent_comment', 'time_since', 'like_count', 'dislike_count', 'replies']
+
+    def get_time_since(self, obj):
+        if obj.timestamp:
+            time_difference = timezone.now() - obj.timestamp
+            if time_difference < timedelta(days=1):
+                return timesince(obj.timestamp) + " ago"
+            else:
+                return obj.timestamp.strftime("%m-%d-%Y")
+        return ""
+
+
+
+    def get_replies(self, obj):
+        if obj.replies.exists():
+            return CommentSerializer(obj.replies.all(), many=True).data
+        return []
+
 
 
 class GenreSerializer(serializers.ModelSerializer):

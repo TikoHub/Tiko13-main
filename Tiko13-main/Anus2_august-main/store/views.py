@@ -30,6 +30,7 @@ from .ip_views import check_book_ip_last_viewed, update_book_ip_last_viewed, che
 from .serializer import *
 import datetime
 
+
 class BooksListAPIView(generics.ListAPIView):
     queryset = Book.objects.order_by('-id')
     serializer_class = BookSerializer
@@ -227,6 +228,35 @@ class SeriesUpdateView(LoginRequiredMixin, UpdateView):
 
     def get_success_url(self):
         return reverse('series_detail', args=[self.object.id])
+
+
+class CommentListCreateView(APIView):
+    def get(self, request, book_id):
+        book = get_object_or_404(Book, pk=book_id)
+        comments = Comment.objects.filter(book=book, parent_comment=None)
+
+        # Calculate the like count for each comment
+        comments = comments.annotate(like_count=Count('likes'))
+
+        # Find the most liked comment
+        most_liked_comment = comments.order_by('-like_count').first()
+
+        # If there is a most liked comment, find the most liked reply
+        most_liked_reply = None
+        if most_liked_comment:
+            replies = most_liked_comment.replies.annotate(like_count=Count('likes'))
+            most_liked_reply = replies.order_by('-like_count').first()
+
+        # Serialize the comments and the most liked comment and its reply
+        serialized_comments = CommentSerializer(comments, many=True)
+        serialized_most_liked_comment = CommentSerializer(most_liked_comment)
+        serialized_most_liked_reply = CommentSerializer(most_liked_reply)
+
+        return Response({
+        #    'comments': serialized_comments.data,
+            'most_liked_comment': serialized_most_liked_comment.data,
+        #   'most_liked_reply': serialized_most_liked_reply.data
+        })
 
 
 class CommentView(ListView):
