@@ -1,8 +1,5 @@
 from django.urls import path, include
-from .views import BooksCreate, BooksUpdate, BooksDelete, CommentView, CommentCreateView, CommentDetailView, \
-    BookSearch, CommentDeleteView, ReviewCreateView, review_toggle, SelectBookTypeView, SeriesCreateView, \
-    BookTextView, SeriesDetailView, SeriesUpdateView, Reader, BooksListAPIView, BookDetailAPIView, LikeReviewAPIView, DislikeReviewAPIView, \
-    ReviewCreateAPIView, ReviewListView, SingleChapterView, PurchaseBookView, CommentListCreateView
+from .views import *
 from . import views
 
 
@@ -14,15 +11,19 @@ urlpatterns = [
     path('book_detail/<int:book_id>/content', views.get_book_content, name='get_book_content'),
     path('book_detail/<int:book_id>/review', ReviewListView.as_view(), name='post_review'),
     path('book_detail/<int:book_id>/comments/', CommentListCreateView.as_view(), name='book-comments'),
+    path('book/<int:book_id>/chapters/', ChapterContentView.as_view(), name='chapter_content'),
+    path('book/<int:book_id>/chapter/<int:chapter_id>/', ChapterView.as_view(), name='chapter-detail'),
+    path('book/<int:book_id>/chapter/<int:chapter_id>/upload/', ChapterUploadView.as_view(), name='upload-chapter'),
+    path('book/<int:book_id>/chapter/<int:chapter_id>/download/', ChapterDownloadView.as_view(), name='download-chapter'),
+    path('book/<int:book_id>/settings/', BookSettingsView.as_view(), name='book_settings'),
+    path('book/<int:book_id>/illustrations/', IllustrationView.as_view(), name='book_illustrations'),
+    path('book/<int:book_id>/booksale/', BookSaleView.as_view(), name='book_sale'),
     path('add/',BooksCreate.as_view(), name='book_create'),
     path('book_type/', SelectBookTypeView.as_view(), name='book_type'),
     path('<int:pk>/edit/', BooksUpdate.as_view(), name='book_update'),
     path('<int:pk>/delete/', BooksDelete.as_view(), name='book_delete'),
     path('comment/create/<int:pk>/', CommentCreateView.as_view(), name='comment_create'),
-    path('comment_detail/', CommentDetailView.as_view(), name='comment_detail'),
-    path('comment_list/', CommentView.as_view(), name='comment_list'),
     path('search', BookSearch.as_view(), name='book_search'),
-    path('comment_delete/<int:pk>', CommentDeleteView.as_view(), name='comment_delete'),
     path('comment/like/<int:comment_id>/', views.like_comment, name='like_comment'),
     path('comment/dislike/<int:comment_id>/', views.dislike_comment, name='dislike_comment'),
     path('comment/create/<int:pk>/<int:parent_comment_id>/', CommentCreateView.as_view(), name='comment_create'),

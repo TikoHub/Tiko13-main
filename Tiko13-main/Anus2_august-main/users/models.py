@@ -99,7 +99,7 @@ class FollowersCount(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='follower_users')
 
     def __str__(self):
-        return self.user
+        return f"{self.follower.username} follows {self.user.username}"
 
 
 class Library(models.Model):

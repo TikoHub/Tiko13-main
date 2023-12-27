@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, View, TemplateView
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, action
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from datetime import timedelta
 from django.utils import timezone
@@ -18,7 +19,7 @@ from django.db.models import Count
 from django.urls import reverse_lazy, reverse
 from django.views.generic.edit import FormView
 from django.contrib import messages
-from users.models import Notification, Library, Wallet
+from users.models import Notification, Library, Wallet, Illustration
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -28,6 +29,8 @@ from .models import Book, Comment, Review, BookLike, ReviewView
 from .utils import get_client_ip
 from .ip_views import check_book_ip_last_viewed, update_book_ip_last_viewed, check_review_ip_last_viewed, update_review_ip_last_viewed
 from .serializer import *
+from .converters import create_fb2, parse_fb2
+from django.core.files.storage import default_storage
 import datetime
 
 
@@ -121,7 +124,7 @@ class BooksCreateAPIView(APIView):
     """
 
     def post(self, request, *args, **kwargs):
-        serializer = BookSerializer(data=request.data, context={'user': request.user})
+        serializer = BookCreateSerializer(data=request.data, context={'request': request})
 
         if serializer.is_valid():
             book = serializer.save()
@@ -129,6 +132,180 @@ class BooksCreateAPIView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ChapterContentView(APIView):
+    def post(self, request, *args, **kwargs):
+        serializer = ChapterContentSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ChapterView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, book_id, chapter_id, format=None):
+        try:
+            chapter = Chapter.objects.get(book_id=book_id, id=chapter_id)
+        except Chapter.DoesNotExist:
+            return Response({'error': 'Chapter not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = ChapterContentSerializer(chapter)
+        return Response(serializer.data)
+
+    def put(self, request, book_id, chapter_id, format=None):
+        try:
+            chapter = Chapter.objects.get(book_id=book_id, id=chapter_id)
+        except Chapter.DoesNotExist:
+            return Response({'error': 'Chapter not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if chapter.book.author != request.user:
+            return Response({'error': 'You do not have permission to edit this chapter'}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = ChapterContentSerializer(chapter, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, book_id, chapter_id, format=None):
+        try:
+            chapter = Chapter.objects.get(pk=chapter_id, book_id=book_id)
+        except Chapter.DoesNotExist:
+            return Response({'error': 'Chapter not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Check if the user is authorized to delete the chapter
+        if chapter.book.author != request.user:
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+        chapter.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=['patch'])
+    def change_book_status(self, request, book_id, format=None):
+        pass
+
+
+@api_view(['POST']) #Надо проверить, пока пауза + АВС
+def add_quote(request, book_id, chapter_id):
+    try:
+        chapter = Chapter.objects.get(book_id=book_id, id=chapter_id)
+    except Chapter.DoesNotExist:
+        return Response({'error': 'Chapter not found'}, status=404)
+
+    # Data from request
+    start = request.data.get('start')
+    end = request.data.get('end')
+    text_to_quote = request.data.get('text')
+
+    # Validate data
+    if start is None or end is None or text_to_quote is None:
+        return Response({'error': 'Invalid request'}, status=400)
+
+    # Add quotes to the selected text
+    chapter.content = (
+        chapter.content[:start] +
+        '"' + text_to_quote + '"' +
+        chapter.content[end:]
+    )
+    chapter.save()
+
+    return Response({'message': 'Quote added successfully'})
+
+
+class ChapterDownloadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, book_id, chapter_id):
+        try:
+            chapter = Chapter.objects.get(book_id=book_id, id=chapter_id)
+        except Chapter.DoesNotExist:
+            return Response({'error': 'Chapter not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if chapter.book.author != request.user:
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+        fb2_content = create_fb2(chapter)
+        response = HttpResponse(fb2_content, content_type='application/xml')
+        response['Content-Disposition'] = f'attachment; filename="{chapter.title}.fb2"'
+        return response
+
+
+class ChapterUploadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, book_id, chapter_id):
+        try:
+            chapter = Chapter.objects.get(book_id=book_id, id=chapter_id)
+        except Chapter.DoesNotExist:
+            return Response({'error': 'Chapter not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if chapter.book.author != request.user:
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+        file = request.FILES.get('file')
+        if not file or not file.name.endswith('.fb2'):
+            return Response({'error': 'Invalid file format'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Save file temporarily
+        file_path = default_storage.save(f'tmp/{file.name}', file)
+        with default_storage.open(file_path, 'rb') as fb2_file:
+            content = parse_fb2(fb2_file)  # Parse FB2 file to extract content
+
+        chapter.content = content
+        chapter.save()
+
+        # Cleanup the temporary file
+        default_storage.delete(file_path)
+
+        return Response({'message': 'Chapter uploaded successfully'})
+
+
+class BookSettingsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_context(self):
+        context = {}
+        followers_usernames = self.request.user.follower_users.values_list('follower__username', flat=True)
+        context['co_author_queryset'] = User.objects.filter(username__in=followers_usernames)
+        return context
+
+    def patch(self, request, book_id, format=None):
+        try:
+            book = Book.objects.get(pk=book_id)
+        except Book.DoesNotExist:
+            return Response({'error': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if book.author != request.user:
+            return Response({'error': 'You do not have permission to edit this book'}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = BookSettingsSerializer(book, data=request.data, partial=True, context=self.get_serializer_context())
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+class IllustrationView(APIView):
+    def get(self, request, *args, **kwargs):
+        illustrations = Illustration.objects.filter(book_id=kwargs['book_id'])
+        serializer = IllustrationSerializer(illustrations, many=True)
+        return Response(serializer.data)
+
+    def post(self, request, *args, **kwargs):
+        serializer = IllustrationSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(book_id=kwargs['book_id'])
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BookSaleView(APIView):
+    pass
 
 
 class BookTextView(FormView):
@@ -259,15 +436,6 @@ class CommentListCreateView(APIView):
         })
 
 
-class CommentView(ListView):
-    queryset = Comment.objects.all()
-    template_name = 'comment/comment_list.html'
-
-
-class CommentDetailView(DetailView):
-    template_name = 'comment/comment_detail.html'
-
-
 @method_decorator(login_required, name='dispatch')
 class CommentCreateView(CreateView):
     template_name = 'comment/comment_create.html'
@@ -309,20 +477,6 @@ class CommentCreateView(CreateView):
 
         self.object.save()
         return super().form_valid(form)
-
-    def get_success_url(self):
-        return reverse_lazy('book_detail', kwargs={'pk': self.object.book.pk})
-
-
-@method_decorator(login_required, name='dispatch')
-class CommentUpdateView(UpdateView):
-    template_name = 'comment/comment_create.html'
-    form_class = CommentForm
-
-
-class CommentDeleteView(DeleteView):
-    template_name = 'comment/comment_delete.html'
-    queryset = Comment.objects.all()
 
     def get_success_url(self):
         return reverse_lazy('book_detail', kwargs={'pk': self.object.book.pk})

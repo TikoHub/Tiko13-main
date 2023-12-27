@@ -1,11 +1,12 @@
 from rest_framework import serializers
 from .models import Chapter, Book, Comment, Review, Genre, Series, BookView, ReviewLike, ReviewDislike
-from users.models import Profile, FollowersCount
+from users.models import Profile, FollowersCount, Illustration
 from django.utils.formats import date_format
 from django.shortcuts import get_object_or_404
 from django.utils.timesince import timesince
 from datetime import datetime, timedelta
 from django.utils import timezone
+from django.contrib.auth.models import User
 
 
 class ChapterSerializers(serializers.ModelSerializer):       # Основной Чаптер Сериалайзер
@@ -21,6 +22,30 @@ class ChapterSerializer(serializers.ModelSerializer):      # Для Book_Detail 
     class Meta:
         model = Chapter
         fields = ['title', 'added_date']
+
+
+class BookCreateSerializer(serializers.ModelSerializer):
+    book_type = serializers.ChoiceField(choices=Book.TYPE_CHOICES)
+    abstract = serializers.CharField(max_length=500, required=False)
+    author_remark = serializers.CharField(max_length=500, required=False)
+    is_adult = serializers.BooleanField(required=False)
+    genre2 = serializers.PrimaryKeyRelatedField(queryset=Genre.objects.all(), required=False)
+    genre3 = serializers.PrimaryKeyRelatedField(queryset=Genre.objects.all(), required=False)
+ #   co_author = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), required=False)
+  #  co_author2 = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), required=False)
+    series = serializers.PrimaryKeyRelatedField(queryset=Series.objects.all(), required=False)
+
+    class Meta:
+        model = Book
+        fields = ['name', 'genre', 'description', 'price', 'coverpage', 'abstract',
+                  'author_remark', 'is_adult', 'book_type', 'genre2', 'genre3',
+                  'status', 'series']
+
+    def create(self, validated_data):
+        # Assuming 'user' is passed in the context of the request
+        user = self.context['request'].user
+        book = Book.objects.create(author=user, **validated_data)
+        return book
 
 
 class BookSerializer(serializers.ModelSerializer):     # Основной Сериализатор для Book_Detail
@@ -191,3 +216,52 @@ class ReviewDislikeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReviewDislike
         fields = '__all__'
+
+
+class ChapterContentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Chapter
+        fields = ['content']  # Add any other relevant fields
+
+    def create(self, validated_data):
+        # Assuming 'book_id' is passed in the context of the request
+        book_id = self.context['request'].session.get('book_id')
+        chapter = Chapter.objects.create(book_id=book_id, **validated_data)
+        return chapter
+
+
+class BookSettingsSerializer(serializers.ModelSerializer):
+    co_author = serializers.SlugRelatedField(
+        slug_field='username',
+        queryset=User.objects.none(),  # Initially set to none
+        required=False
+    )
+
+    class Meta:
+        model = Book
+        fields = ['name', 'book_type', 'co_author']
+        extra_kwargs = {
+            'name': {'required': True},
+            'book_type': {'required': True}
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'co_author_queryset' in self.context:
+            self.fields['co_author'].queryset = self.context['co_author_queryset']
+
+
+class IllustrationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Illustration  # Assuming you have an Illustration model
+        fields = ['image']  # Add any other relevant fields
+
+
+class BookSaleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Book
+        fields = ['price', 'is_available_for_sale']
+        extra_kwargs = {
+            'price': {'required': True},
+            'is_available_for_sale': {'required': True}
+        }
