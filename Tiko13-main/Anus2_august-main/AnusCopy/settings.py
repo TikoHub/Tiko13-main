@@ -27,7 +27,7 @@ SECRET_KEY = 'django-insecure-a9x4pgg7vxl+_3l-daz)1ie)ots$*r#x=+npeibx1c#i&628m4
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['52.202.167.227']  # 02 11 2023 google auth attempt
+ALLOWED_HOSTS = ['52.202.167.226']  # 02 11 2023 google auth attempt
 
 
 AUTHENTICATION_BACKENDS = (
