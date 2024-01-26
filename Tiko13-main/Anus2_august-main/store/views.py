@@ -25,14 +25,13 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework import generics
 from rest_framework.response import Response
-from .models import Book, Comment, Review, BookLike, ReviewView
+from .models import Book, Comment, Review, BookLike, ReviewView, UserBookHistory
 from .utils import get_client_ip
 from .ip_views import check_book_ip_last_viewed, update_book_ip_last_viewed, check_review_ip_last_viewed, update_review_ip_last_viewed
 from .serializer import *
 from .converters import create_fb2, parse_fb2
 from django.core.files.storage import default_storage
 import datetime
-
 
 class BooksListAPIView(generics.ListAPIView):
     queryset = Book.objects.order_by('-id')
@@ -408,32 +407,33 @@ class SeriesUpdateView(LoginRequiredMixin, UpdateView):
 
 
 class CommentListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request, book_id):
         book = get_object_or_404(Book, pk=book_id)
-        comments = Comment.objects.filter(book=book, parent_comment=None)
+        comments = Comment.objects.filter(book=book, parent_comment=None).order_by('-rating')
 
-        # Calculate the like count for each comment
-        comments = comments.annotate(like_count=Count('likes'))
+        # Include 'is_author' field and calculate 'rating'
+        for comment in comments:
+            comment.is_author = (comment.user == book.author)
+            comment.rating = comment.count_likes() - comment.count_dislikes()
 
-        # Find the most liked comment
-        most_liked_comment = comments.order_by('-like_count').first()
-
-        # If there is a most liked comment, find the most liked reply
-        most_liked_reply = None
-        if most_liked_comment:
-            replies = most_liked_comment.replies.annotate(like_count=Count('likes'))
-            most_liked_reply = replies.order_by('-like_count').first()
-
-        # Serialize the comments and the most liked comment and its reply
         serialized_comments = CommentSerializer(comments, many=True)
-        serialized_most_liked_comment = CommentSerializer(most_liked_comment)
-        serialized_most_liked_reply = CommentSerializer(most_liked_reply)
+        return Response({'comments': serialized_comments.data})
 
-        return Response({
-        #    'comments': serialized_comments.data,
-            'most_liked_comment': serialized_most_liked_comment.data,
-        #   'most_liked_reply': serialized_most_liked_reply.data
-        })
+    def post(self, request, book_id):
+        # Logic for creating a new comment
+        pass
+
+    @action(detail=True, methods=['post'])
+    def like_comment(self, request, book_id, comment_id):
+        # Logic to like a comment
+        pass
+
+    @action(detail=True, methods=['post'])
+    def dislike_comment(self, request, book_id, comment_id):
+        # Logic to dislike a comment
+        pass
 
 
 @method_decorator(login_required, name='dispatch')
@@ -810,3 +810,26 @@ class PurchaseBookView(APIView):
         else:
             return Response({'error': 'Insufficient wallet balance'}, status=400)
 
+
+class HistoryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        now = timezone.now()
+        user_history = UserBookHistory.objects.filter(user=request.user).order_by('-last_accessed')
+
+        history_dict = {
+            "Today": user_history.filter(last_accessed__date=now.date()),
+            "Yesterday": user_history.filter(last_accessed__date=(now - timedelta(days=1)).date()),
+            "This Week": user_history.filter(last_accessed__date__range=[now.date() - timedelta(days=6), now.date()]),
+            "This Month": user_history.filter(last_accessed__date__range=[now.date() - timedelta(days=29), now.date()]),
+            "This Year": user_history.filter(last_accessed__date__range=[now.date() - timedelta(days=364), now.date()]),
+
+            # ... and so on for each time category
+        }
+
+        # Serialize each queryset and add to response
+        for time_category, queryset in history_dict.items():
+            history_dict[time_category] = BookViewSerializer(queryset, many=True).data
+
+        return Response(history_dict)

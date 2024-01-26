@@ -126,12 +126,14 @@ class BookContentSerializer(serializers.ModelSerializer):        # Book_Detail/C
 
 class CommentSerializer(serializers.ModelSerializer):
     time_since = serializers.SerializerMethodField()
-    like_count = serializers.IntegerField(source='count_likes', read_only=True)
-    dislike_count = serializers.IntegerField(source='count_dislikes', read_only=True)
     last_modified = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S")
     replies = serializers.SerializerMethodField()
     profileimg = serializers.SerializerMethodField()
     username = serializers.SerializerMethodField()
+    rating = serializers.SerializerMethodField()
+
+    def get_rating(self, obj):
+        return obj.rating
 
     def get_profileimg(self, obj):
         return obj.user.profile.profileimg.url if obj.user.profile.profileimg else None
@@ -139,9 +141,10 @@ class CommentSerializer(serializers.ModelSerializer):
     def get_username(self, obj):
         return obj.user.username
 
+
     class Meta:
         model = Comment
-        fields = ['id', 'book', 'profileimg', 'username', 'text', 'last_modified', 'parent_comment', 'time_since', 'like_count', 'dislike_count', 'replies']
+        fields = ['id', 'book', 'profileimg', 'username', 'text', 'last_modified', 'parent_comment', 'time_since', 'rating', 'is_author', 'replies']
 
     def get_time_since(self, obj):
         if obj.timestamp:
@@ -152,13 +155,10 @@ class CommentSerializer(serializers.ModelSerializer):
                 return obj.timestamp.strftime("%m-%d-%Y")
         return ""
 
-
-
     def get_replies(self, obj):
         if obj.replies.exists():
             return CommentSerializer(obj.replies.all(), many=True).data
         return []
-
 
 
 class GenreSerializer(serializers.ModelSerializer):

@@ -196,28 +196,42 @@ class Comment(models.Model):
     last_modified = models.DateTimeField(auto_now=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     parent_comment = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies')
+    is_author = models.BooleanField(default=False)
+    rating = models.IntegerField(default=0)
 
     def count_likes(self):
-        return self.likes.count()
+        # Count the number of CommentLike objects related to this comment
+        return CommentLike.objects.filter(comment=self).count()
 
     def count_dislikes(self):
-        return self.dislikes.count()
+        # Count the number of CommentDislike objects related to this comment
+        return CommentDislike.objects.filter(comment=self).count()
+
+    def calculate_rating(self):
+        likes = CommentLike.objects.filter(comment=self).count()
+        dislikes = CommentDislike.objects.filter(comment=self).count()
+        return likes - dislikes
+
+    # Call this method to update the rating field
+    def update_rating(self):
+        self.rating = self.calculate_rating()
+        self.save()
 
 
 class CommentLike(models.Model):
-    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name='likes')
+    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name='comment_likes')
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     class Meta:
         unique_together = ['comment', 'user']
+
 
 class CommentDislike(models.Model):
-    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name='dislikes')
+    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name='comment_dislikes')
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     class Meta:
         unique_together = ['comment', 'user']
-
 
 
 class ReviewLike(models.Model):
@@ -251,3 +265,8 @@ class BookDownvote(models.Model):
     class Meta:
         unique_together = ['book', 'user']
 
+
+class UserBookHistory(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    book = models.ForeignKey(Book, on_delete=models.CASCADE)
+    last_accessed = models.DateTimeField(auto_now=True)
