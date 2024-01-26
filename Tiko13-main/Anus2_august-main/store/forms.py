@@ -3,7 +3,7 @@ from django import forms
 from .models import Book, Comment, Review, Genre, Series, Chapter
 from django.contrib.auth.models import User
 from django.forms import TextInput
-from users.views import FollowerHelper
+from users.helpers import FollowerHelper
 from django.core.exceptions import ValidationError
 
 
