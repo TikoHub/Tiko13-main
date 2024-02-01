@@ -436,51 +436,6 @@ class CommentListCreateView(APIView):
         pass
 
 
-@method_decorator(login_required, name='dispatch')
-class CommentCreateView(CreateView):
-    template_name = 'comment/comment_create.html'
-    form_class = CommentForm
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs['book'] = Book.objects.get(pk=self.kwargs['pk'])
-        return kwargs
-
-    def form_valid(self, form):
-        book = Book.objects.get(pk=self.kwargs['pk'])
-        # Check if the current user is in the book author's blacklist
-        if self.request.user in book.author.profile.blacklist.all():
-            # If they are, return an error message and don't save the comment
-            messages.error(self.request, "You have been blacklisted by the author and cannot comment.")
-            return redirect('book_detail', pk=book.pk)  # Redirect back to the book detail page
-
-        self.object = form.save(commit=False)
-        self.object.user = self.request.user
-        self.object.book = book
-        self.object.save()
-
-        # Get parent comment id from POST data
-        parent_comment_id = self.request.POST.get('parent_comment_id')
-        if parent_comment_id:
-            # Get the parent comment from the database
-            parent_comment = Comment.objects.get(id=parent_comment_id)
-            self.object.parent_comment = parent_comment
-
-            # create a notification for the author of the parent comment
-            if self.request.user.profile != parent_comment.user.profile:
-                notification = Notification(
-                    recipient=parent_comment.user.profile,
-                    sender=self.request.user.profile,
-                    notification_type='comment'
-                )
-                notification.save()
-
-        self.object.save()
-        return super().form_valid(form)
-
-    def get_success_url(self):
-        return reverse_lazy('book_detail', kwargs={'pk': self.object.book.pk})
-
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
