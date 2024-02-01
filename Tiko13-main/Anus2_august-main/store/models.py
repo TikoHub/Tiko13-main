@@ -129,6 +129,7 @@ class Chapter(models.Model):
     updated = models.DateTimeField(auto_now=True)
     created = models.DateTimeField(auto_now_add=True)
     content = models.TextField()
+    status = models.CharField(max_length=100, default='in_draft')
 
     def save(self, *args, **kwargs):
         if not self.title:

@@ -135,8 +135,6 @@ class Wallet(models.Model):
         self.save()
         WalletTransaction.objects.create(wallet=self, amount=amount, transaction_type='deposit')
 
-
-
     def withdraw(self, amount):
         if self.balance >= amount:
             self.balance -= amount

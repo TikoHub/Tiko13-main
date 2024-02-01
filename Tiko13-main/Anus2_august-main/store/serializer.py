@@ -13,10 +13,10 @@ class ChapterSerializers(serializers.ModelSerializer):       # Основной 
 
     class Meta:
         model = Chapter
-        fields = ['title', 'content']
+        fields = ['id', 'title', 'content']
 
 
-class ChapterSerializer(serializers.ModelSerializer):      # Для Book_Detail / Content
+class ChapterSummarySerializer(serializers.ModelSerializer):      # Для Book_Detail / Content
     added_date = serializers.DateTimeField(source='created', format='%m-%d-%Y')
 
     class Meta:
@@ -117,7 +117,7 @@ class BookInfoSerializer(serializers.ModelSerializer):         # Book_Detail/Inf
 
 
 class BookContentSerializer(serializers.ModelSerializer):        # Book_Detail/Content
-    chapters = ChapterSerializer(many=True, read_only=True)
+    chapters = ChapterSummarySerializer(many=True, read_only=True)
 
     class Meta:
         model = Book

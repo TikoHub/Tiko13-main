@@ -142,6 +142,41 @@ class ChapterContentView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class ChapterListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, book_id):
+        book = Book.objects.get(id=book_id)
+        chapters = book.chapters.all()
+        serializer = ChapterSerializers(chapters, many=True)
+        return Response(serializer.data)
+
+    def post(self, request, book_id):
+        serializer = ChapterSerializers(data=request.data)
+        if serializer.is_valid():
+            serializer.save(book_id=book_id)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class AddChapterView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, book_id):
+        try:
+            book = Book.objects.get(id=book_id)
+            if book.author != request.user:
+                return Response({'error': 'You are not the author of this book.'}, status=status.HTTP_403_FORBIDDEN)
+
+            # Create an empty chapter
+            new_chapter = Chapter.objects.create(book=book, status='in_draft')
+            serializer = ChapterSerializers(new_chapter)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        except Book.DoesNotExist:
+            return Response({'error': 'Book not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+
 class ChapterView(APIView):
     permission_classes = [IsAuthenticated]
 

@@ -23,81 +23,18 @@ from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnl
 from rest_framework.response import Response
 from rest_framework.status import HTTP_404_NOT_FOUND
 from rest_framework.views import APIView
-from rest_framework_jwt.settings import api_settings
+from rest_framework_simplejwt.tokens import RefreshToken
 from store.models import Book, Comment, Review, Series
 from .helpers import FollowerHelper
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
+from rest_framework import status
 import stripe
 
 from .forms import UploadIllustrationForm, UploadTrailerForm
 from .models import Achievement, Illustration, Trailer, Notification, Conversation, Message, \
     WebPageSettings, Library, EmailVerification, TemporaryRegistration, Wallet, StripeCustomer
 from .serializers import *
-
-'''
-class RegisterView(generics.CreateAPIView):
-    serializer_class = CustomUserRegistrationSerializer
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            with transaction.atomic():
-                # Extract validated data
-                validated_data = serializer.validated_data
-
-                # Generate a unique username
-                base_username = validated_data['first_name'].lower()
-                username = f"{base_username}{random.randint(1000, 9999)}"
-
-                # Ensure the username is unique
-                while User.objects.filter(username=username).exists():
-                    username = f"{base_username}{random.randint(1000, 9999)}"
-
-                # Create the user instance
-                user = User.objects.create_user(
-                    username=username,
-                    email=validated_data['email'],
-                    password=validated_data['password'],
-                )
-
-                # Create the profile, library, and webpage_settings
-                profile, _ = Profile.objects.get_or_create(user=user)
-                WebPageSettings.objects.get_or_create(profile=profile)
-                Library.objects.get_or_create(user=user)
-
-                # Set optional fields if provided
-                user.first_name = validated_data.get('first_name', '')
-                user.last_name = validated_data.get('last_name', '')
-                user.save()
-
-                # Set date of birth if provided
-                dob_month = validated_data.get('date_of_birth_month')
-                dob_year = validated_data.get('date_of_birth_year')
-                if dob_month and dob_year:
-                    profile.dob_month = dob_month
-                    profile.dob_year = dob_year
-                    profile.save()
-
-                verification_code = random.randint(1000, 9999)
-                # Сюда можно добавить респонс
-                send_mail(
-                    'Verify your account',
-                    f'Your verification code is {verification_code}.',
-                    'from@example.com',  # Use your actual sender email address here
-                    [validated_data['email']],
-                    fail_silently=False,
-                )
-                # Save the verification code to the user's profile or a related model
-                # profile.verification_code = verification_code
-                # profile.save()
-
-                # Return a response indicating that the user needs to verify their email
-                return Response({'status': 'User created, please verify your email'}, status=status.HTTP_201_CREATED)
-
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-'''
 
 
 class RegisterView(generics.CreateAPIView):
@@ -136,6 +73,7 @@ class RegisterView(generics.CreateAPIView):
 
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 def generate_unique_username(base_username):
     # Generate a unique username using a base username and appending a random number
@@ -200,12 +138,6 @@ class VerifyRegistrationView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-
-
-jwt_payload_handler = api_settings.JWT_PAYLOAD_HANDLER
-jwt_encode_handler = api_settings.JWT_ENCODE_HANDLER
-
-
 class CustomUserLoginView(APIView):
     serializer_class = CustomUserLoginSerializer
 
@@ -215,20 +147,18 @@ class CustomUserLoginView(APIView):
             email = serializer.validated_data['email']
             password = serializer.validated_data['password']
 
-            user = authenticate(username=email, password=password)
+            user = authenticate(request, username=email, password=password)
             if user:
-                payload = jwt_payload_handler(user)
-                payload['token_type'] = 'access'
-                payload['jti'] = str(uuid.uuid4())
-                payload['iat'] = datetime.now(timezone.utc)
-                payload['exp'] = datetime.now(timezone.utc) + timedelta(days=7)
-                token = jwt_encode_handler(payload)
-                return Response({'token': token})
+                refresh = RefreshToken.for_user(user)
+                data = {
+                    'refresh': str(refresh),
+                    'access': str(refresh.access_token),
+                }
+                return Response(data, status=status.HTTP_200_OK)
             else:
                 return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 @api_view(['GET'])
@@ -313,26 +243,6 @@ def follow(request):
         return redirect('./profile/' + user_username)
     else:
         return redirect('/')
-
-
-'''def add_to_library(request, book_id, category):
-    if request.user.is_authenticated:
-        book = Book.objects.get(pk=book_id)
-        my_library, created = Library.objects.get_or_create(user=request.user)
-
-        # Remove the book from other categories if it exists
-        my_library.reading_books.remove(book)
-        my_library.watchlist_books.remove(book)
-        my_library.finished_books.remove(book)
-
-        if category == 'reading':
-            my_library.reading_books.add(book)
-        elif category == 'watchlist':
-            my_library.watchlist_books.add(book)
-        elif category == 'finished':
-            my_library.finished_books.add(book)
-
-    return redirect('library', username=request.user.username)'''
 
 
 class AddToLibraryView(APIView):
@@ -1114,13 +1024,12 @@ class DepositView(APIView):
                 mode='payment',
                 success_url=settings.REDIRECT_DOMAIN + '/users/payment_successful?session_id={CHECKOUT_SESSION_ID}',
                 cancel_url=settings.REDIRECT_DOMAIN + '/users/payment_cancelled',
+                metadata={'initiating_user_id': request.user.id},  # Include initiating user's ID in metadata
             )
+
             return Response({'url': checkout_session.url})
         except Exception as e:
             return Response({'error': str(e)}, status=400)
-
-
-
 
 
 class WithdrawView(APIView):
@@ -1153,29 +1062,27 @@ def payment_successful(request):
 
     try:
         session = stripe.checkout.Session.retrieve(session_id)
+        initiating_user_id = session.metadata.get('initiating_user_id')
 
-        # Verify the user
-        stripe_customer = StripeCustomer.objects.get(stripe_customer_id=session.customer)
-        if stripe_customer.user != request.user:
-            return JsonResponse({"error": "User mismatch"}, status=401)
+        # Assuming you can get the profile directly from the initiating_user_id
+        # Note: Adjust this logic if you have a different way to associate profiles with user IDs
+        profile = Profile.objects.get(user_id=initiating_user_id)
 
-        # Update wallet balance
-        amount = session.amount_total / 100  # Convert to dollars
-        wallet, created = Wallet.objects.get_or_create(profile=request.user.profile)
-        wallet.balance += Decimal(amount)
+        amount = Decimal(session.amount_total) / Decimal(100)  # Convert cents to dollars as Decimal
+
+        wallet, created = Wallet.objects.get_or_create(profile=profile)
+        wallet.balance += amount
         wallet.save()
 
-        # Prepare and send the JSON response
         response_data = {
-            "message": f"Hello {request.user.username}, you added ${amount} to your wallet. Now you have a balance of ${wallet.balance}."
+            "message": f"Hello {profile.user.username}, you successfully added ${amount} to your wallet. Now you have a balance of ${wallet.balance}."
         }
         return JsonResponse(response_data)
 
-    except StripeCustomer.DoesNotExist:
-        return JsonResponse({"error": "Stripe customer not found"}, status=404)
+    except Profile.DoesNotExist:
+        return JsonResponse({"error": "Profile not found"}, status=404)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=400)
-
 
 
 def payment_failed(request):
