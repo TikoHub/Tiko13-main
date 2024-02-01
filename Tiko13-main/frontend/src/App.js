@@ -154,7 +154,7 @@ function BookPage() {
           // Обработка ошибки
         }
   
-        const bookResponse = await axios.get(`http://127.0.0.1:8000/book_detail/41/`);
+        const bookResponse = await axios.get(`http://127.0.0.1:8000/book_detail/46/`);
   
         if (bookResponse.status === 200) {
           setBookData(bookResponse.data);
@@ -453,7 +453,7 @@ function BookpageNavigation() {
     setActiveTab(tabId);
   };
  return (
-    <div>
+    <div className='bookpage__container'>
         <div>
             <div className="navigation-tabs">
               <ul className="navigation-tabs__ul">
@@ -465,6 +465,7 @@ function BookpageNavigation() {
             </div>
                       {activeTab === 'tab1' && <BookInfo />}
                       {activeTab === 'tab2' && <BookContent />}
+                      {activeTab === 'tab3' && <BookComment />}
         </div>
     </div>
   );
@@ -476,7 +477,7 @@ function BookInfo() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get('http://127.0.0.1:8000/book_detail/41/info');
+        const response = await axios.get('http://127.0.0.1:8000/book_detail/46/info');
         setBooks(response.data);
       } catch (error) {
         console.error('Error fetching books:', error);
@@ -513,7 +514,7 @@ function BookContent() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get('http://127.0.0.1:8000/book_detail/41/content');
+        const response = await axios.get('http://127.0.0.1:8000/book_detail/46/content');
         setContents(response.data);
       } catch (error) {
         console.error('Error fetching books:', error);
@@ -526,7 +527,7 @@ function BookContent() {
   return (
     <div>
       {contents.chapters.map((chapter, index) => (
-        <div key={index} className='conntent__chapter'>
+        <div key={index} className='content__chapter'>
           <a className='content__chapter_name'>{chapter.title}</a>
           <div className='content__chapter_date'>Added:{chapter.added_date}</div>
         </div>
@@ -534,6 +535,105 @@ function BookContent() {
     </div>
   );
 }
+
+function Comment({ comment, showReplyButtons, onToggleReplyButtons }) {
+  return (
+    <div className='book_comment-reply' key={comment.id}>
+      <div className='book_comment-info'>
+        <img className='book_comment-img' src={comment.profileimg} alt="User Avatar" />
+        <div className='book_comment-name'>{comment.username}</div>
+        <div className='book_comment-time_since'>{comment.time_since}</div>
+      </div>
+      <p className='book_comment-text'>{comment.text}</p>
+
+      {comment.replies && comment.replies.length > 0 && (
+        <div className='replies_open-button'>
+          <button className='reply_button' onClick={() => onToggleReplyButtons(comment.id)}>
+            {showReplyButtons[comment.id] ? '-' : '+'}
+          </button>
+          <p className='open-replies' onClick={() => onToggleReplyButtons(comment.id)}>Open replies</p>
+        </div>
+      )}
+
+      {showReplyButtons[comment.id] && (
+        comment.replies.map((nestedReply) => (
+          <Comment
+            key={nestedReply.id}
+            comment={nestedReply}
+            showReplyButtons={showReplyButtons}
+            onToggleReplyButtons={onToggleReplyButtons}
+          />
+        ))
+      )}
+    </div>
+  );
+}
+
+function BookComment() {
+  const [comments, setComments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showReplies, setShowReplies] = useState(false);
+  const [showReplyButtons, setShowReplyButtons] = useState({});
+
+  useEffect(() => {
+    axios.get('http://127.0.0.1:8000/book_detail/46/comments/')
+      .then(response => {
+        setComments(response.data);
+        setLoading(false);
+      })
+      .catch(error => {
+        console.error('Ошибка при загрузке комментариев', error);
+        setLoading(false);
+      });
+  }, []);
+
+  const toggleReplies = () => {
+    setShowReplies(!showReplies);
+  };
+
+  const toggleReplyButtons = (replyId) => {
+    setShowReplyButtons(prevState => ({
+      ...prevState,
+      [replyId]: !prevState[replyId],
+    }));
+  };
+
+  return (
+    <div>
+      {loading && <p>Загрузка комментариев...</p>}
+      {!loading && (
+        <div>
+          {comments && comments.most_liked_comment && (
+            <div>
+              <div className='book_comment'>
+                {/* Основной комментарий */}
+                <Comment
+                  comment={comments.most_liked_comment}
+                  showReplyButtons={showReplyButtons}
+                  onToggleReplyButtons={toggleReplyButtons}
+                />
+              </div>
+
+              {showReplies && comments.most_liked_comment.replies && comments.most_liked_comment.replies.length > 0 && (
+                <div>
+                  {comments.most_liked_comment.replies.map((reply) => (
+                    <Comment
+                      key={reply.id}
+                      comment={reply}
+                      showReplyButtons={showReplyButtons}
+                      onToggleReplyButtons={toggleReplyButtons}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Navigation() {
   const [activeTab, setActiveTab] = useState('tab1'); // Исходная активная вкладка
 
@@ -576,7 +676,7 @@ function ProfileDescription() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get(`http://127.0.0.1:8000/users/api/${username}/`); // Замените URL на ваш реальный URL
+        const response = await axios.get(`http://127.0.0.1:8000/users/api/Andrew/`); 
         setUserData(response.data);
       } catch (error) {
         console.error('Ошибка при получении данных:', error);
@@ -584,12 +684,12 @@ function ProfileDescription() {
     };
 
     fetchData();
-  }, []); // Пустой массив зависимостей гарантирует выполнение эффекта только один раз при монтировании компонента
+  }, []); 
 
   return (
     <div>
       {userData ? (
-        <p>{userData.description}</p>
+        <p className='profile_description'>{userData.about}</p>
       ) : (
         <p className='description-none'>You do not have any description yet:&lang;</p>
       )}
@@ -848,7 +948,7 @@ function ProfileCommentsItem() {
           </div>
           <div className='comment-item_2'>
             <div className='comment-views'>In reply to</div>
-            <div className='comment-content'>{comment.book}</div>
+            <div className='comment-content'>{comment.book_name}</div>
           </div>
           <div className='comment-item_3'>
             <div className='comment-views'>Date</div>
@@ -2583,7 +2683,6 @@ const StudioTextInput = () => {
 
   const handleAlignButtonClick = () => {
     setShowAlignmentOptions((prevShowAlignmentOptions) => !prevShowAlignmentOptions);
-    setShowColorPicker(false);
   };
 
   const updateLocalStorage = () => {
