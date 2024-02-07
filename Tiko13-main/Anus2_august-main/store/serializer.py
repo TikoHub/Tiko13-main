@@ -133,7 +133,8 @@ class CommentSerializer(serializers.ModelSerializer):
     rating = serializers.SerializerMethodField()
 
     def get_rating(self, obj):
-        return obj.rating
+        # Ensure the rating is calculated dynamically here
+        return obj.calculate_rating()
 
     def get_profileimg(self, obj):
         return obj.user.profile.profileimg.url if obj.user.profile.profileimg else None

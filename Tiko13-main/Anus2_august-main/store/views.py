@@ -32,6 +32,8 @@ from .serializer import *
 from .converters import create_fb2, parse_fb2
 from django.core.files.storage import default_storage
 import datetime
+from datetime import date
+from users.models import WebPageSettings, Library
 
 
 class BooksListAPIView(generics.ListAPIView):
@@ -686,21 +688,53 @@ class Reader(APIView):
     def get(self, request, book_id):
         try:
             book = Book.objects.get(pk=book_id)
+            # Add a check for the book's adult content flag
+            if book.is_adult:
+                if not request.user.is_authenticated:
+                    return Response({'detail': 'Sorry, you need to log in and be older than 18 to read this book.'}, status=status.HTTP_401_UNAUTHORIZED)
+                if not self.is_user_adult(request.user):
+                    return Response({'detail': 'Sorry, this content is restricted to users over 18.'}, status=status.HTTP_403_FORBIDDEN)
+
         except Book.DoesNotExist:
             return Response({'detail': 'Book not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         chapters = Chapter.objects.filter(book=book)
-        user_has_purchased = book in request.user.library.purchased_books.all()
+        user_has_purchased = False
+        if request.user.is_authenticated:
+            user_has_purchased = book in request.user.library.purchased_books.all()
 
-        serialized_chapters = []
-        for chapter in chapters:
-            if chapter.is_free or user_has_purchased:
-                serialized_chapters.append({'title': chapter.title, 'content': chapter.content})
-            else:
-                serialized_chapters.append({'title': chapter.title, 'content': 'This content is locked. Please purchase the book to read.'})
+        serialized_chapters = self.serialize_chapters(chapters, book, request.user, user_has_purchased)
 
         return Response(serialized_chapters)
 
+    def is_user_adult(self, user):
+        try:
+            web_page_settings = WebPageSettings.objects.get(profile__user=user)
+            dob = web_page_settings.date_of_birth
+            if dob is None:
+                # If DOB is not set, consider as not adult
+                return False
+            today = timezone.now().date()
+            age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+            return age >= 18
+        except WebPageSettings.DoesNotExist:
+            # Handle cases where the user does not have WebPageSettings or it's not configured properly
+            return False
+
+    def serialize_chapters(self, chapters, book, user, user_has_purchased):
+        serialized_chapters = []
+        for chapter in chapters:
+            chapter_data = {
+                'id': chapter.id,
+                'title': chapter.title,
+            }
+            if chapter.is_free or user_has_purchased:
+                chapter_data['content'] = chapter.content
+            else:
+                chapter_data['content'] = 'This content is locked. Please purchase the book to read.'
+            serialized_chapters.append(chapter_data)
+
+        return serialized_chapters
 
 
 class SingleChapterView(APIView):
