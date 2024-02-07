@@ -27,12 +27,12 @@ SECRET_KEY = 'django-insecure-a9x4pgg7vxl+_3l-daz)1ie)ots$*r#x=+npeibx1c#i&628m4
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1', '52.202.167.226']  # 02 11 2023 google auth attempt
+ALLOWED_HOSTS = ['127.0.0.1', '52.202.167.226', 'localhost']  # 02 11 2023 google auth attempt
 
 
 AUTHENTICATION_BACKENDS = (
-    'django.contrib.auth.backends.ModelBackend',
     'users.custom_backend.EmailBackend',
+    'django.contrib.auth.backends.ModelBackend',
     'social_core.backends.google.GoogleOAuth2',
     'social_core.backends.facebook.FacebookOAuth2',
     'allauth.account.auth_backends.AuthenticationBackend',

@@ -6,6 +6,8 @@ from store.models import Book, Genre, Series, Comment, BookUpvote
 from .helpers import FollowerHelper
 from django.utils.formats import date_format
 from django.utils import timezone
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
 
 
 class CustomUserRegistrationSerializer(serializers.Serializer):
@@ -344,3 +346,14 @@ class WalletTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = WalletTransaction
         fields = ['amount', 'transaction_type', 'timestamp', 'related_purchase']
+
+
+class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+
+        # Add custom claims
+        token['username'] = user.username
+        return token
+

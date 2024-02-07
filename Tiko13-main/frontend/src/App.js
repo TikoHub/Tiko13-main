@@ -1414,24 +1414,30 @@ function Login () {
 
 
     const handleLogin = async () => {
-      try {
-          const response = await axios.post('http://127.0.0.1:8000/users/api/login/', {
-              email,
-              password,
-          });
+    try {
+        const response = await axios.post('http://127.0.0.1:8000/users/api/login/', {
+            email,
+            password,
+        });
 
-          if (response.status === 200) {
-              const token = response.data.token;
-              localStorage.setItem('token', token);
-              setLoggedIn(true);
-              navigate('/'); 
-              alert('вы успешно зашли')
-          } else {
-          }
-      } catch (error) {
-          console.error('Ошибка при входе', error);
-      }
-  };
+        if (response.status === 200) {
+            const token = response.data.access;
+            localStorage.setItem('token', token);
+            setLoggedIn(true);
+            navigate('/');
+            alert('Вы успешно зашли');
+            console.log(token);
+        }
+    } catch (error) {
+        if (error.response && error.response.status === 401) {
+            alert('Неверные учетные данные');
+        } else {
+            console.error('Ошибка при входе', error);
+            alert('Произошла ошибка при попытке входа');
+        }
+    }
+};
+
 
   return (
       <div className='formContainer'>

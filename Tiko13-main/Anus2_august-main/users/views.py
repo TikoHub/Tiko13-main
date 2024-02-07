@@ -34,6 +34,7 @@ import stripe
 from .forms import UploadIllustrationForm, UploadTrailerForm
 from .models import Achievement, Illustration, Trailer, Notification, Conversation, Message, \
     WebPageSettings, Library, EmailVerification, TemporaryRegistration, Wallet, StripeCustomer
+from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import *
 
 
@@ -142,23 +143,34 @@ class CustomUserLoginView(APIView):
     serializer_class = CustomUserLoginSerializer
 
     def post(self, request, *args, **kwargs):
+        print(request.data)
         serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            email = serializer.validated_data['email']
-            password = serializer.validated_data['password']
+        if not serializer.is_valid():
+            print(serializer.errors)  # This will print the validation errors
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            user = authenticate(request, username=email, password=password)
-            if user:
-                refresh = RefreshToken.for_user(user)
-                data = {
-                    'refresh': str(refresh),
-                    'access': str(refresh.access_token),
-                }
-                return Response(data, status=status.HTTP_200_OK)
+        # If you reach here, it means serializer is valid
+        email = serializer.validated_data['email']
+        password = serializer.validated_data['password']
+        user = authenticate(request, username=email, password=password)
+
+        if user is not None:
+            token_serializer_data = {
+                'username': email,  # Use email as username here
+                'password': password,
+            }
+            token_serializer = MyTokenObtainPairSerializer(data=token_serializer_data)
+
+            if token_serializer.is_valid():
+                return Response(token_serializer.validated_data, status=status.HTTP_200_OK)
             else:
-                return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+                print(token_serializer.errors)  # Debugging to identify token generation issues
+                return Response(token_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 @api_view(['GET'])

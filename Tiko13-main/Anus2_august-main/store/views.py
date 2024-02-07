@@ -33,6 +33,7 @@ from .converters import create_fb2, parse_fb2
 from django.core.files.storage import default_storage
 import datetime
 
+
 class BooksListAPIView(generics.ListAPIView):
     queryset = Book.objects.order_by('-id')
     serializer_class = BookSerializer
@@ -41,6 +42,10 @@ class BooksListAPIView(generics.ListAPIView):
 class BookDetailAPIView(generics.RetrieveAPIView):
     queryset = Book.objects.all()
     serializer_class = BookSerializer
+
+    def get_object(self):
+        book_id = self.kwargs.get('book_id')
+        return get_object_or_404(Book, id=book_id)
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -92,35 +97,8 @@ class BookSearch(ListView):
         return context
 
 
-class BooksCreate(CreateView):
-    model = Book
-    template_name = 'store/book_create.html'
-    form_class = BooksForm
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs.update({'user': self.request.user})
-        return kwargs
-
-    def form_valid(self, form):
-        book = form.save(commit=False)
-        book.author = self.request.user
-        book.save()
-
-        # Store the book's ID in the session
-        self.request.session['book_id'] = book.id
-        return HttpResponseRedirect(reverse('book_text'))
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['user_series'] = Series.objects.filter(author=self.request.user)
-        return context
-
-
 class BooksCreateAPIView(APIView):
-    """
-    Create a new book.
-    """
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
         serializer = BookCreateSerializer(data=request.data, context={'request': request})
@@ -342,35 +320,6 @@ class BookSaleView(APIView):
     pass
 
 
-class BookTextView(FormView):
-    template_name = 'store/book_text.html'
-    form_class = ChapterForm
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        self.book_id = self.request.session.get('book_id', None)
-        if self.book_id:
-            self.book = Book.objects.get(id=self.book_id)
-        else:
-            # You can add redirection or error handling here
-            pass
-        return kwargs
-
-    def form_valid(self, form):
-        chapter = form.save(commit=False)
-        chapter.book = self.book
-        chapter.save()
-        return super().form_valid(form)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['book'] = self.book
-        return context
-
-    def get_success_url(self):
-        return reverse('book_detail', args=(self.book.id,))
-
-
 class BookTextAPIView(APIView):
     """
     Add text to a book.
@@ -383,7 +332,7 @@ class BookTextAPIView(APIView):
             return Response({"error": "Book ID not found in session."}, status=status.HTTP_400_BAD_REQUEST)
 
         book = get_object_or_404(Book, id=book_id)
-        serializer = ChapterSerializer(data=request.data)
+        serializer = ChapterSerializers(data=request.data)
 
         if serializer.is_valid():
             chapter = serializer.save(book=book)

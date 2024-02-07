@@ -6,7 +6,7 @@ from . import views
 urlpatterns = [
 
     path('', BooksListAPIView.as_view(), name='books_list_api'),  # Главная Страница
-    path('book_detail/<int:pk>/', BookDetailAPIView.as_view(), name='book_detail_api'),  #Страница Книги
+    path('book_detail/<int:book_id>/', BookDetailAPIView.as_view(), name='book_detail_api'),  #Страница Книги
     path('book_detail/<int:book_id>/info', views.get_book_info, name='get_book_info'), # Описание книги, кол-во глав,страниц
     path('book_detail/<int:book_id>/content', views.get_book_content, name='get_book_content'), # Главы с датой добавления
     path('book_detail/<int:book_id>/review', ReviewListView.as_view(), name='post_review'), # Отзывы (пока отсутствуют)
