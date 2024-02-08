@@ -7,6 +7,7 @@ from django.utils.timesince import timesince
 from datetime import datetime, timedelta
 from django.utils import timezone
 from django.contrib.auth.models import User
+from django.urls import reverse
 
 
 class ChapterSerializers(serializers.ModelSerializer):       # Основной Чаптер Сериалайзер
@@ -62,6 +63,22 @@ class BookSerializer(serializers.ModelSerializer):     # Основной Сер
     downvotes = serializers.SerializerMethodField()
     author_profile_img = serializers.SerializerMethodField()
     author_followers_count = serializers.SerializerMethodField()
+    first_chapter_info = serializers.SerializerMethodField()
+
+    def get_first_chapter_info(self, obj):
+        first_chapter = obj.chapters.order_by('created').first()
+        if first_chapter:
+            # You can adjust the returned data according to your needs
+            # For example, returning the chapter ID and title
+            return {
+                'id': first_chapter.id,
+                'title': first_chapter.title,
+                # Optionally, provide a direct URL to the chapter if applicable
+                'url': self.context['request'].build_absolute_uri(
+                    reverse('chapter-detail', kwargs={'book_id': obj.id, 'chapter_id': first_chapter.id})
+                )
+            }
+        return None
 
     def get_author_profile_img(self, obj):
         request = self.context.get('request')
@@ -91,7 +108,7 @@ class BookSerializer(serializers.ModelSerializer):     # Основной Сер
 
     class Meta:
         model = Book
-        fields = ['id', 'name', 'genre', 'subgenres', 'author', 'coverpage', 'views_count', 'volume_number', 'last_modified',
+        fields = ['id', 'name', 'genre', 'subgenres', 'author', 'coverpage', 'views_count', 'volume_number', 'last_modified', 'first_chapter_info',
                   'is_adult', 'series_name', 'book_type', 'display_price', 'upvotes', 'downvotes', 'author_profile_img', 'author_followers_count']
 
 
@@ -137,7 +154,12 @@ class CommentSerializer(serializers.ModelSerializer):
         return obj.calculate_rating()
 
     def get_profileimg(self, obj):
-        return obj.user.profile.profileimg.url if obj.user.profile.profileimg else None
+        request = self.context.get('request', None)
+        if obj.user.profile.profileimg and request:
+            profileimg_url = obj.user.profile.profileimg.url
+            return request.build_absolute_uri(profileimg_url)
+        return None
+
 
     def get_username(self, obj):
         return obj.user.username
@@ -158,7 +180,9 @@ class CommentSerializer(serializers.ModelSerializer):
 
     def get_replies(self, obj):
         if obj.replies.exists():
-            return CommentSerializer(obj.replies.all(), many=True).data
+            # Pass the context to the nested serializer
+            context = self.context
+            return CommentSerializer(obj.replies.all(), many=True, context=context).data
         return []
 
 

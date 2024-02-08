@@ -26,6 +26,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from store.models import Book, Comment, Review, Series
 from .helpers import FollowerHelper
+from django.core.files.storage import FileSystemStorage
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
@@ -280,7 +281,6 @@ class AddToLibraryView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-
 def can_view_library(request_user, user):
     privacy = user.profile.library_privacy
     if privacy == "anyone":
@@ -364,7 +364,6 @@ def get_library_content(request, username):
 
     # Return the serialized book data in the response
     return Response(books_serializer.data)
-
 
 
 @login_required(login_url='signin')
@@ -569,50 +568,6 @@ def book_settings(request, book_id):
     return render(request, 'settings/book_settings.html', context)
 
 
-def upload_illustration(request):
-    if request.method == 'POST':
-        form = UploadIllustrationForm(request.POST, request.FILES)
-        if form.is_valid():
-            form.save()
-            return redirect('../settings/book_settings')
-    else:
-        form = UploadIllustrationForm()
-    return render(request, 'settings/book_settings.html', {'form': form})
-
-
-def upload_trailer(request):
-    if request.method == 'POST':
-        form = UploadTrailerForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Your trailer link was uploaded successfully.')
-            return redirect('../settings/book_settings')
-    else:
-        form = UploadTrailerForm()
-    return render(request, 'settings/book_settings.html', {'form': form})
-
-
-def display_illustrations(request):
-    illustrations = Illustration.objects.all()
-    return render(request, 'settings/display_illustrations.html', {'illustrations': illustrations})
-
-
-def delete_illustration(request, illustration_id):
-    if request.method == 'POST':  # Make sure the method is POST to prevent accidental deletions
-        illustration = get_object_or_404(Illustration, id=illustration_id)
-        illustration.image.delete(save=True)  # This also deletes the file from the file system
-        illustration.delete()
-    return redirect('display_illustrations')
-
-
-def delete_trailer(request, trailer_id):
-    trailer = get_object_or_404(Trailer, id=trailer_id)
-    if request.method == 'POST':
-        trailer.delete()
-        messages.success(request, 'The trailer has been deleted successfully.')
-        return redirect('book_settings')
-
-
 class WebPageSettingsAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -638,8 +593,20 @@ class WebPageSettingsAPIView(APIView):
             return Response(serializer.errors, status=400)
 
 
-def main_settings(request):
-    return render(request, 'settings/main_settings.html')
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_temp_profile_image(request):
+    if 'profile_img' in request.FILES:
+        profile_img = request.FILES['profile_img']
+        fs = FileSystemStorage(location='/path/to/temp/storage')  # Specify your temp storage
+        filename = fs.save(profile_img.name, profile_img)
+        uploaded_file_url = fs.url(filename)
+
+        # Optionally, store this temp file info in the session or a temporary field
+        request.session['temp_profile_img_path'] = fs.path(filename)
+
+        return Response({'temp_img_url': uploaded_file_url})
+    return Response({'error': 'No file uploaded.'}, status=400)
 
 
 class NotificationSettingsAPIView(generics.RetrieveUpdateAPIView):

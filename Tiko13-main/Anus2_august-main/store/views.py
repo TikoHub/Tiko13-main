@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, View, TemplateView
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, AllowAny
 from datetime import timedelta
 from django.utils import timezone
 from .models import CommentLike, CommentDislike, ReviewLike, ReviewDislike, Series, Genre, BookUpvote, BookDownvote, Chapter
@@ -393,23 +393,35 @@ class SeriesUpdateView(LoginRequiredMixin, UpdateView):
 
 
 class CommentListCreateView(APIView):
-    permission_classes = [IsAuthenticated]
+    def get_permissions(self):
+        """
+        Instantiates and returns the list of permissions that this view requires.
+        """
+        if self.request.method == 'POST':
+            self.permission_classes = [IsAuthenticated,]
+        else:
+            self.permission_classes = [AllowAny,]
+        return super(CommentListCreateView, self).get_permissions()
 
     def get(self, request, book_id):
         book = get_object_or_404(Book, pk=book_id)
         comments = Comment.objects.filter(book=book, parent_comment=None).order_by('-rating')
 
-        # Include 'is_author' field and calculate 'rating'
-        for comment in comments:
-            comment.is_author = (comment.user == book.author)
-            comment.rating = comment.count_likes() - comment.count_dislikes()
+        # No need to manually include 'is_author' field and calculate 'rating' here
+        # It should be handled in the serializer if it's part of your model logic
 
-        serialized_comments = CommentSerializer(comments, many=True)
+        serialized_comments = CommentSerializer(comments, many=True, context={'request': request})
         return Response({'comments': serialized_comments.data})
 
     def post(self, request, book_id):
         # Logic for creating a new comment
-        pass
+        serializer = CommentSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save(user=request.user, book_id=book_id)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
     @action(detail=True, methods=['post'])
     def like_comment(self, request, book_id, comment_id):

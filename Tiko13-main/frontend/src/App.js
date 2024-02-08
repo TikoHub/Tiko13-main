@@ -154,7 +154,7 @@ function BookPage() {
           // Обработка ошибки
         }
   
-        const bookResponse = await axios.get(`http://127.0.0.1:8000/book_detail/46/`);
+        const bookResponse = await axios.get(`http://127.0.0.1:8000/book_detail/45/`);
   
         if (bookResponse.status === 200) {
           setBookData(bookResponse.data);
@@ -477,7 +477,7 @@ function BookInfo() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get('http://127.0.0.1:8000/book_detail/46/info');
+        const response = await axios.get('http://127.0.0.1:8000/book_detail/45/info');
         setBooks(response.data);
       } catch (error) {
         console.error('Error fetching books:', error);
@@ -514,7 +514,7 @@ function BookContent() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get('http://127.0.0.1:8000/book_detail/46/content');
+        const response = await axios.get('http://127.0.0.1:8000/book_detail/45/content');
         setContents(response.data);
       } catch (error) {
         console.error('Error fetching books:', error);
@@ -569,30 +569,39 @@ function Comment({ comment, showReplyButtons, onToggleReplyButtons }) {
   );
 }
 
-function BookComment() {
+
+function BookComment({ book_id }) {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showReplies, setShowReplies] = useState(false);
   const [showReplyButtons, setShowReplyButtons] = useState({});
+  const token = localStorage.getItem('token');
 
   useEffect(() => {
-    axios.get('http://127.0.0.1:8000/book_detail/46/comments/')
-      .then(response => {
-        setComments(response.data);
+    const fetchComments = async () => {
+      try {
+        const response = await axios.get('http://127.0.0.1:8000/book_detail/45/comments/', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        setComments(response.data.comments);
         setLoading(false);
-      })
-      .catch(error => {
+      } catch (error) {
         console.error('Ошибка при загрузке комментариев', error);
         setLoading(false);
-      });
-  }, []);
+      }
+    };
+
+    fetchComments();
+  }, [book_id, token]);
 
   const toggleReplies = () => {
     setShowReplies(!showReplies);
   };
 
   const toggleReplyButtons = (replyId) => {
-    setShowReplyButtons(prevState => ({
+    setShowReplyButtons((prevState) => ({
       ...prevState,
       [replyId]: !prevState[replyId],
     }));
@@ -603,20 +612,18 @@ function BookComment() {
       {loading && <p>Загрузка комментариев...</p>}
       {!loading && (
         <div>
-          {comments && comments.most_liked_comment && (
-            <div>
-              <div className='book_comment'>
-                {/* Основной комментарий */}
-                <Comment
-                  comment={comments.most_liked_comment}
-                  showReplyButtons={showReplyButtons}
-                  onToggleReplyButtons={toggleReplyButtons}
-                />
-              </div>
-
-              {showReplies && comments.most_liked_comment.replies && comments.most_liked_comment.replies.length > 0 && (
+          {comments.map((comment) => (
+            <div key={comment.id} className='book_comment'>
+              {/* Основной комментарий */}
+              <Comment
+                comment={comment}
+                showReplyButtons={showReplyButtons}
+                onToggleReplyButtons={toggleReplyButtons}
+              />
+              {/* Проверяем наличие ответов и их отображение */}
+              {showReplies && comment.replies && comment.replies.length > 0 && (
                 <div>
-                  {comments.most_liked_comment.replies.map((reply) => (
+                  {comment.replies.map((reply) => (
                     <Comment
                       key={reply.id}
                       comment={reply}
@@ -627,12 +634,13 @@ function BookComment() {
                 </div>
               )}
             </div>
-          )}
+          ))}
         </div>
       )}
     </div>
   );
 }
+
 
 function Navigation() {
   const [activeTab, setActiveTab] = useState('tab1'); // Исходная активная вкладка
