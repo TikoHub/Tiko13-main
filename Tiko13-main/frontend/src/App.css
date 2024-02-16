@@ -1441,7 +1441,7 @@ input::-webkit-inner-spin-button {
   height: 350px;
   border-radius: 20px;
   overflow: hidden;
-  object-fit: cover;
+  object-fit: contain;
   display: flex;
   margin-right: 58px;
 }
@@ -1986,9 +1986,16 @@ p {
   font-weight: 400;
   line-height: normal;
 }
-
+.textstudio {
+  width: 80%;
+  height: 100%;
+  overflow: hidden;
+  word-break: break-all;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
 .textstudio-input {
-  width: 98%;
+  width: 100%;
   padding: 10px;
   border: none;
   background: transparent;
@@ -2122,6 +2129,15 @@ p {
   color: #FFF;
   font-family: Telex;
   font-size: 24px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+}
+
+.books-authorname {
+    color: #858585;
+  font-family: Telex;
+  font-size: 12px;
   font-style: normal;
   font-weight: 400;
   line-height: normal;

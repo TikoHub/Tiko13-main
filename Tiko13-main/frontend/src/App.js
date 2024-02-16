@@ -1,6 +1,6 @@
 import axios from 'axios';
 import React, {useState, useEffect, useHistory, useCallback, useRef, useLayoutEffect} from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, Outlet, useNavigate, NavLink } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, Outlet, useNavigate, NavLink, useParams } from 'react-router-dom';
 import { FontSizeProvider } from './context/SizeContext';
 import {WidthProvider} from './context/WidthContext';
 import {usePadding} from './context/WidthContext';
@@ -25,6 +25,11 @@ import ReactTooltip from 'react-tooltip';
 import ClipboardJS from 'clipboard';
 import ContentEditable from 'react-contenteditable';
 import { ChromePicker } from 'react-color';
+import { StudioFontSizeProvider } from './context/studio/SizeStudioContext';
+import {StudioWidthProvider} from './context/studio/WidthStudioContext';
+import {useStudioPadding} from './context/studio/WidthStudioContext';
+import { useStudioLineHeight, StudioLineHeightProvider } from './context/studio/LineStudioContext';
+import { FontStudioProvider, useStudioFont } from './context/studio/FontStudioContext';
 
 
 function App() {
@@ -35,8 +40,8 @@ function App() {
       <Route path='/profile' element={<Main/>} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<TwoStepRegistration />} />
-      <Route path='/bookpage' element={<BookPage />} />
-      <Route path='/reader' element={<ReaderContext />} />
+      <Route path='/book_detail/:book_id' element={<BookPage />} />
+      <Route path='/reader/:book_id' element={<ReaderContext />} />
       <Route path='/studio' element={<StudioContext />} />
     </Routes>
     </Router>
@@ -57,15 +62,15 @@ function ReaderContext() {
 }
 function StudioContext() {
   return(
-    <FontProvider>
-    <WidthProvider>
-    <LineHeightProvider>
-    <FontSizeProvider>
+    <FontStudioProvider>
+    <StudioWidthProvider>
+    <StudioLineHeightProvider>
+    <StudioFontSizeProvider>
       <StudioMain />
-    </FontSizeProvider>
-    </LineHeightProvider>
-    </WidthProvider>
-    </FontProvider>
+    </StudioFontSizeProvider>
+    </StudioLineHeightProvider>
+    </StudioWidthProvider>
+    </FontStudioProvider>
   )
 }
 function MainPage(){
@@ -127,47 +132,52 @@ function MainPage(){
 
 function BookPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [profileData, setProfileData] = useState({
-  });
-  const [bookData, setBookData] = useState({
-  });
+  const [profileData, setProfileData] = useState({});
+  const [bookData, setBookData] = useState({});
   const token = localStorage.getItem('token');
-
-  const link = 'http://localhost:3000/bookpage'
+  const { book_id } = useParams();
+  const link = 'http://localhost:3000/bookpage';
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const decodedToken = jwtDecode(token);
-        const username = decodedToken.username;
-  
-        const profileResponse = await axios.get(`http://127.0.0.1:8000/users/api/${username}/`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-  
-        if (profileResponse.status === 200) {
-          setProfileData(profileResponse.data);
-          setIsLoggedIn(true);
-        } else {
-          // Обработка ошибки
-        }
-  
-        const bookResponse = await axios.get(`http://127.0.0.1:8000/book_detail/45/`);
-  
+        const bookResponse = await axios.get(`http://127.0.0.1:8000/book_detail/${book_id}/`);
+        
         if (bookResponse.status === 200) {
           setBookData(bookResponse.data);
+
         } else {
-          // Обработка ошибки
+
         }
       } catch (error) {
         console.error('Ошибка при получении данных', error);
       }
     };
-  
+
+    const getProfile = async () => {
+      try {
+        const decodedToken = jwtDecode(token);
+        const username = decodedToken.username
+        
+        const response = await axios.get(`http://127.0.0.1:8000/users/api/${username}/`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (response.status === 200) {
+          setProfileData(response.data);
+          setIsLoggedIn(true);
+        } else {
+          // Обработка ошибки
+        }
+      } catch (error) {
+        console.error('Ошибка при получении профиля', error);
+      }
+    };
+    getProfile();
     fetchData();
-  }, []);
+  }, [book_id, token]);
   return(
     <div className='main'>
       <header className='header'>
@@ -197,7 +207,9 @@ function BookPage() {
                 </div>
                 </div>
                 <div className='bookpage__button_menu'>
-                  <button className='bookpage__button_read'>Read</button>
+                <Link to={`/reader/${book_id}`}>
+  <button className='bookpage__button_read'>Read</button>
+</Link>
                   <button className='bookpage__button_free'>{bookData.display_price}</button>
                   <button className='bookpage__button_add'>+Add</button>
                   <button className='bookpage__button_download'></button>
@@ -213,7 +225,7 @@ function BookPage() {
             
         </div>
         <div className='bookpage__content'>
-         <BookpageNavigation /> 
+         <BookpageNavigation  book_id={book_id}/> 
         </div> 
       </div>
   </div>
@@ -263,7 +275,7 @@ function Main() {
       <header className='header'>
       <Link to='/'><a><img className='logo' src={Logo}></img></a></Link>
         <div className='header-search'>
-          <input type="text" placeholder="search" class="search-input"></input>
+          <input type="text" placeholder="search" className="search-input"></input>
         </div>
         {isLoggedIn ? (<div className='header-avatar'><img className='header_avatar-img' src={profileData.profileimg} alt="#" /></div>):(
        <Link to='/login'><div className='header-signin'><button className='pool-sign'><img className='pool_icon-sign' src={Avatar}></img>Sign In</button></div></Link>)}
@@ -327,24 +339,23 @@ function BookItem() {
     fetchData();
   }, []);
 
-  return (
-    <div className='book-item'>
-        {books.map(book => (
-          <div className='colum' key={book.id}>
-              <div className='book-coverpage'><img src={book.coverpage} /></div>
-            <div className='book-info'>
-              <img src="" alt="" />
-                <div className='books-name'>{book.name}</div>
-                <div className='books-autorname'>{book.author}</div>
-                <ul className='books-info-ul'>
-                  <li className="viewins">{book.views_count}Viewins</li>
-                  <li className="read"></li>
-                </ul>
-            </div>
-          </div>
-        ))}
+return (
+  <div className='book-item'>
+    {books.map(book => (
+      <div className='colum' key={book.id}>
+        <div className='book-coverpage'><img src={book.coverpage} /></div>
+        <div className='book-info'>
+          <a href={`book_detail/${book.id}`} className='books-name'>{book.name}</a>
+          <div className='books-authorname'><a href={`profile/${book.author}`}>{book.author}</a></div>
+          <ul className='books-info-ul'>
+            <li className="viewins">{book.views_count} Viewins</li>
+            <li className="read"></li>
+          </ul>
+        </div>
+      </div>
+    ))}
   </div>
-  )
+);
 }
 
 const Sidebar = () => {
@@ -446,7 +457,7 @@ function Profile() {
   )
 }
 
-function BookpageNavigation() {
+function BookpageNavigation({book_id}) {
   const [activeTab, setActiveTab] = useState('tab1'); 
 
   const handleTabClick = (tabId) => {
@@ -463,24 +474,25 @@ function BookpageNavigation() {
               <li><a onClick={() => handleTabClick('tab4')}>Reviews</a></li>
               </ul>
             </div>
-                      {activeTab === 'tab1' && <BookInfo />}
-                      {activeTab === 'tab2' && <BookContent />}
-                      {activeTab === 'tab3' && <BookComment />}
+                      {activeTab === 'tab1' && <BookInfo book_id={book_id}/>}
+                      {activeTab === 'tab2' && <BookContent book_id={book_id}/>}
+                      {activeTab === 'tab3' && <BookComment book_id={book_id}/>}
         </div>
     </div>
   );
 }
 
-function BookInfo() {
+function BookInfo({book_id}) {
   const [books, setBooks] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get('http://127.0.0.1:8000/book_detail/45/info');
+        const response = await axios.get(`http://127.0.0.1:8000/book_detail/${book_id}/info`);
         setBooks(response.data);
+        console.log(response)
       } catch (error) {
-        console.error('Error fetching books:', error);
+        console.error('Пиздец в инфо');
       }
     };
 
@@ -501,7 +513,7 @@ function BookInfo() {
   )
 }
 
-function BookContent() {
+function BookContent({book_id}) {
   const [contents, setContents] = useState({
     chapters: [
       {
@@ -514,7 +526,7 @@ function BookContent() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get('http://127.0.0.1:8000/book_detail/45/content');
+        const response = await axios.get(`http://127.0.0.1:8000/book_detail/${book_id}/content`);
         setContents(response.data);
       } catch (error) {
         console.error('Error fetching books:', error);
@@ -580,9 +592,9 @@ function BookComment({ book_id }) {
   useEffect(() => {
     const fetchComments = async () => {
       try {
-        const response = await axios.get('http://127.0.0.1:8000/book_detail/45/comments/', {
+        const response = await axios.get(`http://127.0.0.1:8000/book_detail/${book_id}/comments/`, {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${token}`, 
           },
         });
         setComments(response.data.comments);
@@ -641,9 +653,8 @@ function BookComment({ book_id }) {
   );
 }
 
-
 function Navigation() {
-  const [activeTab, setActiveTab] = useState('tab1'); // Исходная активная вкладка
+  const [activeTab, setActiveTab] = useState('tab1'); 
 
   const handleTabClick = (tabId) => {
     setActiveTab(tabId);
@@ -1422,30 +1433,25 @@ function Login () {
 
 
     const handleLogin = async () => {
-    try {
-        const response = await axios.post('http://127.0.0.1:8000/users/api/login/', {
-            email,
-            password,
-        });
+      try {
+          const response = await axios.post('http://127.0.0.1:8000/users/api/login/', {
+              email,
+              password,
+          });
 
-        if (response.status === 200) {
-            const token = response.data.access;
-            localStorage.setItem('token', token);
-            setLoggedIn(true);
-            navigate('/');
-            alert('Вы успешно зашли');
-            console.log(token);
-        }
-    } catch (error) {
-        if (error.response && error.response.status === 401) {
-            alert('Неверные учетные данные');
-        } else {
-            console.error('Ошибка при входе', error);
-            alert('Произошла ошибка при попытке входа');
-        }
-    }
-};
-
+          if (response.status === 200) {
+              const token = response.data.access
+              localStorage.setItem('token', token);
+              setLoggedIn(true);
+              navigate('/'); 
+              alert('вы успешно зашли')
+              console.log(token)
+          } else {
+          }
+      } catch (error) {
+          console.error('Ошибка при входе', error);
+      }
+  };
 
   return (
       <div className='formContainer'>
@@ -1989,8 +1995,10 @@ function ReaderMain() {
   const { padding } = usePadding();
   const { lineHeight } = useLineHeight();
   const { fontFamily } = useFont();
-
-
+  const [books, setBooks] = useState([]);
+  const { book_id } = useParams();
+  const { chapter_id } = useParams();
+  const token = localStorage.getItem('token'); // замените на ваш реальный токен доступа
 
   const style = {
     paddingLeft: `${padding.left}px`,
@@ -1999,28 +2007,50 @@ function ReaderMain() {
     fontFamily,
   };
 
-
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const booksResponse = await axios.get(`http://127.0.0.1:8000/reader/${book_id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        
+        if (booksResponse.status === 200) {
+          setBooks(booksResponse.data);
+          console.log(booksResponse);
+        } else {
+          console.log(booksResponse);
+        }
+      } catch (error) {
+        console.error('Ошибка при получении данных', error);
+      }
+    };
+  
+    fetchData();
+  }, [book_id, token]);
 
   return (
     <div className='main'>
+      {books.map(book => (
       <div className='container'>
-        <ReaderSidebar />
+        <ReaderSidebar book_id={book_id}/>
         <div className='reader'>
-          <div className='title'>Chapter 1</div>
-          <hr className='top-line'></hr>
-          <div className='book'style={style}>&emsp;Today we are going to fuck cats and dogs. Unfortunately there are many people who hates us. But we are not weak, we can stand against society and their morale frames Today we are going to fuck cats and dogs. Unfortunately there are many people who hates us. But we are not weak, we can stand against society and their morale frames
-<br />&emsp;Today we are going to fuck cats and dogs. Unfortunately there are many people who hates us. But we are not weak, we can stand against society and their morale framesToday we are going to fuck cats and dogs. Unfortunately there are many people who hates us. But we are not weak, we can stand against society and their morale frames 
-<br />&emsp;Today we are going to fuck cats and dogs. Unfortunately there are many people who hates us. But we are not weak, we can stand against society and their morale frames Today we are going to fuck cats and dogs. Unfortunately there are many people who hates us. But we are not weak, we can stand against society and their morale frames
-<br />&emsp;Today we are going to fuck cats and dogs. Unfortunately there are many people who hates us. But we are not weak, we can   stand against society and their morale framesToday we are going to fuck cats and dogs.<br />&emsp;Unfortunately there are many people who hates us. But we are not weak, we can stand against society and their morale framesToday we are going to fuck cats and dogs. Unfortunately there are many people who hates us. But we are not weak, we can stand against society and their morale frames
-<br />&emsp;Today we are going to fuck cats and dogs. Unfortunately there are many people who hates us. But we are not weak, we can stand against society and their morale framesToday we are going to fuck cats and dogs. Unfortunately there are many people who hates us. But we are not weak, we can stand against society and their morale framesToday we are going to fuck cats and dogs. Unfortunately there are many people who hates us. But we are not weak, we can stand against society and their morale framesToday we are going to fuck cats and dogs. Unfortunately there are many people who hates us. But we are not weak, we can stand against society and their morale framesToday we are going to fuck cats and dogs. Unfortunately there are many people who hates us. But we are not weak, we can stand against society and their morale framesToday we are going to fuck cats and dogs. Unfortunately there are many people who hates us. But we are not weak, we can stand against society and their morale framesToday we are going to fuck cats and dogs. Unfortunately there are many people who hates us. But we are not weak, we can stand against society and their morale framesToday we are going to fuck cats and dogs. Unfortunately there are many people who hates us. But we are not weak, we can stand against society and their morale framesToday we are going to fuck cats and dogs.    Unfortunately there are many people who hates us. But we are not weak, we can stand against society and their morale frames</div>
+        
+            <div key={book.id}>
+              <div className='title'>{book.title}</div>
+              <hr className='top-line'></hr>
+              <div className='book' style={style}>&emsp;{book.content}</div>
+            </div>
         </div>
         <ButtonMenu />
       </div>
+      ))}
     </div>
-  )
+  );
 }
 
-function ReaderSidebar() {
+function ReaderSidebar({book_id}) {
 
   const [showComponent1, setShowComponent1] = useState(true);
 
@@ -2057,42 +2087,51 @@ function ReaderSidebar() {
 </div></a>
 <div className={`reader__sidebar-menu ${showComponent1 ? 'show' : 'hide'}`}>
 
-      {showComponent1 ? <SidebarMenu /> : <SidebarMenu2 />} 
+      {showComponent1 ? <SidebarMenu book_id={book_id}/> : <SidebarMenu2 />} 
   </div> 
     </div>
   );
 };
 
 function SidebarMenu() {
-  return(
+  const [chapters, setChapters] = useState([]);
+  const { book_id } = useParams();
+  const token = localStorage.getItem('token');
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const booksResponse = await axios.get(`http://127.0.0.1:8000/reader/${book_id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        
+        if (booksResponse.status === 200) {
+          setChapters(booksResponse.data);
+        } else {
+        }
+      } catch (error) {
+        console.error('Ошибка при получении данных', error);
+      }
+    };
+  
+    fetchData();
+  }, [book_id, token]);
+
+  return (
     <ul className='reader__sidebar-menu'>
-       <li className='chapter-menu'><ul className='chapter-list' >
-              <li className="chapters"><a href="#" className='chapters'>Chapter 1</a></li>
-              <li className="chapters"><a href="#" className='chapters'>Chapter 2</a></li>
-              <li className="chapters"><a href="#" className='chapters'>Chapter 3</a></li>
-              <li className="chapters"><a href="#" className='chapters'>Chapter 4</a></li>
-              <li className="chapters"><a href="#" className='chapters'>Chapter 5</a></li>
-              <li className="chapters"><a href="#" className='chapters'>Chapter 6</a></li>
-              <li className="chapters"><a href="#" className='chapters'>Chapter 7</a></li>
-              <li className="chapters"><a href="#" className='chapters'>Chapter 8</a></li>
-              <li className="chapters"><a href="#" className='chapters'>Chapter 9</a></li>
-              <li className="chapters"><a href="#" className='chapters'>Chapter 10</a></li>
-              <li className="chapters"><a href="#" className='chapters'>Chapter 11</a></li>
-              <li className="chapters"><a href="#" className='chapters'>Chapter 12</a></li>
-              <li className="chapters"><a href="#" className='chapters'>Chapter 13</a></li>
-              <li className="chapters"><a href="#" className='chapters'>Chapter 14</a></li>
-              <li className="chapters"><a href="#" className='chapters'>Chapter 15</a></li>
-              <li className="chapters"><a href="#" className='chapters'>Chapter 15</a></li>
-              <li className="chapters"><a href="#" className='chapters'>Chapter 15</a></li>
-              <li className="chapters"><a href="#" className='chapters'>Chapter 15</a></li>
-              <li className="chapters"><a href="#" className='chapters'>Chapter 15</a></li>
-              <li className="chapters"><a href="#" className='chapters'>Chapter 15</a></li>
-              <li className="chapters"><a href="#" className='chapters'>Chapter 15</a></li>
-              <li className="chapters"><a href="#" className='chapters'>Chapter 15</a></li>
-            </ul>
-        </li>
+      <li className='chapter-menu'>
+      {chapters.map(chapter => (  
+        <ul className='chapter-list'>
+        <li className="chapters" key={book_id}>
+                <a href={`chapter/${chapter.id}`} className='chapters'>{chapter.title}</a>
+              </li>
         </ul>
-  )
+      ))}
+      </li>
+    </ul>
+  );
 }
 
 function SidebarMenu2() {
@@ -2556,9 +2595,9 @@ const StudioTextInput = () => {
   const [showAlignmentOptions, setShowAlignmentOptions] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const { padding } = usePadding();
-  const { lineHeight } = useLineHeight();
-  const { fontFamily } = useFont();
+  const { studioPadding } = useStudioPadding();
+  const { StudiolineHeight } = useStudioLineHeight();
+  const { fontStudioFamily } = useStudioFont();
   const contentEditableRef = useRef();
   const textHistory = useRef([]);
   const colorHistory = useRef([]);
@@ -2739,10 +2778,10 @@ const StudioTextInput = () => {
   };
 
   const style = {
-    paddingLeft: `${padding.left}px`,
-    paddingRight: `${padding.right}px`,
-    lineHeight,
-    fontFamily,
+    studioPaddingLeft: `${studioPadding.left}px`,
+    studioPaddingRight: `${studioPadding.right}px`,
+    StudiolineHeight,
+    fontStudioFamily,
   };
 
   return (
@@ -2800,7 +2839,7 @@ const StudioTextInput = () => {
 <path d="M12.444 12.608C14.076 13.064 15.3 13.796 16.116 14.804C16.956 15.788 17.376 17.012 17.376 18.476C17.376 20.828 16.62 22.676 15.108 24.02C13.62 25.34 11.46 26 8.628 26H0.06V0.512H7.584C10.488 0.512 12.672 1.1 14.136 2.276C15.6 3.452 16.332 5.12 16.332 7.28C16.332 9.848 15.036 11.624 12.444 12.608ZM3.48 3.392V11.384H7.584C9.264 11.384 10.536 11.048 11.4 10.376C12.288 9.68 12.732 8.648 12.732 7.28C12.732 4.688 11.016 3.392 7.584 3.392H3.48ZM8.628 23.12C10.284 23.12 11.556 22.724 12.444 21.932C13.332 21.14 13.776 19.988 13.776 18.476C13.776 17.084 13.284 16.04 12.3 15.344C11.34 14.624 9.936 14.264 8.088 14.264H3.48V23.12H8.628Z" fill="white"/>
 </svg>
 </button>
-          <button className='studio-button'><NavItem><DropdownMenu/></NavItem></button>
+          <button className='studio-button'><NavItem><StudioDropdownMenu/></NavItem></button>
           <select className='studio-select-button' onChange={handleSelectChange}>
             <option value="option1">Not Published</option>
             <option value="option2">Publish Chapter</option>
@@ -2808,7 +2847,7 @@ const StudioTextInput = () => {
           </select>
         </div>
       </div>
-      <div>
+      <div className='textstudio'>
         <ContentEditable
           className='textstudio-input'
           html={inputText}
@@ -2829,7 +2868,7 @@ function StudioNavigation() {
   };
  return (
     <div>
-        <div>
+        <div className='studio-main'>
             <div className="navigation-tabs">
               <ul className="studio_navigation-tabs__ul">
               <li><a onClick={() => handleTabClick('tab1')}>Chapters</a></li>
@@ -2846,6 +2885,153 @@ function StudioNavigation() {
   );
 }
 
+function StudioSliderFontSizer() {
+  const [studioFontSize, setStudioFontSize] = useState(16); 
 
+  const handleFontSizeChange = (event) => {
+    const newStudioSize = parseInt(event.target.value, 10);
+    setStudioFontSize(newStudioSize);
+
+    const elements = document.querySelectorAll('.book');
+    elements.forEach((element) => {
+      element.style.fontSize = `${newStudioSize}px`;
+    });
+  };
+
+  return (
+    <div>
+      <input
+        type="range"
+        min="12"
+        max="48"
+        step="1"
+        value={studioFontSize}
+        onChange={handleFontSizeChange}
+      />
+    </div>
+  );
+}
+
+
+function StudioTextWidthSlider() {
+  const { studioPadding, updateStudioPadding } = useStudioPadding();
+
+  const handlePaddingChange = (event) => {
+    const newSize = parseInt(event.target.value, 10);
+    updateStudioPadding({ left: newSize, right: newSize });
+  };
+
+  return (
+    <div>
+      <input
+        type="range"
+        min="12"
+        max="400"
+        step="1"
+        value={studioPadding.left} 
+        onChange={handlePaddingChange}
+      />
+    </div>
+  );
+}
+
+const StudioLineHeightSlider = () => {
+  const { studioLineHeight, updateStudioLineHeight } = useStudioLineHeight();
+
+  const handleSliderChange = (event) => {
+    const newLineHeight = parseFloat(event.target.value);
+    updateStudioLineHeight(newLineHeight);
+  };
+
+  return (
+    <div>
+      <input
+        type="range"
+        min="1"
+        max="3"
+        step="0.1"
+        value={studioLineHeight}
+        onChange={handleSliderChange}
+      />
+    </div>
+  );
+};
+
+function StudioFontSlider() {
+  const { fontStudioFamily, setStudioFont, fontStudioList } = useStudioFont();
+
+  const handleFontChange = (event) => {
+    const { value } = event.target;
+    setStudioFont(fontStudioList[value]);
+  }
+
+
+  const selectedIndex = fontStudioList.findIndex((font) => font === fontStudioFamily);
+
+  return (
+    <input
+      type="range"
+      min="0"
+      max={fontStudioList.length - 1}
+      value={selectedIndex}
+      onChange={handleFontChange}
+    />
+  );
+}
+
+function StudioDropdownMenu() {
+
+  const [menuHeight, setMenuHeight] = useState(null);
+  const dropdownRef = useRef(null)
+
+  useEffect(() => {
+    setMenuHeight(dropdownRef.current?.firstChild.offsetHeight)
+  }, [])
+  
+
+  
+  
+  return (
+    <div className="dropdown" style = {{ height: menuHeight }} ref={dropdownRef}>
+        <div className="dropdown-menu">
+          <div className='dropdown-button'>
+            <ul>
+              <li>
+                <ul>
+                  <li className='dropdown-icon'>Icon</li>
+                  <li className='dropdown-text'>Text Size</li>
+                  <li className='slider'><StudioSliderFontSizer/></li>
+                </ul>
+              </li>
+              <li>
+                 <ul>
+                  <li className='dropdown-icon'>Icon</li>
+                  <li className='dropdown-text'>Text Width</li>
+                  <li className='slider'><StudioTextWidthSlider/></li>
+                 </ul>
+              </li>
+              <li>
+                 <ul>
+                  <li className='dropdown-icon'>Icon</li>
+                  <li className='dropdown-text'>Text Width</li>
+                  <li className='slider'><StudioLineHeightSlider/></li>
+                 </ul>
+              </li>
+              <li>
+                 <ul>
+                  <li className='dropdown-icon'>Icon</li>
+                  <li className='dropdown-text'>Text Width</li>
+                  <li className='slider'><StudioFontSlider/></li>
+                 </ul>
+              </li>
+            </ul>
+          </div>
+
+  
+
+        </div>
+    </div>
+  );
+};
 
 export default App;
