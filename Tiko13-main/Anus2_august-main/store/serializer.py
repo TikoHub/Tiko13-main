@@ -106,10 +106,12 @@ class BookSerializer(serializers.ModelSerializer):     # Основной Сер
     def get_series_name(self, obj):
         return obj.series.name if obj.series else None
 
+
     class Meta:
         model = Book
         fields = ['id', 'name', 'genre', 'subgenres', 'author', 'coverpage', 'views_count', 'volume_number', 'last_modified', 'first_chapter_info',
-                  'is_adult', 'series_name', 'book_type', 'display_price', 'upvotes', 'downvotes', 'author_profile_img', 'author_followers_count']
+                  'is_adult', 'series_name', 'book_type', 'display_price', 'upvotes', 'downvotes', 'author_profile_img', 'author_followers_count',
+                  ]
 
 
 class BookInfoSerializer(serializers.ModelSerializer):         # Book_Detail/Info
@@ -133,12 +135,18 @@ class BookInfoSerializer(serializers.ModelSerializer):         # Book_Detail/Inf
         fields = ['total_chapters', 'total_pages', 'description', 'formatted_last_modified']
 
 
-class BookContentSerializer(serializers.ModelSerializer):        # Book_Detail/Content
-    chapters = ChapterSummarySerializer(many=True, read_only=True)
+class BookContentSerializer(serializers.ModelSerializer):  # Book_Detail/Content
+    chapters = serializers.SerializerMethodField()
+
+    def get_chapters(self, obj):
+        # Filter chapters to include only those that are published
+        published_chapters = obj.chapters.filter(published=True)
+        return ChapterSummarySerializer(published_chapters, many=True).data
 
     class Meta:
         model = Book
         fields = ['chapters']
+
 
 
 class CommentSerializer(serializers.ModelSerializer):
@@ -246,7 +254,7 @@ class ReviewDislikeSerializer(serializers.ModelSerializer):
 class ChapterContentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Chapter
-        fields = ['content']  # Add any other relevant fields
+        fields = ['content', 'published']  # Add any other relevant fields
 
     def create(self, validated_data):
         # Assuming 'book_id' is passed in the context of the request

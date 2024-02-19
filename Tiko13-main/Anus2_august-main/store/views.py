@@ -26,7 +26,7 @@ from rest_framework import status
 from rest_framework import generics
 from rest_framework.response import Response
 from .models import Book, Comment, Review, BookLike, ReviewView, UserBookHistory
-from .utils import get_client_ip
+from .utils import get_client_ip, is_book_purchased_by_user
 from .ip_views import check_book_ip_last_viewed, update_book_ip_last_viewed, check_review_ip_last_viewed, update_review_ip_last_viewed
 from .serializer import *
 from .converters import create_fb2, parse_fb2
@@ -157,7 +157,7 @@ class AddChapterView(APIView):
             return Response({'error': 'Book not found.'}, status=status.HTTP_404_NOT_FOUND)
 
 
-class ChapterView(APIView):
+class StudioChapterView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, book_id, chapter_id, format=None):
@@ -165,6 +165,9 @@ class ChapterView(APIView):
             chapter = Chapter.objects.get(book_id=book_id, id=chapter_id)
         except Chapter.DoesNotExist:
             return Response({'error': 'Chapter not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if chapter.book.author != request.user:
+            return Response({'error': 'You are not authorized to view this chapter.'}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = ChapterContentSerializer(chapter)
         return Response(serializer.data)
@@ -184,6 +187,17 @@ class ChapterView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @action(detail=True, methods=['post'])
+    def toggle_publish(self, request, book_id, chapter_id):
+        chapter = get_object_or_404(Chapter, id=chapter_id, book__id=book_id)
+        if request.user != chapter.book.author:
+            return Response({'error': 'You are not authorized to change the publication status of this chapter.'},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        chapter.published = not chapter.published
+        chapter.save()
+        return Response({'published': chapter.published})
+
     def delete(self, request, book_id, chapter_id, format=None):
         try:
             chapter = Chapter.objects.get(pk=chapter_id, book_id=book_id)
@@ -196,10 +210,6 @@ class ChapterView(APIView):
 
         chapter.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-
-    @action(detail=False, methods=['patch'])
-    def change_book_status(self, request, book_id, format=None):
-        pass
 
 
 @api_view(['POST']) #Надо проверить, пока пауза + АВС
@@ -301,7 +311,6 @@ class BookSettingsView(APIView):
             return Response(serializer.data)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 class IllustrationView(APIView):
@@ -710,12 +719,15 @@ class Reader(APIView):
         except Book.DoesNotExist:
             return Response({'detail': 'Book not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        chapters = Chapter.objects.filter(book=book)
+        chapters = Chapter.objects.filter(book=book, published=True)
+        user_is_author = request.user == book.author
         user_has_purchased = False
         if request.user.is_authenticated:
             user_has_purchased = book in request.user.library.purchased_books.all()
 
-        serialized_chapters = self.serialize_chapters(chapters, book, request.user, user_has_purchased)
+        can_access_all_chapters = user_is_author or user_has_purchased
+
+        serialized_chapters = self.serialize_chapters(chapters, book, request.user, can_access_all_chapters)
 
         return Response(serialized_chapters)
 
@@ -749,14 +761,45 @@ class Reader(APIView):
         return serialized_chapters
 
 
+def is_user_adult(user):
+    if not user.is_authenticated:
+        return False
+    try:
+        dob = user.profile.webpagesettings.date_of_birth
+        today = timezone.now().date()
+        return (today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))) >= 18
+    except (AttributeError, WebPageSettings.DoesNotExist):
+        return False
+
+
 class SingleChapterView(APIView):
     def get(self, request, book_id, chapter_id):
         try:
-            chapter = Chapter.objects.get(book_id=book_id, id=chapter_id)
+            chapter = Chapter.objects.get(book_id=book_id, id=chapter_id, published=True)
         except Chapter.DoesNotExist:
-            return Response({'detail': 'Chapter not found.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Chapter not found or not published.'}, status=status.HTTP_404_NOT_FOUND)
+
+        is_author = request.user.is_authenticated and chapter.book.author == request.user
+        is_adult = is_user_adult(request.user)
+        can_access = (
+            (chapter.is_free and (not chapter.book.is_adult or is_adult)) or
+            (is_book_purchased_by_user(chapter.book, request.user) and (not chapter.book.is_adult or is_adult)) or
+            is_author
+        )
+
+        if not can_access:
+            return Response({'detail': 'You do not have access to this chapter.'}, status=status.HTTP_403_FORBIDDEN)
 
         serialized_chapter = ChapterSerializers(chapter).data
+
+        # Update user's book reading history
+        if request.user.is_authenticated:
+            UserBookHistory.objects.update_or_create(
+                user=request.user,
+                book=chapter.book,
+                defaults={'last_accessed': timezone.now()}
+            )
+
         return Response(serialized_chapter)
 
 
@@ -818,3 +861,12 @@ class HistoryView(APIView):
             history_dict[time_category] = BookViewSerializer(queryset, many=True).data
 
         return Response(history_dict)
+
+
+def update_user_book_history(user, book):
+    # Check if there's an existing history entry for this user and book
+    history_entry, created = UserBookHistory.objects.get_or_create(user=user, book=book)
+
+    # Update the last_accessed timestamp to the current time
+    history_entry.last_accessed = timezone.now()
+    history_entry.save()

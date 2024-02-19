@@ -10,4 +10,10 @@ def get_client_ip(request):
     return ip
 
 
+def is_book_purchased_by_user(book, user):
+    if user.is_authenticated:
+        return user.library.purchased_books.filter(id=book.id).exists()
+    return False
+
+
 
