@@ -90,7 +90,7 @@ function MainPage(){
         const decodedToken = jwtDecode(token);
         const username = decodedToken.username
         
-        const response = await axios.get(`http://127.0.0.1:8000/users/api/${username}/`, {
+        const response = await axios.get(`http://34.227.48.93:8000/users/api/${username}/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -141,7 +141,7 @@ function BookPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const bookResponse = await axios.get(`http://127.0.0.1:8000/book_detail/${book_id}/`);
+        const bookResponse = await axios.get(`http://34.227.48.93:8000/book_detail/${book_id}/`);
         
         if (bookResponse.status === 200) {
           setBookData(bookResponse.data);
@@ -159,7 +159,7 @@ function BookPage() {
         const decodedToken = jwtDecode(token);
         const username = decodedToken.username
         
-        const response = await axios.get(`http://127.0.0.1:8000/users/api/${username}/`, {
+        const response = await axios.get(`http://34.227.48.93:8000/users/api/${username}/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -250,7 +250,7 @@ function Main() {
         const decodedToken = jwtDecode(token);
         const username = decodedToken.username
         
-        const response = await axios.get(`http://127.0.0.1:8000/users/api/${username}/`, {
+        const response = await axios.get(`http://34.227.48.93:8000/users/api/${username}/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -329,7 +329,7 @@ function BookItem() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get('http://localhost:8000/');
+        const response = await axios.get('http://34.227.48.93:8000/');
         setBooks(response.data);
       } catch (error) {
         console.error('Error fetching books:', error);
@@ -399,7 +399,7 @@ function Profile() {
         const decodedToken = jwtDecode(token);
         const username = decodedToken.username
         
-        const response = await axios.get(`http://127.0.0.1:8000/users/api/${username}/`, {
+        const response = await axios.get(`http://34.227.48.93:8000/users/api/${username}/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -488,7 +488,7 @@ function BookInfo({book_id}) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get(`http://127.0.0.1:8000/book_detail/${book_id}/info`);
+        const response = await axios.get(`http://34.227.48.93:8000/book_detail/${book_id}/info`);
         setBooks(response.data);
         console.log(response)
       } catch (error) {
@@ -526,7 +526,7 @@ function BookContent({book_id}) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get(`http://127.0.0.1:8000/book_detail/${book_id}/content`);
+        const response = await axios.get(`http://34.227.48.93:8000/book_detail/${book_id}/content`);
         setContents(response.data);
       } catch (error) {
         console.error('Error fetching books:', error);
@@ -592,7 +592,7 @@ function BookComment({ book_id }) {
   useEffect(() => {
     const fetchComments = async () => {
       try {
-        const response = await axios.get(`http://127.0.0.1:8000/book_detail/${book_id}/comments/`, {
+        const response = await axios.get(`http://34.227.48.93:8000/book_detail/${book_id}/comments/`, {
           headers: {
             Authorization: `Bearer ${token}`, 
           },
@@ -695,7 +695,7 @@ function ProfileDescription() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get(`http://127.0.0.1:8000/users/api/Andrew/`); 
+        const response = await axios.get(`http://34.227.48.93:8000/users/api/Andrew/`);
         setUserData(response.data);
       } catch (error) {
         console.error('Ошибка при получении данных:', error);
@@ -817,7 +817,7 @@ const BookProfileItem = ({ filterBy }) => {
   useEffect(() => {
     const fetchBooks = async () => {
       try {
-        const response = await axios.get(`http://127.0.0.1:8000/users/api/${username}/library?filter_by=${filterBy}`);
+        const response = await axios.get(`http://34.227.48.93:8000/users/api/${username}/library?filter_by=${filterBy}`);
         const fetchedBooks = response.data;
 
         if (Array.isArray(fetchedBooks)) {
@@ -863,7 +863,7 @@ function ProfileBooks() {
         const decodedToken = jwtDecode(token);
         const username = decodedToken.username;
 
-        const response = await axios.get(`http://127.0.0.1:8000/users/api/${username}/books/`, {
+        const response = await axios.get(`http://34.227.48.93:8000/users/api/${username}/books/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -938,7 +938,7 @@ function ProfileCommentsItem() {
         const decodedToken = jwtDecode(token);
         const username = decodedToken.username;
 
-        const response = await axios.get(`http://127.0.0.1:8000/users/api/${username}/comments/`, {
+        const response = await axios.get(`http://34.227.48.93:8000/users/api/${username}/comments/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -989,7 +989,7 @@ const ProfileSeries = () => {
         const decodedToken = jwtDecode(token);
         const username = decodedToken.username;
 
-        const response = await axios.get(`http://127.0.0.1:8000/users/api/${username}/series/`, {
+        const response = await axios.get(`http://34.227.48.93:8000/users/api/${username}/series/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -1044,7 +1044,7 @@ function ProfileSeriesItem() {
         const decodedToken = jwtDecode(token);
         const username = decodedToken.username;
 
-        const response = await axios.get(`http://127.0.0.1:8000/users/api/${username}/series/`, {
+        const response = await axios.get(`http://34.227.48.93:8000/users/api/${username}/series/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -1218,7 +1218,7 @@ function ProfileSettings() {
         const decodedToken = jwtDecode(token);
         const username = decodedToken.username
         
-        const response = await axios.get(`http://127.0.0.1:8000/users/api/${username}/`, {
+        const response = await axios.get(`http://34.227.48.93:8000/users/api/${username}/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -1434,7 +1434,7 @@ function Login () {
 
     const handleLogin = async () => {
       try {
-          const response = await axios.post('http://127.0.0.1:8000/users/api/login/', {
+          const response = await axios.post('http://34.227.48.93:8000/users/api/login/', {
               email,
               password,
           });
@@ -1492,7 +1492,7 @@ const handleChange = (e) => {
 
 const handleSubmit = async (e) => {
     e.preventDefault();
-    const response = await fetch('http://127.0.0.1:8000/users/auth/users/', {
+    const response = await fetch('http://34.227.48.93:8000/users/auth/users/', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -1547,7 +1547,7 @@ function RegisterStep1 () {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post('http://127.0.0.1:8000/users/register_step1/', formData);
+      const response = await axios.post('http://34.227.48.93:8000/users/register_step1/', formData);
 
       if (response.status === 200) {
         navigate('/step2')
@@ -1611,7 +1611,7 @@ function RegisterStep2 () {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post('http://127.0.0.1:8000/users/register_step2/', formData); 
+      const response = await axios.post('http://34.227.48.93:8000/users/register_step2/', formData);
 
       if (response.status === 201) {
 
@@ -1717,7 +1717,7 @@ function TwoStepRegistration() {
   const handleRegister = async () => {
 
       try {
-        await axios.post('http://127.0.0.1:8000/users/register/', {
+        await axios.post('http://34.227.48.93:8000/users/register/', {
           email: email,
           password: password,
           password2: password2,
@@ -2010,7 +2010,7 @@ function ReaderMain() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const booksResponse = await axios.get(`http://127.0.0.1:8000/reader/${book_id}`, {
+        const booksResponse = await axios.get(`http://34.227.48.93:8000/reader/${book_id}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -2101,7 +2101,7 @@ function SidebarMenu() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const booksResponse = await axios.get(`http://127.0.0.1:8000/reader/${book_id}`, {
+        const booksResponse = await axios.get(`http://34.227.48.93:8000/reader/${book_id}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
