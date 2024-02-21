@@ -27,11 +27,11 @@ urlpatterns = [
         path('reader/<int:book_id>/chapter/<int:chapter_id>/', SingleChapterView.as_view(), name='single_chapter'), # Читать определенную главу
 
 
-        path('api/book/create/', views.BooksCreateAPIView.as_view(), name='api_book_create'), # Создать книгу (название, жанр, тип книги и описание)
-        path('api/book/text/', views.BookTextAPIView.as_view(), name='api_book_text'), # Продолжение создание книги
+        path('book/create/', views.BooksCreateAPIView.as_view(), name='api_book_create'), # Создать книгу (название, жанр, тип книги и описание)
+        path('book/text/', views.BookTextAPIView.as_view(), name='api_book_text'), # Продолжение создание книги
         # Сделаны как в Автор Тудей, возможна переработка
 
-        path('api/comments/<int:comment_id>/delete/', views.delete_comment, name='api_delete_comment'), # Удаляет коммент по этой ссылке (Возможно уже не нужно)
+        path('comments/<int:comment_id>/delete/', views.delete_comment, name='api_delete_comment'), # Удаляет коммент по этой ссылке (Возможно уже не нужно)
         path('book_detail/<int:book_id>/purchase', PurchaseBookView.as_view(), name='wallet-purchase-book'), # Покупка книги за внутренную сумму
     ])),
 ]
