@@ -1464,6 +1464,8 @@ input::-webkit-inner-spin-button {
 
 .bookpage__info_book {
   display: flex;
+  background-size: cover;
+  border-radius: 20px;
 }
 
 .bookapage__author_name {
@@ -1486,7 +1488,8 @@ input::-webkit-inner-spin-button {
 }
 .bookpage__name_foll {  
   display: flex;
-  margin-bottom: 30px;
+  margin-top: 50px;
+  margin-left: 30px;
 }
 
 .bookpage__button_read {
@@ -1543,6 +1546,7 @@ input::-webkit-inner-spin-button {
   align-items: center;
   padding-left: 10px;
   padding-right: 10px;
+  width: 40%;
 }
 
 .bookpage__like {
@@ -1559,7 +1563,8 @@ input::-webkit-inner-spin-button {
 }
 
 .bookpage__button_menu {
-  margin-bottom: 28px;
+  margin-top: 40px;
+  margin-right: 15px;
 }
 
 .info__total {
@@ -1616,6 +1621,10 @@ input::-webkit-inner-spin-button {
 
 .bookpage__info {
   margin-left: 42px;
+  display: flex;
+  flex-direction: column;
+  width: 70.1%;
+  height: 100%;
 }
 .bookpage__container {
   width: 95%;
@@ -2141,4 +2150,71 @@ p {
   font-style: normal;
   font-weight: 400;
   line-height: normal;
+}
+
+.bookpage__autor_button {
+  width: 100%;
+  height: 721px;
+}
+
+.bookpage__autor_button_first {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.bookpage__autor_button_second {
+  margin-top: 440px;
+  margin-left: 30px;
+}
+
+.reply-input-container {
+  height: 200px;
+  background-color: #3F3F3F;
+  display: flex;
+  flex-direction: column;
+  margin-top: 10px;
+  position: relative;
+  border-radius: 15px;
+  padding-left: 10px;
+}
+
+.reply-input-container input {
+  width: 99%;
+  border: none;
+  border-bottom: 1px solid #888888; /* Цвет бордера */
+  padding: 5px 0;
+  outline: none;
+  font-size: 16px;
+  background-color: transparent;
+  
+}
+
+.reply-input-container__button {
+  margin-top: 5px; /* Отступ между полем ввода и кнопкой */
+  background-color: #290038; /* Цвет кнопки для отправки ответа */
+  color: white;
+  padding: 5px 10px;
+  cursor: pointer;
+  outline: none;
+  font-size: 16px;
+  width: 150px;
+  height: 35px;
+  color: #FFFFFF;
+  text-align: center;
+  border-radius: 15px;
+}
+
+.reply-input {
+  margin-top: 90px;
+}
+
+.reply-text {
+  margin-top: 10px;
+  color: #888888;
+}
+
+.add_comment {
+  margin-top: 10px;
+  margin-left: 20px;
 }

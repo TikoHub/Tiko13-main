@@ -5,7 +5,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, AllowAny
 from datetime import timedelta
 from django.utils import timezone
-from .models import CommentLike, CommentDislike, ReviewLike, ReviewDislike, Series, Genre, BookUpvote, BookDownvote, Chapter
+from .models import CommentLike, CommentDislike, ReviewLike, ReviewDislike, Series, Genre, BookUpvote, BookDownvote, Chapter, AuthorNote
 from django.contrib.auth.models import User, auth
 from django.contrib.auth.mixins import LoginRequiredMixin
 from .forms import BooksForm, CommentForm, ReviewCreateForm, BookTypeForm, SeriesForm, ChapterForm
@@ -212,8 +212,8 @@ class StudioChapterView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-@api_view(['POST']) #Надо проверить, пока пауза + АВС
-def add_quote(request, book_id, chapter_id):
+@api_view(['POST'])
+def add_author_note(request, book_id, chapter_id):
     try:
         chapter = Chapter.objects.get(book_id=book_id, id=chapter_id)
     except Chapter.DoesNotExist:
@@ -222,21 +222,48 @@ def add_quote(request, book_id, chapter_id):
     # Data from request
     start = request.data.get('start')
     end = request.data.get('end')
-    text_to_quote = request.data.get('text')
+    note_text = request.data.get('note_text')
 
     # Validate data
-    if start is None or end is None or text_to_quote is None:
+    if start is None or end is None or note_text is None:
         return Response({'error': 'Invalid request'}, status=400)
 
-    # Add quotes to the selected text
-    chapter.content = (
-        chapter.content[:start] +
-        '"' + text_to_quote + '"' +
-        chapter.content[end:]
+    # Create a new AuthorNote instance
+    AuthorNote.objects.create(
+        chapter=chapter,
+        book=chapter.book,  # Set the book field
+        author=request.user,
+        start_position=start,
+        end_position=end,
+        note_text=note_text
     )
-    chapter.save()
 
-    return Response({'message': 'Quote added successfully'})
+    return Response({'message': 'Note added successfully'})
+
+
+@api_view(['GET'])
+def get_author_notes(request, book_id, chapter_id):
+    notes = AuthorNote.objects.filter(book_id=book_id, chapter_id=chapter_id, author=request.user)
+    serialized_notes = AuthorNoteSerializer(notes, many=True)
+    return Response(serialized_notes.data)
+
+
+class BookNotesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, book_id):
+        notes = AuthorNote.objects.filter(book=book_id, author=request.user)
+        serializer = AuthorNoteSerializer(notes, many=True)
+        return Response(serializer.data)
+
+
+class ChapterNotesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, book_id, chapter_id):
+        notes = AuthorNote.objects.filter(book_id=book_id, chapter_id=chapter_id, author=request.user)
+        serializer = AuthorNoteSerializer(notes, many=True)
+        return Response(serializer.data)
 
 
 class ChapterDownloadView(APIView):

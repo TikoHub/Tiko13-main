@@ -32,6 +32,8 @@ import { useStudioLineHeight, StudioLineHeightProvider } from './context/studio/
 import { FontStudioProvider, useStudioFont } from './context/studio/FontStudioContext';
 
 
+const apiUrl = 'http://127.0.0.1:8000'
+
 function App() {
   return (
     <Router>
@@ -41,7 +43,7 @@ function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<TwoStepRegistration />} />
       <Route path='/book_detail/:book_id' element={<BookPage />} />
-      <Route path='/reader/:book_id' element={<ReaderContext />} />
+      <Route path='/reader/:book_id/chapter/:chapter_id' element={<ReaderContext />} />
       <Route path='/studio' element={<StudioContext />} />
     </Routes>
     </Router>
@@ -90,7 +92,7 @@ function MainPage(){
         const decodedToken = jwtDecode(token);
         const username = decodedToken.username
         
-        const response = await axios.get(`http://34.227.48.93:8000/users/api/${username}/`, {
+        const response = await axios.get(`${apiUrl}/users/api/${username}/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -141,7 +143,7 @@ function BookPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const bookResponse = await axios.get(`http://34.227.48.93:8000/book_detail/${book_id}/`);
+        const bookResponse = await axios.get(`${apiUrl}/api/book_detail/${book_id}/`);
         
         if (bookResponse.status === 200) {
           setBookData(bookResponse.data);
@@ -159,7 +161,7 @@ function BookPage() {
         const decodedToken = jwtDecode(token);
         const username = decodedToken.username
         
-        const response = await axios.get(`http://34.227.48.93:8000/users/api/${username}/`, {
+        const response = await axios.get(`${apiUrl}/users/api/${username}/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -196,9 +198,9 @@ function BookPage() {
             <div className='bookpage__series_name'>{bookData.series_name}</div>
             <div className='bookpage__name'>{bookData.name}</div>
             </div>
-            <div className='bookpage__info_book'>
-              <div className='bookpage__img'><img src={bookData.coverpage} className='bookpage__img_src' /></div>
+            <div className='bookpage__info_book' style={{ backgroundImage: `url(${bookData.coverpage})` }}>
               <div className='bookpage__autor_button'>
+                <div className='bookpage__autor_button_first'>
                 <div className='bookpage__name_foll'>
                 <div className='bookpage__autor_img'><img src={bookData.author_profile_img} /></div>
                 <div>
@@ -207,18 +209,21 @@ function BookPage() {
                 </div>
                 </div>
                 <div className='bookpage__button_menu'>
-                <Link to={`/reader/${book_id}`}>
+                <Link to={`/reader/${book_id}/chapter/${bookData.first_chapter_info?.id}`}>
   <button className='bookpage__button_read'>Read</button>
 </Link>
                   <button className='bookpage__button_free'>{bookData.display_price}</button>
                   <button className='bookpage__button_add'>+Add</button>
                   <button className='bookpage__button_download'></button>
                 </div>
+                </div>
+                <div className='bookpage__autor_button_second'>
                 <div className='bookpage__like_view'>
                   <div className='bookpage__like'>{bookData.upvotes}</div>
                   <div className='bookpage__like'>{bookData.downvotes}</div>
                   <div className='bookpage__like'>{bookData.views_count}</div>
                   <CopyToClipboardButton textToCopy={link} />
+                </div>
                 </div>
               </div>
             </div>
@@ -250,7 +255,7 @@ function Main() {
         const decodedToken = jwtDecode(token);
         const username = decodedToken.username
         
-        const response = await axios.get(`http://34.227.48.93:8000/users/api/${username}/`, {
+        const response = await axios.get(`${apiUrl}/users/api/${username}/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -329,7 +334,7 @@ function BookItem() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get('http://34.227.48.93:8000/');
+        const response = await axios.get(`${apiUrl}/api/`);
         setBooks(response.data);
       } catch (error) {
         console.error('Error fetching books:', error);
@@ -399,7 +404,7 @@ function Profile() {
         const decodedToken = jwtDecode(token);
         const username = decodedToken.username
         
-        const response = await axios.get(`http://34.227.48.93:8000/users/api/${username}/`, {
+        const response = await axios.get(`${apiUrl}/users/api/${username}/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -488,7 +493,7 @@ function BookInfo({book_id}) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get(`http://34.227.48.93:8000/book_detail/${book_id}/info`);
+        const response = await axios.get(`${apiUrl}/api/book_detail/${book_id}/info`);
         setBooks(response.data);
         console.log(response)
       } catch (error) {
@@ -526,7 +531,7 @@ function BookContent({book_id}) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get(`http://34.227.48.93:8000/book_detail/${book_id}/content`);
+        const response = await axios.get(`${apiUrl}/api/book_detail/${book_id}/content`);
         setContents(response.data);
       } catch (error) {
         console.error('Error fetching books:', error);
@@ -549,6 +554,18 @@ function BookContent({book_id}) {
 }
 
 function Comment({ comment, showReplyButtons, onToggleReplyButtons }) {
+  const [replyText, setReplyText] = useState('');
+
+  const handleInputChange = (event) => {
+    setReplyText(event.target.value);
+  };
+
+  const handleReplySubmit = () => {
+
+    console.log('Reply submitted:', replyText);
+    setReplyText('');
+  };
+
   return (
     <div className='book_comment-reply' key={comment.id}>
       <div className='book_comment-info'>
@@ -568,19 +585,46 @@ function Comment({ comment, showReplyButtons, onToggleReplyButtons }) {
       )}
 
       {showReplyButtons[comment.id] && (
-        comment.replies.map((nestedReply) => (
-          <Comment
-            key={nestedReply.id}
-            comment={nestedReply}
-            showReplyButtons={showReplyButtons}
-            onToggleReplyButtons={onToggleReplyButtons}
-          />
-        ))
+        <>
+          {comment.replies.map((nestedReply) => (
+            <Comment
+              key={nestedReply.id}
+              comment={nestedReply}
+              showReplyButtons={showReplyButtons}
+              onToggleReplyButtons={onToggleReplyButtons}
+            />
+          ))}
+
+          <div className="reply-input-container">
+            <div className='reply-text'>Reply</div>
+            <input
+              type="text"
+              value={replyText}
+              onChange={handleInputChange}
+              className='reply-input'
+            />
+            <button className='reply-input-container__button' onClick={handleReplySubmit}>Reply</button>
+          </div>
+        </>
       )}
     </div>
   );
 }
 
+function AddComment() {
+  return(
+    <div className='add_comment'><div className="reply-input-container">
+    <div className='reply-text'>Add a comment</div>
+    <input
+      type="text"
+    
+      
+      className='reply-input'
+    />
+    <button className='reply-input-container__button'>Reply</button>
+  </div></div>
+  );
+}
 
 function BookComment({ book_id }) {
   const [comments, setComments] = useState([]);
@@ -592,7 +636,7 @@ function BookComment({ book_id }) {
   useEffect(() => {
     const fetchComments = async () => {
       try {
-        const response = await axios.get(`http://34.227.48.93:8000/book_detail/${book_id}/comments/`, {
+        const response = await axios.get(`${apiUrl}/api/book_detail/${book_id}/comments/`, {
           headers: {
             Authorization: `Bearer ${token}`, 
           },
@@ -649,6 +693,7 @@ function BookComment({ book_id }) {
           ))}
         </div>
       )}
+      <div><AddComment /></div>
     </div>
   );
 }
@@ -689,13 +734,15 @@ function Navigation() {
 function ProfileDescription() {
   const [userData, setUserData] = useState(null);
   const token = localStorage.getItem('token');
-  const decodedToken = jwtDecode(token);
-  const username = decodedToken.username
+
+
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get(`http://34.227.48.93:8000/users/api/Andrew/`);
+        const decodedToken = jwtDecode(token);
+        const username = decodedToken.username;
+        const response = await axios.get(`${apiUrl}/users/api/${username}/`); 
         setUserData(response.data);
       } catch (error) {
         console.error('Ошибка при получении данных:', error);
@@ -817,7 +864,7 @@ const BookProfileItem = ({ filterBy }) => {
   useEffect(() => {
     const fetchBooks = async () => {
       try {
-        const response = await axios.get(`http://34.227.48.93:8000/users/api/${username}/library?filter_by=${filterBy}`);
+        const response = await axios.get(`${apiUrl}/users/api/${username}/library?filter_by=${filterBy}`);
         const fetchedBooks = response.data;
 
         if (Array.isArray(fetchedBooks)) {
@@ -863,7 +910,7 @@ function ProfileBooks() {
         const decodedToken = jwtDecode(token);
         const username = decodedToken.username;
 
-        const response = await axios.get(`http://34.227.48.93:8000/users/api/${username}/books/`, {
+        const response = await axios.get(`${apiUrl}/users/api/${username}/books/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -938,7 +985,7 @@ function ProfileCommentsItem() {
         const decodedToken = jwtDecode(token);
         const username = decodedToken.username;
 
-        const response = await axios.get(`http://34.227.48.93:8000/users/api/${username}/comments/`, {
+        const response = await axios.get(`${apiUrl}/users/api/${username}/comments/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -989,7 +1036,7 @@ const ProfileSeries = () => {
         const decodedToken = jwtDecode(token);
         const username = decodedToken.username;
 
-        const response = await axios.get(`http://34.227.48.93:8000/users/api/${username}/series/`, {
+        const response = await axios.get(`${apiUrl}/users/api/${username}/series/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -1044,7 +1091,7 @@ function ProfileSeriesItem() {
         const decodedToken = jwtDecode(token);
         const username = decodedToken.username;
 
-        const response = await axios.get(`http://34.227.48.93:8000/users/api/${username}/series/`, {
+        const response = await axios.get(`${apiUrl}/users/api/${username}/series/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -1132,8 +1179,8 @@ function ProfileSettingsNav() {
     setActiveTab(tabId);
   };
  return (
-    <div>
-        <div>
+    <div className='navigation__setting'>
+        <div className='navigation__settings'>
             <div className="navigation-tabs">
               <ul className="navigation-tabs__ul">
               <li><a onClick={() => handleTabClick('tab1')}>Profile Settings</a></li>
@@ -1218,7 +1265,7 @@ function ProfileSettings() {
         const decodedToken = jwtDecode(token);
         const username = decodedToken.username
         
-        const response = await axios.get(`http://34.227.48.93:8000/users/api/${username}/`, {
+        const response = await axios.get(`${apiUrl}/users/api/${username}/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -1434,7 +1481,7 @@ function Login () {
 
     const handleLogin = async () => {
       try {
-          const response = await axios.post('http://34.227.48.93:8000/users/api/login/', {
+          const response = await axios.post(`${apiUrl}/users/api/login/`, {
               email,
               password,
           });
@@ -1492,7 +1539,7 @@ const handleChange = (e) => {
 
 const handleSubmit = async (e) => {
     e.preventDefault();
-    const response = await fetch('http://34.227.48.93:8000/users/auth/users/', {
+    const response = await fetch(`${apiUrl}/users/auth/users/`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -1547,7 +1594,7 @@ function RegisterStep1 () {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post('http://34.227.48.93:8000/users/register_step1/', formData);
+      const response = await axios.post(`${apiUrl}/users/api/register_step1/`, formData);
 
       if (response.status === 200) {
         navigate('/step2')
@@ -1611,7 +1658,7 @@ function RegisterStep2 () {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post('http://34.227.48.93:8000/users/register_step2/', formData);
+      const response = await axios.post(`${apiUrl}/users/api/register_step2/`, formData); 
 
       if (response.status === 201) {
 
@@ -1717,7 +1764,7 @@ function TwoStepRegistration() {
   const handleRegister = async () => {
 
       try {
-        await axios.post('http://34.227.48.93:8000/users/register/', {
+        await axios.post(`${apiUrl}/users/api/register/`, {
           email: email,
           password: password,
           password2: password2,
@@ -1992,60 +2039,64 @@ function Notifications() {
 }
 
 function ReaderMain() {
-  const { padding } = usePadding();
-  const { lineHeight } = useLineHeight();
-  const { fontFamily } = useFont();
-  const [books, setBooks] = useState([]);
-  const { book_id } = useParams();
-  const { chapter_id } = useParams();
-  const token = localStorage.getItem('token'); // замените на ваш реальный токен доступа
+
+  const {padding} = usePadding();
+  const {lineHeight} = useLineHeight();
+  const {fontFamily} = useFont();
+  
+  const [book, setBook] = useState(null);
+  const { book_id, chapter_id } = useParams();
+  const token = localStorage.getItem('token');
 
   const style = {
     paddingLeft: `${padding.left}px`,
     paddingRight: `${padding.right}px`,
-    lineHeight,
+    lineHeight: `${lineHeight * 100}%`,
     fontFamily,
   };
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const booksResponse = await axios.get(`http://34.227.48.93:8000/reader/${book_id}`, {
+        const response = await axios.get(`${apiUrl}/api/reader/${book_id}/chapter/${chapter_id}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
         
-        if (booksResponse.status === 200) {
-          setBooks(booksResponse.data);
-          console.log(booksResponse);
+        if (response.status === 200) {
+          setBook(response.data);
+          console.log(response.data);
         } else {
-          console.log(booksResponse);
+          console.log(response);
         }
       } catch (error) {
-        console.error('Ошибка при получении данных', error);
+        console.error('Ошибка при получении данных:', error);
       }
     };
   
     fetchData();
-  }, [book_id, token]);
+  }, [book_id, chapter_id, token]);
+
+  if (!book) {
+    return <div>Loading...</div>;
+  }
+
+  const { id, title, content } = book;
 
   return (
     <div className='main'>
-      {books.map(book => (
       <div className='container'>
         <ReaderSidebar book_id={book_id}/>
         <div className='reader'>
-        
-            <div key={book.id}>
-              <div className='title'>{book.title}</div>
-              <hr className='top-line'></hr>
-              <div className='book' style={style}>&emsp;{book.content}</div>
-            </div>
+          <div key={id}>
+            <div className='title'>{title}</div>
+            <hr className='top-line'></hr>
+            <div className='book' style={style}>&emsp;{content}</div>
+          </div>
         </div>
         <ButtonMenu />
       </div>
-      ))}
     </div>
   );
 }
@@ -2101,7 +2152,7 @@ function SidebarMenu() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const booksResponse = await axios.get(`http://34.227.48.93:8000/reader/${book_id}`, {
+        const booksResponse = await axios.get(`${apiUrl}/api/reader/${book_id}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -2125,7 +2176,7 @@ function SidebarMenu() {
       {chapters.map(chapter => (  
         <ul className='chapter-list'>
         <li className="chapters" key={book_id}>
-                <a href={`chapter/${chapter.id}`} className='chapters'>{chapter.title}</a>
+                <a href={`${chapter.id}`} className='chapters'>{chapter.title}</a>
               </li>
         </ul>
       ))}

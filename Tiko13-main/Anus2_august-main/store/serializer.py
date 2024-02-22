@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Chapter, Book, Comment, Review, Genre, Series, BookView, ReviewLike, ReviewDislike
+from .models import Chapter, Book, Comment, Review, Genre, Series, BookView, ReviewLike, ReviewDislike, AuthorNote
 from users.models import Profile, FollowersCount, Illustration
 from django.utils.formats import date_format
 from django.shortcuts import get_object_or_404
@@ -298,3 +298,10 @@ class BookSaleSerializer(serializers.ModelSerializer):
             'price': {'required': True},
             'is_available_for_sale': {'required': True}
         }
+
+
+class AuthorNoteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AuthorNote
+        fields = ['id', 'chapter', 'author', 'start_position', 'end_position', 'note_text']
+

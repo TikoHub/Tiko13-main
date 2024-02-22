@@ -271,3 +271,15 @@ class UserBookHistory(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     book = models.ForeignKey(Book, on_delete=models.CASCADE)
     last_accessed = models.DateTimeField(auto_now=True)
+
+
+class AuthorNote(models.Model):
+    chapter = models.ForeignKey(Chapter, on_delete=models.CASCADE, related_name='notes')
+    book = models.ForeignKey(Book, on_delete=models.CASCADE)
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notes')
+    start_position = models.IntegerField()
+    end_position = models.IntegerField()
+    note_text = models.TextField()
+
+    def __str__(self):
+        return f"Note by {self.author.username} in Chapter {self.chapter.id}"
