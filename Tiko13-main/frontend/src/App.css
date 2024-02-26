@@ -693,6 +693,7 @@ input::-webkit-inner-spin-button {
   padding-left: 10px;
 }
 .header-avatar{
+  position: relative;
   padding-right: 29px;
 }
 
@@ -1463,8 +1464,9 @@ input::-webkit-inner-spin-button {
 }
 
 .bookpage__info_book {
-  display: flex;
-  background-size: cover;
+  background-size: 100% auto;
+  background-position: center;
+  background-repeat: no-repeat;
   border-radius: 20px;
 }
 
@@ -1625,6 +1627,10 @@ input::-webkit-inner-spin-button {
   flex-direction: column;
   width: 70.1%;
   height: 100%;
+}
+
+.bookpage__info_tab{
+  margin-left: 42px;
 }
 .bookpage__container {
   width: 95%;
@@ -2056,6 +2062,7 @@ p {
 }
 .book_comment {
   display: block;
+  margin-top: 20px;
 }
 .reply_button {
   width: 35px;
@@ -2129,6 +2136,7 @@ p {
 }
 
 .book_comment-reply {
+  margin-top: 20px;
   margin-left: 80px;
   text-indent: 2em;
   overflow-wrap: break-word;
@@ -2217,4 +2225,80 @@ p {
 .add_comment {
   margin-top: 10px;
   margin-left: 20px;
+}
+
+.menu {
+  position: absolute;
+  left: -178px;
+  top: calc(100% + 5px); 
+  background-color: black;
+  border: 1px solid #ccc;
+  padding: 10px;
+  border-radius: 15px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 1;
+  display: flex;
+  flex-direction: column; 
+  width: 200px;
+  height: 210px;
+  font-size: 42px;
+  justify-content: space-between;
+  align-items: self-start;
+  padding-bottom: 27px;
+}
+
+.menu_button {
+  font-size: 32px;
+  color: white;
+}
+
+.change_description {
+  color: white
+}
+.input_description {
+  width: 89%;
+  height: 600px;
+  margin-top: 10px;
+  background-color: #3F3F3F;
+  border-radius: 15px;
+}
+
+.description {
+  display: flex;
+  flex-direction: column;
+}
+.prof_description {
+  margin-left: 37px;
+}
+
+.input-container, .description-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.input-description {
+  margin-bottom: 10px;
+}
+.about-button{
+  color: white;
+  margin-top: 10px;
+}
+
+.about-description {
+  padding: 0;
+}
+
+.about-textarea {
+  width: 300px;
+  height: 85px; 
+  resize: vertical; 
+  background-color: #3F3F3F;
+  border: none;
+  border-radius: 15px;
+  resize: none; 
+}
+
+.about_input{
+  display: flex;
+  
 }

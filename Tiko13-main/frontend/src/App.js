@@ -1,5 +1,5 @@
 import axios from 'axios';
-import React, {useState, useEffect, useHistory, useCallback, useRef, useLayoutEffect} from 'react';
+import React, {useState, useEffect, useHistory, useCallback, useRef, useLayoutEffect, useLocation} from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Outlet, useNavigate, NavLink, useParams } from 'react-router-dom';
 import { FontSizeProvider } from './context/SizeContext';
 import {WidthProvider} from './context/WidthContext';
@@ -33,6 +33,7 @@ import { FontStudioProvider, useStudioFont } from './context/studio/FontStudioCo
 
 
 const apiUrl = 'http://127.0.0.1:8000'
+
 
 function App() {
   return (
@@ -68,7 +69,7 @@ function StudioContext() {
     <StudioWidthProvider>
     <StudioLineHeightProvider>
     <StudioFontSizeProvider>
-      <StudioMain />
+      {<StudioMain />}
     </StudioFontSizeProvider>
     </StudioLineHeightProvider>
     </StudioWidthProvider>
@@ -77,6 +78,7 @@ function StudioContext() {
 }
 function MainPage(){
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [profileData, setProfileData] = useState({
   });
   const token = localStorage.getItem('token');
@@ -84,6 +86,15 @@ function MainPage(){
     localStorage.removeItem('authToken');
   };
 
+  const handleMenuOpen = () => {
+    setMenuOpen(!menuOpen);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setIsLoggedIn(false);
+    window.location.reload();
+  };
 
 
   useEffect(() => {
@@ -118,8 +129,29 @@ function MainPage(){
         <div className='header-search'>
           <input type="text" placeholder="search" class="search-input"></input>
         </div>
-        {isLoggedIn ? (<Link to='/profile'><div className='header-avatar'><img className='header_avatar-img' src={profileData.profileimg} alt="#" /></div></Link>):(
-       <Link to='/login'><div className='header-signin'><button className='pool-sign'><img className='pool_icon-sign' src={Avatar}></img>Sign In</button></div></Link>)}
+        {isLoggedIn ? (
+          <div className='header-avatar'>
+          <button className='header-avatar-btn' onClick={(e) => { e.preventDefault(); handleMenuOpen(); }}>
+            <img className='header_avatar-img' src={profileData.profileimg} />
+          </button>
+          {menuOpen && (
+            <div className="menu">
+              <Link to='/profile'><button className='menu_button'>Profile</button></Link>
+              <button className='menu_button'>Settings</button>
+              <button className='menu_button' onClick={handleLogout}>Logout</button>
+            </div>
+          )}
+        </div>
+        ) : (
+          <Link to='/login'>
+            <div className='header-signin'>
+              <button className='pool-sign'>
+                <img className='pool_icon-sign' src={Avatar} alt="Sign In" />
+                Sign In
+              </button>
+            </div>
+          </Link>
+        )}
       </header>
       <Sidebar />
       <div className="books">
@@ -136,9 +168,19 @@ function BookPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [profileData, setProfileData] = useState({});
   const [bookData, setBookData] = useState({});
+  const [menuOpen, setMenuOpen] = useState(false);
   const token = localStorage.getItem('token');
   const { book_id } = useParams();
-  const link = 'http://localhost:3000/bookpage';
+  const link = `http://localhost:3000/book_detail/${book_id}`;
+  const handleMenuOpen = () => {
+    setMenuOpen(!menuOpen);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setIsLoggedIn(false);
+    window.location.reload();
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -187,12 +229,33 @@ function BookPage() {
         <div className='header-search'>
           <input type="text" placeholder="search" class="search-input"></input>
         </div>
-        {isLoggedIn ? (<Link to='/profile'><div className='header-avatar'><img className='header_avatar-img' src={profileData.profileimg} alt="#" /></div></Link>):(
-       <Link to='/login'><div className='header-signin'><button className='pool-sign'><img className='pool_icon-sign' src={Avatar}></img>Sign In</button></div></Link>)}
+        {isLoggedIn ? (
+          <div className='header-avatar'>
+          <button className='header-avatar-btn' onClick={(e) => { e.preventDefault(); handleMenuOpen(); }}>
+            <img className='header_avatar-img' src={profileData.profileimg} />
+          </button>
+          {menuOpen && (
+            <div className="menu">
+              <Link to='/profile'><button className='menu_button'>Profile</button></Link>
+              <button className='menu_button'>Settings</button>
+              <button className='menu_button' onClick={handleLogout}>Logout</button>
+            </div>
+          )}
+        </div>
+        ) : (
+          <Link to='/login'>
+            <div className='header-signin'>
+              <button className='pool-sign'>
+                <img className='pool_icon-sign' src={Avatar} alt="Sign In" />
+                Sign In
+              </button>
+            </div>
+          </Link>
+        )}
       </header>
       <Sidebar />
       <div className="bookpage__books">
-        <div className='bookpage__info'>
+        <div className='bookpage__info' >
           <div className='bookpage__genre'>{bookData.book_type},{bookData.genre},{bookData.subgenres}</div>
           <div className='bookpage__names'>
             <div className='bookpage__series_name'>{bookData.series_name}</div>
@@ -241,57 +304,80 @@ function BookPage() {
 
 function Main() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [profileData, setProfileData] = useState({
-  });
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [profileData, setProfileData] = useState({});
   const token = localStorage.getItem('token');
-  const logout = () => {
-    localStorage.removeItem('authToken');
+
+
+  const handleMenuOpen = () => {
+    setMenuOpen(!menuOpen);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setIsLoggedIn(false);
+    window.location.reload();
+  };
 
   useEffect(() => {
-    const getProfile = async () => {
+    const fetchData = async () => {
       try {
-        const decodedToken = jwtDecode(token);
-        const username = decodedToken.username
-        
-        const response = await axios.get(`${apiUrl}/users/api/${username}/`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
+        if (token) {
+          const decodedToken = jwtDecode(token);
+          const username = decodedToken.username;
+          const response = await axios.get(`${apiUrl}/users/api/${username}/`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
 
-        if (response.status === 200) {
-          setProfileData(response.data);
-          setIsLoggedIn(true);
-        } else {
-          // Обработка ошибки
+          if (response.status === 200) {
+            setProfileData(response.data);
+            setIsLoggedIn(true);
+          } else {
+            // Обработка ошибки
+          }
         }
       } catch (error) {
         console.error('Ошибка при получении профиля', error);
       }
     };
 
-    getProfile();
+    fetchData();
   }, [token]);
 
   return (
     <div className='main'>
       <header className='header'>
-      <Link to='/'><a><img className='logo' src={Logo}></img></a></Link>
+        <Link to='/'>
+          <a>
+            <img className='logo' src={Logo} alt="Logo"></img>
+          </a>
+        </Link>
         <div className='header-search'>
           <input type="text" placeholder="search" className="search-input"></input>
         </div>
-        {isLoggedIn ? (<div className='header-avatar'><img className='header_avatar-img' src={profileData.profileimg} alt="#" /></div>):(
-       <Link to='/login'><div className='header-signin'><button className='pool-sign'><img className='pool_icon-sign' src={Avatar}></img>Sign In</button></div></Link>)}
+
+          <div className='header-avatar'>
+          <button className='header-avatar-btn' onClick={(e) => { e.preventDefault(); handleMenuOpen(); }}>
+            <img className='header_avatar-img' src={profileData.profileimg} />
+          </button>
+          {menuOpen && (
+            <div className="menu">
+              <Link to='/profile'><button className='menu_button'>Profile</button></Link>
+              <button className='menu_button'>Settings</button>
+              <button className='menu_button' onClick={handleLogout}>Logout</button>
+            </div>
+          )}
+        </div>
       </header>
       <Sidebar />
       <main className='profile-page'>
-      <Profile />
-      <Navigation />
+        <Profile />
+        <Navigation />
       </main>
-  </div>
-  )
+    </div>
+  );
 }
 
 const CopyToClipboardButton = ({ textToCopy }) => {
@@ -388,21 +474,23 @@ const Sidebar = () => {
 
 function Profile() {
   const [profileData, setProfileData] = useState({
-    user:{
-    first_name: '',
-    last_name: '',
-    at_username: '',
-  }
+    user: {
+      first_name: '',
+      last_name: '',
+      at_username: '',
+    },
+    about: ''
   });
+  const [editingAbout, setEditingAbout] = useState(false);
+  const [newAbout, setNewAbout] = useState('');
   const token = localStorage.getItem('token');
-
 
 
   useEffect(() => {
     const getProfile = async () => {
       try {
         const decodedToken = jwtDecode(token);
-        const username = decodedToken.username
+        const username = decodedToken.username;
         
         const response = await axios.get(`${apiUrl}/users/api/${username}/`, {
           headers: {
@@ -412,6 +500,7 @@ function Profile() {
 
         if (response.status === 200) {
           setProfileData(response.data);
+          setNewAbout(response.data.about);
         } else {
           // Обработка ошибки
         }
@@ -423,43 +512,92 @@ function Profile() {
     getProfile();
   }, [token]);
 
+  const handleAboutEdit = () => {
+    setEditingAbout(true);
+  };
 
+  const handleAboutChange = (e) => {
+    setNewAbout(e.target.value);
+  };
 
-  return(
+  const handleSaveAbout = async () => {
+    try {
+      const decodedToken = jwtDecode(token);
+      const username = decodedToken.username;
+      const response = await axios.put(
+        `${apiUrl}/users/api/${username}/`, 
+        { about: newAbout },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.status === 200) {
+        setProfileData({ ...profileData, about: newAbout });
+        setEditingAbout(false);
+        console.log('About успешно обновлен');
+      } else {
+        console.error('Ошибка при обновлении About:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Ошибка при обновлении данных:', error);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingAbout(false);
+    setNewAbout(profileData.about);
+  };
+
+  return (
     <div>
-    <div className='profile'>
-      <div className='profile-banner'><img src={profileData.banner_image} alt="#" className='banner-img'/></div>
-    <div className="profile-info">
-      <div className='avatar'><img className='avatar-img' src={profileData.profileimg} alt="#" /></div>
-      <div className='user-info'>
-          <div className='user-name' key={profileData.user.id}>
-            <div className='first_name'>{profileData.user.first_name}</div>
-            <div className='last_name'>{profileData.user.last_name}</div>
-          </div>
-        <div className='user-colum'>
-        <div className='user-first__colum'>
-          <div className='user-tag'>{profileData.user.at_username}</div>
-          <div className='user_followers__info'>
-            <div className='user-followings'>{profileData.following_count}Followings</div>
-            <div className='user-followers'>{profileData.followers_count}Followers</div>
-          </div>
-          <div className='user-book__info'>
-            <div className='user-books'>{profileData.books_count}books</div>
-            <div className='user-series'>{profileData.series_count}series</div>
+      <div className='profile'>
+        <div className='profile-banner'><img src={profileData.banner_image} alt="#" className='banner-img'/></div>
+        <div className="profile-info">
+          <div className='avatar'><img className='avatar-img' src={profileData.profileimg} alt="#" /></div>
+          <div className='user-info'>
+            <div className='user-name' key={profileData.user.id}>
+              <div className='first_name'>{profileData.user.first_name}</div>
+              <div className='last_name'>{profileData.user.last_name}</div>
+            </div>
+            <div className='user-colum'>
+              <div className='user-first__colum'>
+                <div className='user-tag'>{profileData.user.at_username}</div>
+                <div className='user_followers__info'>
+                  <div className='user-followings'>{profileData.following_count}Followings</div>
+                  <div className='user-followers'>{profileData.followers_count}Followers</div>
+                </div>
+                <div className='user-book__info'>
+                  <div className='user-books'>{profileData.books_count}books</div>
+                  <div className='user-series'>{profileData.series_count}series</div>
+                </div>
+              </div>
+              <div className='user-second__colum'>
+              <div className='about'>
+                    <div className='about-name'>About</div>
+              </div>
+                {editingAbout ? (
+                  <div className='about_input'>
+                    <textarea 
+                      className='about-textarea' 
+                      value={newAbout} 
+                      onChange={handleAboutChange}
+                    />
+                    <button className='about-button' onClick={handleSaveAbout}>Save</button>
+                    <button className='about-button' onClick={handleCancelEdit}>Cancel</button>
+                  </div>
+                ) : (
+                    <div className='about-description'>{profileData.about}<button className='about-button' onClick={handleAboutEdit}>Edit</button></div>
+                )}
+              </div>
+            </div>  
           </div>
         </div>
-        <div className='user-second__colum'>
-          <div className='about'>
-            <div className='about-name'>About</div>
-            <div className='about-description'>{profileData.about}</div>
-          </div>
-        </div>
-        </div>  
-      </div>
       </div>
     </div>
-    </div>
-  )
+  );
 }
 
 function BookpageNavigation({book_id}) {
@@ -505,7 +643,7 @@ function BookInfo({book_id}) {
   }, []);
 
   return(
-    <div className='bookpage__info'>
+    <div className='bookpage__info_tab'>
       <div className='general_info'>General Information:</div>
       <div className='info__total'>
         <div className='info__total_info'>Changed:{books.formatted_last_modified}</div>
@@ -611,18 +749,49 @@ function Comment({ comment, showReplyButtons, onToggleReplyButtons }) {
   );
 }
 
+
 function AddComment() {
-  return(
-    <div className='add_comment'><div className="reply-input-container">
-    <div className='reply-text'>Add a comment</div>
-    <input
-      type="text"
-    
-      
-      className='reply-input'
-    />
-    <button className='reply-input-container__button'>Reply</button>
-  </div></div>
+  const { book_id } = useParams();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    const commentInput = event.target.elements.comment.value;
+
+    try {
+      const token = localStorage.getItem('token'); 
+      if (!token) {
+        throw new Error('Access token not found');
+      }
+
+      const response = await axios.post(`http://127.0.0.1:8000/api/book_detail/${book_id}/comments/`, {
+        comment: commentInput
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('Comment added successfully:', response.data);
+      // Additional actions after successful comment addition
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      // Error handling, e.g., displaying error message to user
+    }
+  };
+
+  return (
+    <div className='add_comment'>
+      <form className="reply-input-container" onSubmit={handleSubmit}>
+        <div className='reply-text'>Add a comment</div>
+        <input
+          type="text"
+          name="comment"
+          className='reply-input'
+        />
+        <button type="submit" className='reply-input-container__button'>Reply</button>
+      </form>
+    </div>
   );
 }
 
@@ -733,35 +902,100 @@ function Navigation() {
 
 function ProfileDescription() {
   const [userData, setUserData] = useState(null);
+  const [newDescription, setNewDescription] = useState('');
+  const [inputVisible, setInputVisible] = useState(false);
   const token = localStorage.getItem('token');
 
-
-
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const decodedToken = jwtDecode(token);
-        const username = decodedToken.username;
-        const response = await axios.get(`${apiUrl}/users/api/${username}/`); 
-        setUserData(response.data);
-      } catch (error) {
-        console.error('Ошибка при получении данных:', error);
-      }
-    };
-
     fetchData();
-  }, []); 
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      if (!token) {
+        console.error('Токен отсутствует. Невозможно получить данные.');
+        return;
+      }
+      
+      const decodedToken = jwtDecode(token);
+      const username = decodedToken.username;
+      const response = await axios.get(`${apiUrl}/users/api/${username}/description`, {
+        headers: {
+          Authorization: `Bearer ${token}` // Включение JWT токена в заголовок запроса
+        }
+      }); 
+
+      setUserData(response.data);
+    } catch (error) {
+      console.error('Ошибка при получении данных:', error);
+    }
+  };
+
+  const handleChangeDescription = async () => {
+    try {
+      if (!token) {
+        console.error('Токен отсутствует. Невозможно обновить описание.');
+        return;
+      }
+      
+      const decodedToken = jwtDecode(token);
+      const username = decodedToken.username;
+      const response = await axios.put(`${apiUrl}/users/api/${username}/description/`, { description: newDescription }, {
+        headers: {
+          Authorization: `Bearer ${token}` // Включение JWT токена в заголовок запроса
+        }
+      }); 
+
+      if (response.status === 200) {
+        // После успешного обновления описания обновляем данные
+        fetchData();
+        // Очищаем поле ввода
+        setNewDescription('');
+        // Скрываем input после изменения
+        setInputVisible(false);
+        console.log('Описание успешно обновлено.');
+      } else {
+        console.error('Ошибка при обновлении описания:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Ошибка при обновлении данных:', error);
+    }
+  };
+
+  const handleShowInput = () => {
+    setInputVisible(true);
+  };
 
   return (
-    <div>
-      {userData ? (
-        <p className='profile_description'>{userData.about}</p>
+    <div className='description'>
+      {inputVisible ? (
+        <div className="input-container">
+          <input type="text" className='input_description' value={newDescription} onChange={(e) => setNewDescription(e.target.value)} />
+          <div>
+            <button className='change_description' onClick={handleChangeDescription}>save</button>
+            <button className='change_description' onClick={() => setInputVisible(false)}>cancel</button>
+          </div>
+        </div>
       ) : (
-        <p className='description-none'>You do not have any description yet:&lang;</p>
+        <div className="description-container">
+          {userData && userData.description ? (
+            <div className='prof_description'>
+              <p className='profile_description'>{userData.description}</p>
+              <button className='change_description' onClick={handleShowInput}>Change</button>
+            </div>
+          ) : (
+            <div>
+              <p className='description-none'>You do not have any description yet:&lang;</p>
+              <button className='change_description' onClick={handleShowInput}>Add description</button>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
 };
+
+
 const NavigationTabs = ({ tabs, currentTab, onTabChange }) => {
   return (
     <div className="navigation-tabs">
@@ -1488,7 +1722,7 @@ function Login () {
 
           if (response.status === 200) {
               const token = response.data.access
-              localStorage.setItem('token', token);
+              localStorage.setItem('token', String(token));
               setLoggedIn(true);
               navigate('/'); 
               alert('вы успешно зашли')
@@ -1499,6 +1733,8 @@ function Login () {
           console.error('Ошибка при входе', error);
       }
   };
+
+
 
   return (
       <div className='formContainer'>
@@ -1518,6 +1754,9 @@ function Login () {
       </div>
   )
 }
+
+
+
 
 function Register () {
   const [currentStep, setCurrentStep] = useState(1);
@@ -2411,7 +2650,7 @@ function DropdownMenu() {
 
 function NavItem(props) {
 
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
 
   return (
     <li className="nav-item">
