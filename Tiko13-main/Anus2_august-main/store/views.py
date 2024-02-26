@@ -450,14 +450,13 @@ class CommentListCreateView(APIView):
         return Response({'comments': serialized_comments.data})
 
     def post(self, request, book_id):
-        # Logic for creating a new comment
-        serializer = CommentSerializer(data=request.data, context={'request': request})
+        book = get_object_or_404(Book, pk=book_id)
+        serializer = CreateCommentSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save(user=request.user, book_id=book_id)
+            serializer.save(user=request.user, book=book)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
     @action(detail=True, methods=['post'])
     def like_comment(self, request, book_id, comment_id):
@@ -468,7 +467,6 @@ class CommentListCreateView(APIView):
     def dislike_comment(self, request, book_id, comment_id):
         # Logic to dislike a comment
         pass
-
 
 
 @api_view(['DELETE'])
@@ -876,11 +874,27 @@ class HistoryView(APIView):
         history_dict = {
             "Today": user_history.filter(last_accessed__date=now.date()),
             "Yesterday": user_history.filter(last_accessed__date=(now - timedelta(days=1)).date()),
-            "This Week": user_history.filter(last_accessed__date__range=[now.date() - timedelta(days=6), now.date()]),
-            "This Month": user_history.filter(last_accessed__date__range=[now.date() - timedelta(days=29), now.date()]),
-            "This Year": user_history.filter(last_accessed__date__range=[now.date() - timedelta(days=364), now.date()]),
-
-            # ... and so on for each time category
+            "Last Week": user_history.filter(
+                last_accessed__date__range=[now.date() - timedelta(days=7), now.date() - timedelta(days=2)]),
+            "Week Ago": user_history.filter(
+                last_accessed__date__range=[now.date() - timedelta(days=14), now.date() - timedelta(days=8)]),
+            "Two Weeks Ago": user_history.filter(
+                last_accessed__date__range=[now.date() - timedelta(days=21), now.date() - timedelta(days=15)]),
+            "Three Weeks Ago": user_history.filter(
+                last_accessed__date__range=[now.date() - timedelta(days=28), now.date() - timedelta(days=22)]),
+            "Month Ago": user_history.filter(
+                last_accessed__date__range=[now.date() - timedelta(days=60), now.date() - timedelta(days=29)]),
+            "Two Months Ago": user_history.filter(
+                last_accessed__date__range=[now.date() - timedelta(days=90), now.date() - timedelta(days=61)]),
+            "Three Months Ago": user_history.filter(
+                last_accessed__date__range=[now.date() - timedelta(days=180), now.date() - timedelta(days=91)]),
+            "Half Year Ago": user_history.filter(
+                last_accessed__date__range=[now.date() - timedelta(days=365), now.date() - timedelta(days=181)]),
+            "A Year Ago": user_history.filter(
+                last_accessed__date__range=[now.date() - timedelta(days=730), now.date() - timedelta(days=366)]),
+            "Two Years Ago": user_history.filter(
+                last_accessed__date__range=[now.date() - timedelta(days=1095), now.date() - timedelta(days=731)]),
+            "A Long Time Ago": user_history.filter(last_accessed__date__lte=now.date() - timedelta(days=1096)),
         }
 
         # Serialize each queryset and add to response
@@ -897,3 +911,17 @@ def update_user_book_history(user, book):
     # Update the last_accessed timestamp to the current time
     history_entry.last_accessed = timezone.now()
     history_entry.save()
+
+
+class NewsNotificationsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Filter notifications based on the user's preferences and the types of notifications they want to receive
+        notifications = Notification.objects.filter(
+            recipient=request.user.profile,
+            notification_type='book_update'
+        ).order_by('-timestamp')
+
+        serializer = NotificationSerializer(notifications, many=True)
+        return Response(serializer.data)

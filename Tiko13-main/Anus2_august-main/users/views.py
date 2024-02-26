@@ -34,7 +34,8 @@ import stripe
 
 from .forms import UploadIllustrationForm, UploadTrailerForm
 from .models import Achievement, Illustration, Trailer, Notification, Conversation, Message, \
-    WebPageSettings, Library, EmailVerification, TemporaryRegistration, Wallet, StripeCustomer
+    WebPageSettings, Library, EmailVerification, TemporaryRegistration, Wallet, StripeCustomer, \
+    UsersNotificationSettings
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import *
 
@@ -168,10 +169,7 @@ class CustomUserLoginView(APIView):
                 print(token_serializer.errors)  # Debugging to identify token generation issues
                 return Response(token_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
-
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 @api_view(['GET'])
@@ -627,6 +625,22 @@ class NotificationsAPIView(APIView):
         return Response(serializer.data)
 
 
+class UserNotificationSettingsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        settings = UsersNotificationSettings.objects.get(user=request.user)
+        serializer = UserNotificationSettingsSerializer(settings)
+        return Response(serializer.data)
+
+    def put(self, request):
+        settings = UsersNotificationSettings.objects.get(user=request.user)
+        serializer = UserNotificationSettingsSerializer(settings, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 @api_view(['POST'])
 def read_notification(request, notification_id):
@@ -641,6 +655,29 @@ def notification_count(request):
     count = request.user.profile.unread_notification_count()
     return Response({"unread_count": count})
                                                 # Тут я удалил старые нотификации, так как еще незатестил её поэтому оставил их
+
+
+def notify_users_of_new_chapter(book): # Функция для оповещения пользователей о новой главе NEWS
+    new_chapter_count = book.chapters.filter(published=True).count()  # Assuming you have a published field on your chapter model
+
+    # Identify users based on their preferences and relation to the book
+    interested_users = User.objects.filter(
+        Q(library__reading_books=book, notification_settings__notify_reading=True) |
+        Q(library__liked_books=book, notification_settings__notify_liked=True) |
+        Q(library__wish_list_books=book, notification_settings__notify_wishlist=True) |
+        Q(library__favorites_books=book, notification_settings__notify_favorites=True),
+        notification_settings__chapter_notification_threshold__lte=new_chapter_count
+    ).distinct()
+
+    # Create notifications for these users
+    for user in interested_users:
+        Notification.objects.create(
+            recipient=user.profile,
+            notification_type='book_update',
+            book=book
+        )
+
+
 '''
 def notifications(request):
     # get all unread notifications

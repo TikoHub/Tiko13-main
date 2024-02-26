@@ -51,14 +51,26 @@ class Notification(models.Model):
     notification_type = models.CharField(max_length=30, choices=TYPE_CHOICES)
     read = models.BooleanField(default=False)
     timestamp = models.DateTimeField(auto_now_add=True)
+    book = models.ForeignKey('store.Book', on_delete=models.SET_NULL, null=True, blank=True, related_name='user_book_preference_notification')
 
     def get_message(self):
         if self.notification_type == 'follow':
             return f"{self.sender.user.username} followed you"
         elif self.notification_type == 'comment':
             return f"{self.sender.user.username} replied to your comment"
+        elif self.notification_type == 'book_update':
+            return f"New update in {self.book.name}"
         else:
             return ""
+
+
+class UsersNotificationSettings(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='user_notification_settings')
+    notify_reading = models.BooleanField(default=True)
+    notify_liked = models.BooleanField(default=True)
+    notify_wishlist = models.BooleanField(default=True)
+    notify_favorites = models.BooleanField(default=True)
+    chapter_notification_threshold = models.IntegerField(default=1)  # Number of new chapters to trigger a notification
 
 
 class Profile(models.Model):

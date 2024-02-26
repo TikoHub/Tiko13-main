@@ -24,6 +24,7 @@ urlpatterns = [
         path('book/<int:book_id>/illustrations/', IllustrationView.as_view(), name='book_illustrations'), # Иллюстрации Книги (Еще нету)
         path('book/<int:book_id>/booksale/', BookSaleView.as_view(), name='book_sale'), # Книги на Продажу (возможно скидка) (Еще нету)
         path('history/', HistoryView.as_view(), name='history'), # История книг (пока не тестил)
+        path('news/', NewsNotificationsView.as_view(), name='news_notifications'),
 
 
         path('reader/<int:book_id>/', Reader.as_view(), name='reader'), # Читать книги (Здесь Список глав с содержимым), надо настроить правильно будет

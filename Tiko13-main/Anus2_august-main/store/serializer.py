@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from django.utils import timezone
 from django.contrib.auth.models import User
 from django.urls import reverse
+from users.models import Notification
 
 
 class ChapterSerializers(serializers.ModelSerializer):       # Основной Чаптер Сериалайзер
@@ -72,11 +73,7 @@ class BookSerializer(serializers.ModelSerializer):     # Основной Сер
             # For example, returning the chapter ID and title
             return {
                 'id': first_chapter.id,
-                'title': first_chapter.title,
-                # Optionally, provide a direct URL to the chapter if applicable
-                'url': self.context['request'].build_absolute_uri(
-                    reverse('chapter-detail', kwargs={'book_id': obj.id, 'chapter_id': first_chapter.id})
-                )
+                'title': first_chapter.title
             }
         return None
 
@@ -148,7 +145,6 @@ class BookContentSerializer(serializers.ModelSerializer):  # Book_Detail/Content
         fields = ['chapters']
 
 
-
 class CommentSerializer(serializers.ModelSerializer):
     time_since = serializers.SerializerMethodField()
     last_modified = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S")
@@ -156,6 +152,7 @@ class CommentSerializer(serializers.ModelSerializer):
     profileimg = serializers.SerializerMethodField()
     username = serializers.SerializerMethodField()
     rating = serializers.SerializerMethodField()
+    image = serializers.ImageField(required=False, allow_null=True)
 
     def get_rating(self, obj):
         # Ensure the rating is calculated dynamically here
@@ -175,7 +172,7 @@ class CommentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Comment
-        fields = ['id', 'book', 'profileimg', 'username', 'text', 'last_modified', 'parent_comment', 'time_since', 'rating', 'is_author', 'replies']
+        fields = ['id', 'book', 'profileimg', 'username', 'text', 'last_modified', 'parent_comment', 'time_since', 'rating', 'is_author', 'replies', 'image']
 
     def get_time_since(self, obj):
         if obj.timestamp:
@@ -194,6 +191,12 @@ class CommentSerializer(serializers.ModelSerializer):
         return []
 
 
+class CreateCommentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Comment
+        fields = ['text', 'image']
+
+
 class GenreSerializer(serializers.ModelSerializer):
     class Meta:
         model = Genre
@@ -207,9 +210,21 @@ class SeriesSerializer(serializers.ModelSerializer):
 
 
 class BookViewSerializer(serializers.ModelSerializer):
+    book_name = serializers.CharField(source='book.name')
+    series_name = serializers.CharField(source='book.series.name', default='No Series')
+    volume_number = serializers.IntegerField(source='book.volume_number')
+    last_modified = serializers.DateTimeField(source='book.last_modified')
+    views_count = serializers.IntegerField(source='book.views_count')
+    coverpage = serializers.ImageField(source='book.coverpage')
+    upvotes = serializers.SerializerMethodField()
+    description = serializers.CharField(source='book.description')
+
+    def get_upvotes(self, obj):
+        return obj.book.upvote_count()
+
     class Meta:
         model = BookView
-        fields = '__all__'
+        fields = ['book_name', 'series_name', 'volume_number', 'last_modified', 'views_count', 'coverpage', 'upvotes', 'description']
 
 
 class ReviewSerializer(serializers.ModelSerializer):
@@ -305,3 +320,19 @@ class AuthorNoteSerializer(serializers.ModelSerializer):
         model = AuthorNote
         fields = ['id', 'chapter', 'author', 'start_position', 'end_position', 'note_text']
 
+
+class NotificationSerializer(serializers.ModelSerializer):
+    book = BookSerializer(read_only=True)
+    message = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Notification
+        fields = ['id', 'book', 'message', 'timestamp']
+
+    def get_message(self, obj):
+        # Customize the message based on the notification type
+        if obj.notification_type == 'book_update':
+            new_chapters_count = obj.book.chapters.filter(created__gt=obj.timestamp).count()
+            return f"New update in {obj.book.name}: {new_chapters_count} new chapters"
+        else:
+            return obj.get_message()

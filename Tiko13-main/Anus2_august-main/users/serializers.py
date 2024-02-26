@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Profile, WebPageSettings, TemporaryPasswordStorage, TemporaryRegistration, Notification, \
-    NotificationSetting, WalletTransaction
+    NotificationSetting, WalletTransaction, UsersNotificationSettings
 from store.models import Book, Genre, Series, Comment, BookUpvote
 from .helpers import FollowerHelper
 from django.utils.formats import date_format
@@ -356,4 +356,10 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Add custom claims
         token['username'] = user.username
         return token
+
+
+class UserNotificationSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UsersNotificationSettings
+        fields = '__all__'
 

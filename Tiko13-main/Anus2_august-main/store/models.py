@@ -199,6 +199,7 @@ class Comment(models.Model):
     parent_comment = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies')
     is_author = models.BooleanField(default=False)
     rating = models.IntegerField(default=0)
+    image = models.ImageField(upload_to='comment_images/', blank=True, null=True)
 
     def count_likes(self):
         # Count the number of CommentLike objects related to this comment
