@@ -323,12 +323,12 @@ class NotificationSettingSerializer(serializers.ModelSerializer):
         model = NotificationSetting
         fields = [
             'group_by_author',
-            'show_book_updates',
+          #  'show_book_updates',
             'show_author_updates',
             'newbooks',
-            'library_readling_updates',
-            'library_wishlist_updates',
-            'library_liked_updates',
+            'library_reading_updates',  # Updated field name
+            'library_wishlist_updates',  # Updated field name
+            'library_liked_updates',  # Updated field name
             'show_review_updates',
             'show_comment_updates',
             'show_follower_updates',
@@ -361,5 +361,12 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 class UserNotificationSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = UsersNotificationSettings
-        fields = '__all__'
+        fields = [
+            'notify_reading',
+            'notify_liked',
+            'notify_wishlist',
+            'notify_favorites',
+            'chapter_notification_threshold',  # Add this field
+        ]
+
 

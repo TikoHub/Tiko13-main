@@ -678,6 +678,19 @@ def notify_users_of_new_chapter(book): # Функция для оповещен�
         )
 
 
+def notify_author_followers(author, update_type, book=None):
+    followers = User.objects.filter(following__user=author)
+
+    for follower in followers:
+        Notification.objects.create(
+            recipient=follower.profile,
+            sender=author.profile,
+            notification_type='author_update',
+            book=book,  # Optional: Include the book if the update is related to a specific book
+            message=f"{author.username} has a new {update_type}."  # Customize the message as needed
+        )
+
+
 '''
 def notifications(request):
     # get all unread notifications

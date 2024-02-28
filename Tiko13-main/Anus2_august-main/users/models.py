@@ -44,6 +44,8 @@ class Notification(models.Model):
         ('comment', 'Comment'),
         ('follow', 'Follow'),
         ('review_update', 'Review Update'),
+        ('book_update', 'Book Update'),
+        ('author_update', 'Author Update'),
     )
 
     recipient = models.ForeignKey('Profile', on_delete=models.CASCADE, related_name='notifications')
@@ -65,12 +67,20 @@ class Notification(models.Model):
 
 
 class UsersNotificationSettings(models.Model):
+    CHAPTER_NOTIFICATION_CHOICES = [
+        (1, '1 Chapter'),
+        (3, '3 Chapters'),
+        (5, '5 Chapters'),
+        (10, '10 Chapters'),
+        (30, '30 Chapters'),
+    ]
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='user_notification_settings')
     notify_reading = models.BooleanField(default=True)
     notify_liked = models.BooleanField(default=True)
     notify_wishlist = models.BooleanField(default=True)
     notify_favorites = models.BooleanField(default=True)
-    chapter_notification_threshold = models.IntegerField(default=1)  # Number of new chapters to trigger a notification
+    chapter_notification_threshold = models.IntegerField(default=1, choices=CHAPTER_NOTIFICATION_CHOICES)  # Default to 1 chapter
 
 
 class Profile(models.Model):
@@ -267,7 +277,7 @@ class TemporaryPasswordStorage(models.Model):
 class NotificationSetting(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='notification_settings')
     group_by_author = models.BooleanField(default=True)
-    show_book_updates = models.BooleanField(default=True)
+    # show_book_updates = models.BooleanField(default=True)  # Commented out for now
     show_author_updates = models.BooleanField(default=True)
 
     newbooks = models.BooleanField(default=False)

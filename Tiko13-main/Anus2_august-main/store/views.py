@@ -434,9 +434,9 @@ class CommentListCreateView(APIView):
         Instantiates and returns the list of permissions that this view requires.
         """
         if self.request.method == 'POST':
-            self.permission_classes = [IsAuthenticated,]
+            self.permission_classes = [IsAuthenticated, ]
         else:
-            self.permission_classes = [AllowAny,]
+            self.permission_classes = [AllowAny, ]
         return super(CommentListCreateView, self).get_permissions()
 
     def get(self, request, book_id):
@@ -453,7 +453,18 @@ class CommentListCreateView(APIView):
         book = get_object_or_404(Book, pk=book_id)
         serializer = CreateCommentSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save(user=request.user, book=book)
+            new_comment = serializer.save(user=request.user, book=book)
+
+            # Check if the new comment is a reply to another comment
+            if new_comment.parent_comment:
+                # Create a notification for the parent comment's author
+                Notification.objects.create(
+                    recipient=new_comment.parent_comment.user.profile,
+                    sender=request.user.profile,
+                    notification_type='comment_reply',
+                    book=book
+                )
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
