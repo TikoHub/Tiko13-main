@@ -10,7 +10,7 @@ from rest_framework_simplejwt.views import (
     TokenVerifyView,
 )
 
-
+# http://127.0.0.1:8000/users/api/accounts/facebook/login/ FACEBOOK URLS
 urlpatterns = [
     path('api/', include([
         path('register/', RegisterView.as_view(), name='register'), #Регистрация

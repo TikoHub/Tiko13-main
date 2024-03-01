@@ -314,6 +314,16 @@ class ChapterUploadView(APIView):
         return Response({'message': 'Chapter uploaded successfully'})
 
 
+class SearchApiView(APIView):
+    def get(self, request):
+        query = request.query_params.get('q', '')
+        if len(query) >= 3:
+            books = Book.objects.filter(name__icontains=query)
+            serializer = BookSerializer(books, many=True)
+            return Response(serializer.data)
+        return Response({"message": "Please enter at least 3 characters to search."}, status=status.HTTP_400_BAD_REQUEST)
+
+
 class BookSettingsView(APIView):
     permission_classes = [IsAuthenticated]
 

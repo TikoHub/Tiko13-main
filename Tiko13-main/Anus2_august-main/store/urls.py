@@ -25,6 +25,7 @@ urlpatterns = [
         path('book/<int:book_id>/booksale/', BookSaleView.as_view(), name='book_sale'), # Книги на Продажу (возможно скидка) (Еще нету)
         path('history/', HistoryView.as_view(), name='history'), # История книг (пока не тестил)
         path('news/', NewsNotificationsView.as_view(), name='news_notifications'),
+        path('search/', SearchApiView.as_view(), name='search_api'),
 
 
         path('reader/<int:book_id>/', Reader.as_view(), name='reader'), # Читать книги (Здесь Список глав с содержимым), надо настроить правильно будет

@@ -1742,7 +1742,8 @@ function Login () {
           <Link to='/'><span className='logo-register'><img src={Logo}></img></span></Link>
               <span className='google'><div className='google_button'><a className='google-button'><img className='google_icon' src={Google}></img>Sign in via Google</a></div></span>
               <span className='google'><div className='face_button'><a className='face-button'><img className='face_icon' src={Face}></img>Sign in via Facebook</a></div></span>
-              <hr className='login_hr'></hr>
+
+            <hr className='login_hr'></hr>
               <form className='log-form'>
                   <input type="email" placeholder='email' className='em-log' value={email} onChange={e => setEmail(e.target.value)}/>
                   <input type="password" placeholder='password' className='pas-log' value={password} onChange={e => setPassword(e.target.value)}/>
