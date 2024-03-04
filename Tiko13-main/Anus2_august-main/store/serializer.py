@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Chapter, Book, Comment, Review, Genre, Series, BookView, ReviewLike, ReviewDislike, AuthorNote
+from .models import Chapter, Book, Comment, Review, Genre, Series, BookView, ReviewLike, ReviewDislike, AuthorNote, BookFile
 from users.models import Profile, FollowersCount, Illustration
 from django.utils.formats import date_format
 from django.shortcuts import get_object_or_404
@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.contrib.auth.models import User
 from django.urls import reverse
 from users.models import Notification
+from django.template.defaultfilters import date as _date
 
 
 class ChapterSerializers(serializers.ModelSerializer):       # Основной Чаптер Сериалайзер
@@ -215,9 +216,15 @@ class BookViewSerializer(serializers.ModelSerializer):
     volume_number = serializers.IntegerField(source='book.volume_number')
     last_modified = serializers.DateTimeField(source='book.last_modified')
     views_count = serializers.IntegerField(source='book.views_count')
-    coverpage = serializers.ImageField(source='book.coverpage')
+    coverpage = serializers.SerializerMethodField()
     upvotes = serializers.SerializerMethodField()
     description = serializers.CharField(source='book.description')
+
+    def get_coverpage(self, obj):
+        if obj.book.coverpage:
+            request = self.context.get('request')
+            return request.build_absolute_uri(obj.book.coverpage.url)
+        return None
 
     def get_upvotes(self, obj):
         return obj.book.upvote_count()
@@ -336,3 +343,25 @@ class NotificationSerializer(serializers.ModelSerializer):
             return f"New update in {obj.book.name}: {new_chapters_count} new chapters"
         else:
             return obj.get_message()
+
+
+class BookTypeSerializer(serializers.Serializer):
+    book_type = serializers.ChoiceField(choices=Book.TYPE_CHOICES, allow_blank=True)
+
+
+class BookFileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BookFile
+        fields = ['id', 'book', 'file', 'file_type']
+
+
+class StudioBookSerializer(serializers.ModelSerializer):
+    series_name = serializers.CharField(source='series.name', read_only=True)
+    last_modified_formatted = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Book
+        fields = ['id', 'name', 'coverpage', 'volume_number', 'series_name', 'is_adult', 'last_modified_formatted', 'status', 'visibility']
+
+    def get_last_modified_formatted(self, obj):
+        return _date(obj.last_modified, "d/m/Y, H:i")

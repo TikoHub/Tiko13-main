@@ -99,6 +99,34 @@ class BookSearch(ListView):
         return context
 
 
+class StudioWelcomeAPIView(APIView):
+    def post(self, request):
+        serializer = BookTypeSerializer(data=request.data)
+        if serializer.is_valid():
+            book_type = serializer.validated_data.get('book_type')
+            new_book = Book.objects.create(author=request.user, book_type=book_type)
+            return Response({'message': 'Book created successfully', 'book_id': new_book.id}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BookFileUploadView(APIView):
+    def post(self, request, book_id):
+        serializer = BookFileSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(book_id=book_id)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class StudioBooksAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        books = Book.objects.filter(author=request.user)
+        serializer = StudioBookSerializer(books, many=True)
+        return Response(serializer.data)
+
+
 class BooksCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -920,7 +948,7 @@ class HistoryView(APIView):
 
         # Serialize each queryset and add to response
         for time_category, queryset in history_dict.items():
-            history_dict[time_category] = BookViewSerializer(queryset, many=True).data
+            history_dict[time_category] = BookViewSerializer(queryset, many=True, context={'request': request}).data
 
         return Response(history_dict)
 

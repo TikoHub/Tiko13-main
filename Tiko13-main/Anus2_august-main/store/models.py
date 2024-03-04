@@ -32,15 +32,20 @@ class Book(models.Model):
     TYPE_CHOICES = (
         ('epic_novel', 'Epic Novel'),
         ('novel', 'Novel'),
-        ('short_story', 'Short Story'),
-        ('short_story_collection', 'Short Story Collection'),
-        ('poem_collection', 'Poem Collection'),
+        ('short_story_poem', 'Short Story / Poem'),
+        ('collection', 'Short Story Collection / Poem Collection'),
     )
 
     STATUS_CHOICES = (
         ('in_progress', 'In Progress'),
         ('finished', 'Finished'),
         ('draft', 'Draft'),
+    )
+    VISIBILITY_CHOICES = (
+        ('public', 'Public'),
+        ('private', 'Private'),
+        ('followers', 'Followers'),
+        ('unlisted', 'Unlisted'),
     )
 
     author = models.ForeignKey(User, on_delete=models.CASCADE, default=None,related_name='authored_books')
@@ -69,6 +74,7 @@ class Book(models.Model):
     last_modified = models.DateTimeField(auto_now=True)
     volume_number = models.PositiveIntegerField(null=True, blank=True,
                                                   help_text='The number of the book in the series')
+    visibility = models.CharField(max_length=10, choices=VISIBILITY_CHOICES, default='public')
 
     def calculate_total_pages(self):
         total_characters = sum(len(chapter.content) for chapter in self.chapters.all())
@@ -104,6 +110,15 @@ class Book(models.Model):
 
     def downvote_count(self):
         return self.downvotes.count()
+
+
+class BookFile(models.Model):
+    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='files')
+    file = models.FileField(upload_to='books/')
+    file_type = models.CharField(max_length=10)
+
+    def __str__(self):
+        return f"{self.book.name} - {self.file_type}"
 
 
 class BookLike(models.Model):

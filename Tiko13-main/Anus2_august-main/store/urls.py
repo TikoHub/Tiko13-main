@@ -26,6 +26,9 @@ urlpatterns = [
         path('history/', HistoryView.as_view(), name='history'), # История книг (пока не тестил)
         path('news/', NewsNotificationsView.as_view(), name='news_notifications'),
         path('search/', SearchApiView.as_view(), name='search_api'),
+        path('studio/welcome/', StudioWelcomeAPIView.as_view(), name='studio_welcome'),
+        path('books/<int:book_id>/upload/', BookFileUploadView.as_view(), name='book-file-upload'),
+        path('studio/books/', StudioBooksAPIView.as_view(), name='studio-books'),
 
 
         path('reader/<int:book_id>/', Reader.as_view(), name='reader'), # Читать книги (Здесь Список глав с содержимым), надо настроить правильно будет
