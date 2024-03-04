@@ -358,6 +358,7 @@ class BookFileSerializer(serializers.ModelSerializer):
 class StudioBookSerializer(serializers.ModelSerializer):
     series_name = serializers.CharField(source='series.name', read_only=True)
     last_modified_formatted = serializers.SerializerMethodField()
+    coverpage = serializers.SerializerMethodField()
 
     class Meta:
         model = Book
@@ -365,3 +366,9 @@ class StudioBookSerializer(serializers.ModelSerializer):
 
     def get_last_modified_formatted(self, obj):
         return _date(obj.last_modified, "d/m/Y, H:i")
+
+    def get_coverpage(self, obj):
+        request = self.context.get('request')
+        if obj.coverpage and request:
+            return request.build_absolute_uri(obj.coverpage.url)
+        return None

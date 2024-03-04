@@ -123,7 +123,7 @@ class StudioBooksAPIView(APIView):
 
     def get(self, request):
         books = Book.objects.filter(author=request.user)
-        serializer = StudioBookSerializer(books, many=True)
+        serializer = StudioBookSerializer(books, context={'request': request}, many=True)
         return Response(serializer.data)
 
 
