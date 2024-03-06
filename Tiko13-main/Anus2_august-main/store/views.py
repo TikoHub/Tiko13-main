@@ -33,12 +33,24 @@ from .converters import create_fb2, parse_fb2
 from django.core.files.storage import default_storage
 import datetime
 from datetime import date
-from users.models import WebPageSettings, Library
+from users.models import WebPageSettings, Library, Profile, FollowersCount
+from django.db.models import Exists, OuterRef
+from django.db.models import Q
+from rest_framework.exceptions import PermissionDenied
 
 
 class BooksListAPIView(generics.ListAPIView):
-    queryset = Book.objects.order_by('-id')
     serializer_class = BookSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_authenticated:
+            return Book.objects.filter(
+                Q(visibility='public') |
+                Q(visibility='private', author=user) |
+                Q(visibility='followers', author__follower_users__follower=user)
+            ).distinct().order_by('-views_count')
+        return Book.objects.filter(visibility='public').order_by('-views_count')
 
 
 class BookDetailAPIView(generics.RetrieveAPIView):
@@ -47,7 +59,15 @@ class BookDetailAPIView(generics.RetrieveAPIView):
 
     def get_object(self):
         book_id = self.kwargs.get('book_id')
-        return get_object_or_404(Book, id=book_id)
+        book = get_object_or_404(Book, id=book_id)
+
+        # Check if the user has access to the book based on its visibility
+        if book.visibility == 'private' and self.request.user != book.author:
+            raise PermissionDenied('You do not have permission to view this book.')
+        elif book.visibility == 'followers' and not FollowersCount.objects.filter(follower=self.request.user, user=book.author).exists():
+            raise PermissionDenied('You do not have permission to view this book.')
+
+        return book
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -126,6 +146,14 @@ class StudioBooksAPIView(APIView):
         serializer = StudioBookSerializer(books, context={'request': request}, many=True)
         return Response(serializer.data)
 
+    def patch(self, request, book_id):
+        book = Book.objects.get(id=book_id, author=request.user)
+        serializer = BookVisibilitySerializer(book, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class BooksCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -177,7 +205,7 @@ class AddChapterView(APIView):
                 return Response({'error': 'You are not the author of this book.'}, status=status.HTTP_403_FORBIDDEN)
 
             # Create an empty chapter
-            new_chapter = Chapter.objects.create(book=book, status='in_draft')
+            new_chapter = Chapter.objects.create(book=book)
             serializer = ChapterSerializers(new_chapter)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -345,11 +373,19 @@ class ChapterUploadView(APIView):
 class SearchApiView(APIView):
     def get(self, request):
         query = request.query_params.get('q', '')
-        if len(query) >= 3:
-            books = Book.objects.filter(name__icontains=query)
-            serializer = BookSerializer(books, many=True)
-            return Response(serializer.data)
-        return Response({"message": "Please enter at least 3 characters to search."}, status=status.HTTP_400_BAD_REQUEST)
+        books = Book.objects.filter(name__icontains=query)
+        book_serializer = BookSerializer(books, many=True)
+
+        # Filter authors who have at least one published book
+        authors = User.objects.annotate(
+            has_books=Exists(Book.objects.filter(author=OuterRef('pk')))
+        ).filter(has_books=True, username__icontains=query).distinct()
+        author_serializer = AuthorSerializer(authors, many=True)
+
+        return Response({
+            'books': book_serializer.data,
+            'authors': author_serializer.data
+        })
 
 
 class BookSettingsView(APIView):
@@ -918,7 +954,11 @@ class HistoryView(APIView):
 
     def get(self, request):
         now = timezone.now()
+        search_query = request.query_params.get('search', None)
         user_history = UserBookHistory.objects.filter(user=request.user).order_by('-last_accessed')
+
+        if search_query:
+            user_history = user_history.filter(book__name__icontains=search_query)
 
         history_dict = {
             "Today": user_history.filter(last_accessed__date=now.date()),

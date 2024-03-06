@@ -11,6 +11,7 @@ urlpatterns = [
         path('book_detail/<int:book_id>/content', views.get_book_content, name='get_book_content'), # Главы с датой добавления
         path('book_detail/<int:book_id>/review', ReviewListView.as_view(), name='post_review'), # Отзывы (пока отсутствуют)
         path('book_detail/<int:book_id>/comments/', CommentListCreateView.as_view(), name='book-comments'),# Комментарии
+
         path('book/<int:book_id>/chapters/', ChapterContentView.as_view(), name='chapter_content'), # Отдел Глав для писателя
         path('book/<int:book_id>/chapter_side/', ChapterListView.as_view(), name='chapter-list'), # Менюшка слева для выбора главы или добавления
         path('book/<int:book_id>/add_chapter/', AddChapterView.as_view(), name='add_chapter'),
@@ -29,6 +30,7 @@ urlpatterns = [
         path('studio/welcome/', StudioWelcomeAPIView.as_view(), name='studio_welcome'),
         path('books/<int:book_id>/upload/', BookFileUploadView.as_view(), name='book-file-upload'),
         path('studio/books/', StudioBooksAPIView.as_view(), name='studio-books'),
+        path('studio/books/<int:book_id>/', StudioBooksAPIView.as_view(), name='update-book-visibility'),
 
 
         path('reader/<int:book_id>/', Reader.as_view(), name='reader'), # Читать книги (Здесь Список глав с содержимым), надо настроить правильно будет

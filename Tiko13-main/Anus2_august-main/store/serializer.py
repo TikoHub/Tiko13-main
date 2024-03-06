@@ -16,7 +16,7 @@ class ChapterSerializers(serializers.ModelSerializer):       # Основной 
 
     class Meta:
         model = Chapter
-        fields = ['id', 'title', 'content']
+        fields = ['title', 'content', 'is_free', 'published']
 
 
 class ChapterSummarySerializer(serializers.ModelSerializer):      # Для Book_Detail / Content
@@ -195,7 +195,7 @@ class CommentSerializer(serializers.ModelSerializer):
 class CreateCommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
-        fields = ['text', 'image']
+        fields = ['id', 'text', 'parent_comment', 'image']
 
 
 class GenreSerializer(serializers.ModelSerializer):
@@ -372,3 +372,15 @@ class StudioBookSerializer(serializers.ModelSerializer):
         if obj.coverpage and request:
             return request.build_absolute_uri(obj.coverpage.url)
         return None
+
+
+class AuthorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username']
+
+
+class BookVisibilitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Book
+        fields = ['visibility']
