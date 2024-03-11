@@ -37,6 +37,7 @@ from users.models import WebPageSettings, Library, Profile, FollowersCount
 from django.db.models import Exists, OuterRef
 from django.db.models import Q
 from rest_framework.exceptions import PermissionDenied
+import logging
 
 
 class BooksListAPIView(generics.ListAPIView):
@@ -61,10 +62,15 @@ class BookDetailAPIView(generics.RetrieveAPIView):
         book_id = self.kwargs.get('book_id')
         book = get_object_or_404(Book, id=book_id)
 
+        # Allow access to unlisted books only via direct link
+        if book.visibility == 'unlisted':
+            return book
+
         # Check if the user has access to the book based on its visibility
-        if book.visibility == 'private' and self.request.user != book.author:
+        user = self.request.user
+        if book.visibility == 'private' and book.author != user:
             raise PermissionDenied('You do not have permission to view this book.')
-        elif book.visibility == 'followers' and not FollowersCount.objects.filter(follower=self.request.user, user=book.author).exists():
+        elif book.visibility == 'followers' and not book.author.followers.filter(user=user).exists():
             raise PermissionDenied('You do not have permission to view this book.')
 
         return book
@@ -203,6 +209,11 @@ class AddChapterView(APIView):
             book = Book.objects.get(id=book_id)
             if book.author != request.user:
                 return Response({'error': 'You are not the author of this book.'}, status=status.HTTP_403_FORBIDDEN)
+
+            # Check if the book is of type "Short Story / Poem" and already has a chapter
+            if book.book_type == 'short_story_poem' and book.chapters.exists():
+                return Response({'error': 'Short Story / Poem books can only have one chapter.'},
+                                status=status.HTTP_400_BAD_REQUEST)
 
             # Create an empty chapter
             new_chapter = Chapter.objects.create(book=book)
@@ -902,8 +913,8 @@ class SingleChapterView(APIView):
 
         serialized_chapter = ChapterSerializers(chapter).data
 
-        # Update user's book reading history
-        if request.user.is_authenticated:
+        # Update user's book reading history if record_history is True
+        if request.user.is_authenticated and request.user.profile.record_history:
             UserBookHistory.objects.update_or_create(
                 user=request.user,
                 book=chapter.book,
@@ -993,6 +1004,21 @@ class HistoryView(APIView):
         return Response(history_dict)
 
 
+def record_history_view(request, book_id):
+    if request.user.is_authenticated and request.user.profile.record_history:
+        book = get_object_or_404(Book, id=book_id)
+        update_user_book_history(request.user, book)
+        return Response({'message': 'History recorded successfully'})
+    return Response({'error': 'History recording is disabled or user is not authenticated'}, status=status.HTTP_403_FORBIDDEN)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def delete_history(request):
+    UserBookHistory.objects.filter(user=request.user).delete()
+    return Response({'message': 'History deleted successfully'}, status=status.HTTP_200_OK)
+
+
 def update_user_book_history(user, book):
     # Check if there's an existing history entry for this user and book
     history_entry, created = UserBookHistory.objects.get_or_create(user=user, book=book)
@@ -1000,6 +1026,36 @@ def update_user_book_history(user, book):
     # Update the last_accessed timestamp to the current time
     history_entry.last_accessed = timezone.now()
     history_entry.save()
+
+
+logger = logging.getLogger('user_history')
+
+
+def update_user_book_history(user, book):
+    # Check if there's an existing history entry for this user and book
+    history_entry, created = UserBookHistory.objects.get_or_create(user=user, book=book)
+
+    # Update the last_accessed timestamp to the current time
+    history_entry.last_accessed = timezone.now()
+    history_entry.save()
+
+    # Log the event
+    logger.debug(f'Updated history for user {user.username} and book {book.name}')
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_history_settings(request):
+    record_history = request.data.get('record_history')
+    if record_history is not None:
+        try:
+            record_history = bool(int(record_history))
+            request.user.profile.record_history = record_history
+            request.user.profile.save()
+            return Response({'message': 'History settings updated successfully'}, status=status.HTTP_200_OK)
+        except ValueError:
+            return Response({'error': 'Invalid value for record_history'}, status=status.HTTP_400_BAD_REQUEST)
+    return Response({'error': 'record_history not provided'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class NewsNotificationsView(APIView):

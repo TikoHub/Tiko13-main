@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
 
 const FontContext = createContext();
 
@@ -7,7 +7,9 @@ export const useFont = () => {
 };
 
 export const FontProvider = ({ children }) => {
-  const [fontFamily, setFontFamily] = useState('Times New Roman'); // начальное значение fontFamily
+  // Load font family from localStorage or use default
+  const savedFontFamily = localStorage.getItem('fontFamily');
+  const [fontFamily, setFontFamily] = useState(savedFontFamily || 'Times New Roman');
 
   const setFont = (font) => {
     setFontFamily(font);
@@ -24,6 +26,11 @@ export const FontProvider = ({ children }) => {
     'Fira Sans',
     'PT Sans',
   ];
+
+
+  useEffect(() => {
+    localStorage.setItem('fontFamily', fontFamily);
+  }, [fontFamily]);
 
   return (
     <FontContext.Provider value={{ fontFamily, setFont, fontList }}>

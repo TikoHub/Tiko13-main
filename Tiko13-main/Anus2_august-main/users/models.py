@@ -92,6 +92,7 @@ class Profile(models.Model):
     blacklist = models.ManyToManyField(User, related_name="blacklisted_by", blank=True)
     auto_add_reading = models.BooleanField(default=True)
     description = models.TextField(blank=True, null=True) # Не уверен что мне этот метод нравится
+    record_history = models.BooleanField(default=True)
     banner_image = models.ImageField(
         upload_to='banner_images',
         default='default_banner.png',

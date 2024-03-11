@@ -237,11 +237,11 @@ LOGGING = {
         'file': {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
-            'filename': 'django.log',
+            'filename': 'user_history.log',
         },
     },
     'loggers': {
-        'django': {
+        'user_history': {
             'handlers': ['file'],
             'level': 'DEBUG',
             'propagate': True,

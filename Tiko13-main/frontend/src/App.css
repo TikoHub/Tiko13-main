@@ -9,14 +9,31 @@ body {
   background-repeat: no-repeat;
   height: 100%;
 }
+/* body {
+  width: 100%; 
+  min-height: 100%; 
+  background: var(--bg);
+  background-position: left, right; 
+  background-size: 51%, 51%; 
+  background-repeat: no-repeat; 
+} */
 ul {
   list-style-type: none;
 }
+a {
+  text-decoration: none;
+}
+
+button:active {
+    transform: translateY(2px);
+}
+
 .sidebar {
   width: 270px;
   z-index: 2;
   float: left;
   height: 190vh;
+
 }
 
 .logo {
@@ -46,7 +63,7 @@ ul {
   height: 42px;
   border-radius: 15px;
   background-color: rgba(0, 0, 0, 0);
-  color: #FFF;
+  color: var(--text-color);
   font-family: Telex;
   font-size: 24px;
   font-style: normal;
@@ -191,6 +208,9 @@ ul {
 }
 :-ms-input-placeholder { /* Internet Explorer 10+ */
   color:    #fff;
+}
+.placeholder {
+  color: #fff;
 }
 
 .toop {
@@ -379,8 +399,10 @@ margin-top: 33px;
   margin-top: 29px;
 }
 
+
 .register-name {
   display: block;
+  color:white;
   border-radius: 40px;
   border: 1px solid #2B2B2B;
   background: #000;
@@ -396,6 +418,7 @@ margin-top: 33px;
 
 .register-last {
   display: block;
+  color:white;
   border-radius: 40px;
   border: 1px solid #2B2B2B;
   background: #000;
@@ -410,7 +433,7 @@ margin-top: 33px;
 }
 
 .register-date {
-  color: #FFF;
+color: #FFF;
 font-family: Telex;
 font-size: 16px;
 font-style: normal;
@@ -447,6 +470,7 @@ margin-top: 25px;
 }
 
 .year {
+  color:white;
   border-radius: 40px;
   border: 1px solid #2B2B2B;
   background: #000;
@@ -495,6 +519,7 @@ input::-webkit-inner-spin-button {
 }
 
 .register-mail {
+  color:white;
   display: block;
   border-radius: 40px;
   border: 1px solid #2B2B2B;
@@ -510,6 +535,7 @@ input::-webkit-inner-spin-button {
 }
 
 .register-password {
+  color:white;
   display: block;
   border-radius: 40px;
   border: 1px solid #2B2B2B;
@@ -523,8 +549,14 @@ input::-webkit-inner-spin-button {
   font-weight: 400;
   line-height: normal;
 }
+input:-internal-autofill-selected {
+  /* Переопределите необходимые свойства */
+  background-color: initial !important; /* Сбросите фоновый цвет */
+  color: initial !important; /* Сбросите цвет текста */
+}
 
 .register-text {
+  color:white;
   display: block;
   color: #FFF;
   font-family: Telex;
@@ -1326,7 +1358,7 @@ input::-webkit-inner-spin-button {
   font-size: 18px;
   font-style: normal;
   font-weight: 400;
-  line-height: normal; 
+  line-height: normal;
 }
 
 .profile_book {
@@ -1664,7 +1696,7 @@ input::-webkit-inner-spin-button {
 }
 
 /* CSS Root 1 */
-:root{
+/* :root{
   --bg: linear-gradient(to left, #000000 90%, #290038), linear-gradient(to right, #000000 90%, #290038);;
   --bg-accent: #000;
   --text-color: #FFF;
@@ -1673,36 +1705,47 @@ input::-webkit-inner-spin-button {
   --speed: 200ms; 
   --svg-color: #fff;
   --hr-color: #fff;
-}
+} */
 
-html[data-theme='dark']{
-  --bg: linear-gradient(to left, #000000 90%, #290038), linear-gradient(to right, #000000 90%, #290038);
-  --bg-accent: #000;
-  --text-color: #FFF;
-  --border: 1px solid #FFF;;
-  --svg-color: #fff;
-  --hr-color: #fff;
-  --logo-color: #fff;
-}
-
-html[data-theme='light']{
-  --bg: #fff;
-  --bg-accent: #fff;
-  --text-color: #000;
-  --border: 1px solid #000;
+.main.light {
+  background: #fff;
+  background-color: #fff;
+  color: #000;
+  border: 1px solid #000;
+  fill: #000; /* для SVG */
   --svg-color: #000;
-  --hr-color: #000;
   --logo-color: #E26DFF;
+  --text-color: #000;
+  --hr-color: #000;
+  --border:#000;
+
 }
 
-html[data-theme='sepia']{
-  --bg: linear-gradient(to left, #EDE1D0 90%, #FFDBA8), linear-gradient(to right, #EDE1D0 90%, #FFDBA8); 
-  --bg-accent: #EDE1D0;
-  --text-color: #56260C;
-  --border: 1px solid #000;
+.main.dark {
+  background: linear-gradient(to left, #000000 90%, #290038), linear-gradient(to right, #000000 90%, #290038);
+  background-color: #000;
+  color: #FFF;
+  border: 1px solid #FFF;
+  fill: #fff; /* для SVG */
+  --svg-color: #fff;
+  --logo-color: #fff;
+  --text-color: #FFF;
+  --hr-color: #fff;
+  --border: #fff;
+
+}
+
+.main.sepia {
+  background: linear-gradient(to left, #EDE1D0 90%, #FFDBA8), linear-gradient(to right, #EDE1D0 90%, #FFDBA8); 
+  background-color: #EDE1D0;
+  color: #56260C;
+  border: 1px solid #000;
+  fill: #000; /* для SVG */
   --svg-color: #000;
-  --hr-color: #56260C;
   --logo-color: #56260C;
+  --text-color: #56260C;
+  --hr-color: #56260C;
+  --border: #56260C;
 }
 
 
@@ -1728,14 +1771,6 @@ button {
 }
 
 
-body {
-  width: 100%; 
-  min-height: 100%; 
-  background: var(--bg);
-  background-position: left, right; 
-  background-size: 51%, 51%; 
-  background-repeat: no-repeat; 
-}
 
 .reader__sidebar {
   flex-basis: 10%;
@@ -1743,6 +1778,7 @@ body {
 .reader__sidebar-menu {
   flex-basis: 19%;
   width: 100%;
+  
 } 
 .menu__button {
   position: absolute;
@@ -1765,10 +1801,9 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-top: 11px;
   flex-basis: 100%;
   width: 90%;
-  height: 42px;
+  height: 52px;
   border-radius: 15px;
   color: var(--text-color);
   font-family: Telex;
@@ -1786,6 +1821,8 @@ body {
 }
 .chapter-list {
   width: 100%;
+  text-align: center;
+  margin-top: 11px;
 }
 
 /* width */
@@ -1833,6 +1870,9 @@ p {
 .book::-webkit-scrollbar {
   width: 10px;
   height: 960px;
+}
+.book_container{
+  width: 93%;
 }
 
 .reader {
@@ -1894,10 +1934,11 @@ p {
   align-items: start;
   transform: translateX(-88%);
   background-color: var(--bg-accent);
-  border: var(--border);
+  border: 2px solid var(--border);
   overflow: hidden;
-  transition: height var(--speed) ease;
-  transition: left 0.3s; 
+  transition: height var(--speed) ease,left 0.3s;
+  z-index: 1000;
+  border-radius: 15px;
 }
 
 
@@ -2135,6 +2176,18 @@ p {
   align-items: center;
 }
 
+.replies-container {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+  opacity: 0;
+}
+
+.replies-container.show {
+  max-height: 1000px;
+  opacity: 1;
+}
+
 .book_comment-reply {
   margin-top: 20px;
   margin-left: 80px;
@@ -2302,3 +2355,34 @@ p {
   display: flex;
   
 }
+
+.history_day {
+  color: #fff;
+  font-size: 32px;
+  margin-bottom: 30px;
+}
+.profile__first_colum{
+  margin-top: 23px;
+}
+
+.reg-container {
+  font-size: 24px;
+  position: relative;
+}
+
+.letter {
+  display: inline-block;
+  transition: transform 0.3s ease-out;
+  text-decoration-line: underline;
+}
+
+.explode {
+  transform: translateX(calc(50% - 100px)) translateY(calc(50% - 100px));
+}
+
+.history__title{
+  color: #fff;
+  font-size: 44px;
+  margin-bottom: 40px;
+}
+

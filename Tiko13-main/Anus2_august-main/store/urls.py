@@ -25,6 +25,9 @@ urlpatterns = [
         path('book/<int:book_id>/illustrations/', IllustrationView.as_view(), name='book_illustrations'), # Иллюстрации Книги (Еще нету)
         path('book/<int:book_id>/booksale/', BookSaleView.as_view(), name='book_sale'), # Книги на Продажу (возможно скидка) (Еще нету)
         path('history/', HistoryView.as_view(), name='history'), # История книг (пока не тестил)
+        path('history/delete/', delete_history, name='delete_history'),
+        path('history/record/', update_history_settings, name='update-history-settings'),
+
         path('news/', NewsNotificationsView.as_view(), name='news_notifications'),
         path('search/', SearchApiView.as_view(), name='search_api'),
         path('studio/welcome/', StudioWelcomeAPIView.as_view(), name='studio_welcome'),

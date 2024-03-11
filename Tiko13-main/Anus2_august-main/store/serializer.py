@@ -211,6 +211,7 @@ class SeriesSerializer(serializers.ModelSerializer):
 
 
 class BookViewSerializer(serializers.ModelSerializer):
+    author_name = serializers.CharField(source='book.author')
     book_name = serializers.CharField(source='book.name')
     series_name = serializers.CharField(source='book.series.name', default='No Series')
     volume_number = serializers.IntegerField(source='book.volume_number')
@@ -231,7 +232,7 @@ class BookViewSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BookView
-        fields = ['book_name', 'series_name', 'volume_number', 'last_modified', 'views_count', 'coverpage', 'upvotes', 'description']
+        fields = ['author_name', 'book_name', 'series_name', 'volume_number', 'last_modified', 'views_count', 'coverpage', 'upvotes', 'description']
 
 
 class ReviewSerializer(serializers.ModelSerializer):

@@ -1,7 +1,7 @@
 import axios from 'axios';
-import React, {useState, useEffect, useHistory, useCallback, useRef, useLayoutEffect, useLocation} from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, Outlet, useNavigate, NavLink, useParams } from 'react-router-dom';
-import { FontSizeProvider } from './context/SizeContext';
+import React, {useState, useEffect, useHistory, useCallback, useRef, useLayoutEffect,} from 'react';
+import { BrowserRouter as Router, Routes, Route, Link, Outlet, useNavigate, NavLink, useParams,useLocation } from 'react-router-dom';
+import { FontSizeProvider, useFontSize} from './context/SizeContext';
 import {WidthProvider} from './context/WidthContext';
 import {usePadding} from './context/WidthContext';
 import { useLineHeight, LineHeightProvider } from './context/LineContext';
@@ -32,6 +32,7 @@ import { useStudioLineHeight, StudioLineHeightProvider } from './context/studio/
 import { FontStudioProvider, useStudioFont } from './context/studio/FontStudioContext';
 
 
+
 const apiUrl = 'http://127.0.0.1:8000'
 
 
@@ -46,23 +47,25 @@ function App() {
       <Route path='/book_detail/:book_id' element={<BookPage />} />
       <Route path='/reader/:book_id/chapter/:chapter_id' element={<ReaderContext />} />
       <Route path='/studio' element={<StudioContext />} />
+      <Route path='/history' element={<MainHistory/>} />
     </Routes>
     </Router>
   )
 }
 function ReaderContext() {
-  return(
-    <FontProvider>
-    <WidthProvider>
-    <LineHeightProvider>
-    <FontSizeProvider>
-      <ReaderMain />
-    </FontSizeProvider>
-    </LineHeightProvider>
-    </WidthProvider>
-    </FontProvider>
-  )
+  return (
+      <FontProvider>
+        <WidthProvider>
+          <LineHeightProvider>
+            <FontSizeProvider>
+              <ReaderMain />
+            </FontSizeProvider>
+          </LineHeightProvider>
+        </WidthProvider>
+      </FontProvider>
+  );
 }
+
 function StudioContext() {
   return(
     <FontStudioProvider>
@@ -275,7 +278,7 @@ function BookPage() {
                 <Link to={`/reader/${book_id}/chapter/${bookData.first_chapter_info?.id}`}>
   <button className='bookpage__button_read'>Read</button>
 </Link>
-                  <button className='bookpage__button_free'>{bookData.display_price}</button>
+                  <button className='bookpage__button_free'>{bookData.display_price}$</button>
                   <button className='bookpage__button_add'>+Add</button>
                   <button className='bookpage__button_download'></button>
                 </div>
@@ -300,6 +303,12 @@ function BookPage() {
   )
 }
 
+const handleLibraryClick = () => {
+  const libraryNavigationSection = document.getElementById('library-navigation');
+  if (libraryNavigationSection) {
+    libraryNavigationSection.scrollIntoView({ behavior: 'smooth' });
+  }
+};
 
 
 function Main() {
@@ -309,15 +318,22 @@ function Main() {
   const token = localStorage.getItem('token');
 
 
+
+
   const handleMenuOpen = () => {
     setMenuOpen(!menuOpen);
   };
+
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     setIsLoggedIn(false);
     window.location.reload();
   };
+
+
+  
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -371,10 +387,11 @@ function Main() {
           )}
         </div>
       </header>
-      <Sidebar />
+      <Sidebar/>
       <main className='profile-page'>
         <Profile />
-        <Navigation />
+        <div id='navigation'><Navigation/></div>
+        
       </main>
     </div>
   );
@@ -450,13 +467,22 @@ return (
 }
 
 const Sidebar = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    const navigation = document.getElementById('navigation');
+    if (location.hash && navigation) {
+      navigation.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [location]);
+
   return (
     <div>
       <div className="sidebar">
         <ul className='sidebar-menu'>
-          <li className='pool'><button className='pool-button'><img className='pool_icon' src={Home}></img>Home</button></li>
-          <li className='pool'><button className='pool-button'><img className='pool_icon' src={Library}></img>Library</button></li>
-          <li className='pool'><button className='pool-button'><img className='pool_icon' src={History}></img>History</button></li>
+          <Link to={'/'}><li className='pool'><button className='pool-button'><img className='pool_icon' src={Home}></img>Home</button></li></Link>
+          <Link to="/profile#navigation"><li className='pool'><button className='pool-button'><img className='pool_icon' src={Library}></img>Library</button></li></Link>
+          <Link to={'/history'}><li className='pool'><button className='pool-button'><img className='pool_icon' src={History}></img>History</button></li></Link>
           <hr className='sidebar_hr'></hr>
           <div className='book_button'><button className='pool-button'><img className='pool_icon' src={Book}></img>Books</button></div>
           <Books />
@@ -693,64 +719,100 @@ function BookContent({book_id}) {
 
 function Comment({ comment, showReplyButtons, onToggleReplyButtons }) {
   const [replyText, setReplyText] = useState('');
+  const [showReply, setShowReply] = useState(false);
+  const { book_id } = useParams();
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    try {
+      const token = localStorage.getItem('token'); 
+      if (!token) {
+        throw new Error('Access token not found');
+      }
+
+      const response = await axios.post(`${apiUrl}/api/book_detail/${book_id}/comments/`, {
+        parent_comment_id: comment.id, // Добавляем информацию о комментарии, к которому создается ответ
+        text: replyText // Используем значение replyText
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('Reply added successfully:', response.data);
+      // Дополнительные действия после успешного добавления ответа
+
+      // Очистить значение replyText после успешной отправки ответа
+      setReplyText('');
+    } catch (error) {
+      console.error('Error adding reply:', error);
+      // Обработка ошибки, например, отображение сообщения об ошибке пользователю
+    }
+  };
 
   const handleInputChange = (event) => {
     setReplyText(event.target.value);
   };
 
   const handleReplySubmit = () => {
-
-    console.log('Reply submitted:', replyText);
+    console.log('Ответ отправлен:', replyText);
     setReplyText('');
+  };
+
+  const handleToggleReply = () => {
+    setShowReply(!showReply);
   };
 
   return (
     <div className='book_comment-reply' key={comment.id}>
       <div className='book_comment-info'>
-        <img className='book_comment-img' src={comment.profileimg} alt="User Avatar" />
+        <img className='book_comment-img' src={comment.profileimg} alt="Изображение пользователя" />
         <div className='book_comment-name'>{comment.username}</div>
         <div className='book_comment-time_since'>{comment.time_since}</div>
       </div>
       <p className='book_comment-text'>{comment.text}</p>
 
-      {comment.replies && comment.replies.length > 0 && (
-        <div className='replies_open-button'>
-          <button className='reply_button' onClick={() => onToggleReplyButtons(comment.id)}>
-            {showReplyButtons[comment.id] ? '-' : '+'}
-          </button>
-          <p className='open-replies' onClick={() => onToggleReplyButtons(comment.id)}>Open replies</p>
+      <div className={`replies_open-button ${showReply ? 'show' : ''}`}>
+        <button className='reply_button' onClick={handleToggleReply}>
+          {showReply ? '-' : '+'}
+        </button>
+        <p className='open-replies' onClick={handleToggleReply}></p>
+      </div>
+
+      <div className={`replies-container ${showReply ? 'show' : ''}`}>
+        <div className="reply-input-container">
+          <div className='reply-text'>Reply</div>
+          <input
+            type="text"
+            value={replyText}
+            onChange={handleInputChange}
+            className='reply-input'
+          />
+          <button className='reply-input-container__button' onClick={handleSubmit}>Reply</button>
         </div>
-      )}
-
-      {showReplyButtons[comment.id] && (
-        <>
-          {comment.replies.map((nestedReply) => (
-            <Comment
-              key={nestedReply.id}
-              comment={nestedReply}
-              showReplyButtons={showReplyButtons}
-              onToggleReplyButtons={onToggleReplyButtons}
-            />
-          ))}
-
-          <div className="reply-input-container">
-            <div className='reply-text'>Reply</div>
-            <input
-              type="text"
-              value={replyText}
-              onChange={handleInputChange}
-              className='reply-input'
-            />
-            <button className='reply-input-container__button' onClick={handleReplySubmit}>Reply</button>
+        {comment.replies && comment.replies.length > 0 && (
+          <div>
+            {comment.replies.map((nestedReply) => (
+              <Comment
+                key={nestedReply.id}
+                comment={nestedReply}
+                showReplyButtons={showReplyButtons}
+                onToggleReplyButtons={onToggleReplyButtons}
+              />
+            ))}
           </div>
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 }
 
 
-function AddComment() {
+
+function 
+AddComment() {
   const { book_id } = useParams();
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -763,8 +825,8 @@ function AddComment() {
         throw new Error('Access token not found');
       }
 
-      const response = await axios.post(`http://127.0.0.1:8000/api/book_detail/${book_id}/comments/`, {
-        comment: commentInput
+      const response = await axios.post(`${apiUrl}/api/book_detail/${book_id}/comments/`, {
+        text: commentInput
       }, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -773,10 +835,10 @@ function AddComment() {
       });
 
       console.log('Comment added successfully:', response.data);
-      // Additional actions after successful comment addition
+
     } catch (error) {
       console.error('Error adding comment:', error);
-      // Error handling, e.g., displaying error message to user
+
     }
   };
 
@@ -821,6 +883,11 @@ function BookComment({ book_id }) {
     fetchComments();
   }, [book_id, token]);
 
+
+  const addComment = (newComment) => {
+    setComments(prevComments => [...prevComments, newComment]);
+  };
+
   const toggleReplies = () => {
     setShowReplies(!showReplies);
   };
@@ -839,13 +906,11 @@ function BookComment({ book_id }) {
         <div>
           {comments.map((comment) => (
             <div key={comment.id} className='book_comment'>
-              {/* Основной комментарий */}
               <Comment
                 comment={comment}
                 showReplyButtons={showReplyButtons}
                 onToggleReplyButtons={toggleReplyButtons}
               />
-              {/* Проверяем наличие ответов и их отображение */}
               {showReplies && comment.replies && comment.replies.length > 0 && (
                 <div>
                   {comment.replies.map((reply) => (
@@ -862,7 +927,7 @@ function BookComment({ book_id }) {
           ))}
         </div>
       )}
-      <div><AddComment /></div>
+      <div><AddComment onAddComment={addComment} /></div>
     </div>
   );
 }
@@ -1705,55 +1770,119 @@ function SearchBooks() {
   );
 }
 
-function Login () {
+function Login() {
   const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const navigate = useNavigate();
-    const [loggedIn, setLoggedIn] = useState(false);
-   
+  const [password, setPassword] = useState('');
+  const navigate = useNavigate();
+  const [loggedIn, setLoggedIn] = useState(false);
 
+  const handleLogin = async () => {
+    try {
+      const response = await axios.post(`${apiUrl}/users/api/login/`, {
+        email,
+        password,
+      });
 
-    const handleLogin = async () => {
-      try {
-          const response = await axios.post(`${apiUrl}/users/api/login/`, {
-              email,
-              password,
-          });
-
-          if (response.status === 200) {
-              const token = response.data.access
-              localStorage.setItem('token', String(token));
-              setLoggedIn(true);
-              navigate('/'); 
-              alert('вы успешно зашли')
-              console.log(token)
-          } else {
-          }
-      } catch (error) {
-          console.error('Ошибка при входе', error);
+      if (response.status === 200) {
+        const token = response.data.access;
+        localStorage.setItem('token', String(token));
+        setLoggedIn(true);
+        navigate('/');
+        alert('вы успешно зашли');
+        console.log(token);
+      } else {
+        // Обработка ошибки, если не получен успешный ответ
       }
+    } catch (error) {
+      console.error('Ошибка при входе', error);
+    }
   };
 
+  const explode = (event) => {
+    const letters = document.querySelectorAll('.letter');
+    letters.forEach((letter) => {
+      const dx = (Math.random() - 0.5) * 200;
+      const dy = (Math.random() - 0.5) * 200;
+      letter.style.transform = `translate(${dx}px, ${dy}px)`;
+    });
+  };
 
+  const reset = () => {
+    const letters = document.querySelectorAll('.letter');
+    letters.forEach((letter) => {
+      letter.style.transform = 'none';
+    });
+  };
 
   return (
-      <div className='formContainer'>
-          <div className='formWrapper'>
-          <Link to='/'><span className='logo-register'><img src={Logo}></img></span></Link>
-              <span className='google'><div className='google_button'><a className='google-button'><img className='google_icon' src={Google}></img>Sign in via Google</a></div></span>
-              <span className='google'><div className='face_button'><a className='face-button'><img className='face_icon' src={Face}></img>Sign in via Facebook</a></div></span>
-
-            <hr className='login_hr'></hr>
-              <form className='log-form'>
-                  <input type="email" placeholder='email' className='em-log' value={email} onChange={e => setEmail(e.target.value)}/>
-                  <input type="password" placeholder='password' className='pas-log' value={password} onChange={e => setPassword(e.target.value)}/>
-                  <span ><a className='forgot-log'>Forgot Password?</a></span>
-                  <Link to='/register'><a className='create-log'>Create Account</a></Link>
-                  <button type='button' className='button-log' onClick={handleLogin}>Sign in</button>
-              </form>
+    <div className="formContainer">
+      <div className="formWrapper">
+        <Link to="/">
+          <span className="logo-register">
+            <img src={Logo} alt="Logo" />
+          </span>
+        </Link>
+        <span className="google">
+          <div className="google_button">
+            <a className="google-button">
+              <img className="google_icon" src={Google} alt="Google" />
+              Sign in via Google
+            </a>
           </div>
+        </span>
+        <span className="google">
+          <div className="face_button">
+            <a className="face-button">
+              <img className="face_icon" src={Face} alt="Facebook" />
+              Sign in via Facebook
+            </a>
+          </div>
+        </span>
+        <hr className="login_hr" />
+        <form className="log-form">
+          <input
+            type="email"
+            placeholder="email"
+            className="em-log"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="password"
+            className="pas-log"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <span>
+            <a className="forgot-log">Forgot Password?</a>
+          </span>
+          <Link to="/register" className="create-log"               onMouseMove={explode}
+              onMouseLeave={reset}>
+
+              <span className="letter">C</span>
+              <span className="letter">r</span>
+              <span className="letter">e</span>
+              <span className="letter">a</span>
+              <span className="letter">t</span>
+              <span className="letter">e</span>
+              <span className="letter">&nbsp;</span>
+              <span className="letter">A</span>
+              <span className="letter">c</span>
+              <span className="letter">c</span>
+              <span className="letter">o</span>
+              <span className="letter">u</span>
+              <span className="letter">n</span>
+              <span className="letter">t</span>
+
+          </Link>
+          <button type="button" className="button-log" onClick={handleLogin}>
+            Sign in
+          </button>
+        </form>
       </div>
-  )
+    </div>
+  );
 }
 
 
@@ -1854,7 +1983,7 @@ function RegisterStep1 () {
     <Link to='/'><span className='logo-register'><img src={Logo}></img></span></Link>
         <span className='register-title'>Create a Wormates Account</span>
         <span className='info'>Basic information</span> 
-        <form >
+        <form className='register-form'>
             <input name="first_name" type="text" placeholder='First name' className='register-name' value={formData.first_name} onChange={handleChange}/>
             <input name="last_name"  type="text" placeholder='Last name (optional)' className='register-last' value={formData.last_name} onChange={handleChange}/>
             <p className='register-date'>Date of birth (optional)</p>
@@ -1916,7 +2045,7 @@ function RegisterStep2 () {
           <div className='formWrapper'>
           <Link to='/'><span className='logo-register'><img src={Logo}></img></span></Link>
               <span className='register-title'>Enter your email and password</span>
-              <form >
+              <form className='register-form'>
                 <div>
                   <input type="email" placeholder='Email' name="email" className='register-mail' value={formData.email} onChange={handleChange}/>
                 </div> 
@@ -1992,85 +2121,99 @@ function UserList() {
 
  
 function TwoStepRegistration() {
-  const [first_name, setFirstName] = useState('')
-  const [last_name, setLastName] = useState('')
-  const [date_of_birth_month, setDateOfBirthMonth] = useState('')
-  const [date_of_birth_year, setDateOfBirthYear] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [password2, setPassword2] = useState('')
+  const [first_name, setFirstName] = useState('');
+  const [last_name, setLastName] = useState('');
+  const [date_of_birth_month, setDateOfBirthMonth] = useState('');
+  const [date_of_birth_year, setDateOfBirthYear] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [password2, setPassword2] = useState('');
+  const [code, setCode] = useState('');
   const [currentStep, setCurrentStep] = useState(1);
 
-  const handleRegister = async () => {
+  const handleFirstStepSubmit = (e) => {
+    e.preventDefault();
+    setCurrentStep(2);
+  };
 
-      try {
-        await axios.post(`${apiUrl}/users/api/register/`, {
-          email: email,
-          password: password,
-          password2: password2,
-          first_name: first_name,
-          last_name: last_name,
-          date_of_birth_month: date_of_birth_month,
-          date_of_birth_year: date_of_birth_year,
-        });
-        console.log('Регистрация успешно завершена');
-      } catch (error) {
-        console.error('Ошибка регистрации:', error);
-      }
+  const handleSecondStepSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post(`${apiUrl}/users/api/register/`, {
+        email: email,
+        password: password,
+        password2: password2,
+        first_name: first_name,
+        last_name: last_name,
+        date_of_birth_month: date_of_birth_month,
+        date_of_birth_year: date_of_birth_year,
+        code: code
+      });
+      setCurrentStep(3);
+      console.log('Регистрация успешно завершена');
+    } catch (error) {
+      console.error('Ошибка регистрации:', error);
+    }
   };
 
   return (
     <div>
       {currentStep === 1 && (
         <div className='formContainer'>
-        <div className='formWrapper'>
-        <Link to='/'><span className='logo-register'><img src={Logo}></img></span></Link>
+          <div className='formWrapper'>
+            <Link to='/'><span className='logo-register'><img src={Logo} alt="Logo" /></span></Link>
             <span className='register-title'>Create a Wormates Account</span>
-            <span className='info'>Basic information</span> 
-            <form >
-                <input name="first_name" type="text" placeholder='First name' className='register-name' value={first_name} onChange={(e) => setFirstName(e.target.value)}/>
-                <input name="last_name"  type="text" placeholder='Last name (optional)' className='register-last' value={last_name} onChange={(e) => setLastName(e.target.value)}/>
-                <p className='register-date'>Date of birth (optional)</p>
-                <select name="date_of_birth_month"  className='month' value={date_of_birth_month} onChange={(e) => setDateOfBirthMonth(e.target.value)}>
-                  <option value="" disabled selected hidden>Month</option>
-                  <option type='number' value="1">1</option>
-                  <option type='number' value="2">2</option>
-                  <option type='number' value="3">3</option>
-                  <option type='number' value="4">4</option>
-                  <option type='number' value="5">5</option>
-                  <option type='number' value="6">6</option>
-                  <option type='number' value="7">7</option>
-                  <option type='number' value="8">8</option>
-                  <option type='number' value="9">9</option>
-                  <option type='number' value="10">10</option>
-                  <option type='number' value="11">11</option>
-                  <option type='number' value="12">12</option>
-                </select>
-                <input name="date_of_birth_year"  type='number' placeholder='Year' className='year' value={date_of_birth_year} onChange={(e) => setDateOfBirthYear(e.target.value)}/>
-                <div><button type='submit' className='next-button' onClick={() => setCurrentStep(2)}>Next</button></div>
+            <span className='info'>Basic information</span>
+            <form onSubmit={handleFirstStepSubmit}>
+              <input name="first_name" type="text" placeholder='First name' className='register-name' value={first_name} onChange={(e) => setFirstName(e.target.value)} />
+              <input name="last_name" type="text" placeholder='Last name (optional)' className='register-last' value={last_name} onChange={(e) => setLastName(e.target.value)} />
+              <p className='register-date'>Date of birth (optional)</p>
+              <select name="date_of_birth_month" className='month' value={date_of_birth_month} onChange={(e) => setDateOfBirthMonth(e.target.value)}>
+                <option value="" disabled>Month</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                {/* Добавьте остальные месяцы */}
+              </select>
+              <input name="date_of_birth_year" type='number' placeholder='Year' className='year' value={date_of_birth_year} onChange={(e) => setDateOfBirthYear(e.target.value)} />
+              <div><button type='submit' className='next-button'>Next</button></div>
             </form>
+          </div>
         </div>
-    </div>
       )}
 
       {currentStep === 2 && (
         <div className='formContainer'>
-                 <div className='formWrapper'>
-                 <Link to='/'><span className='logo-register'><img src={Logo}></img></span></Link>
-                     <span className='register-title'>Enter your email and password</span>
-                     <form >
-                       <div>
-                         <input type="email" placeholder='Email' name="email" className='register-mail' value={email} onChange={(e) => setEmail(e.target.value)}/>
-                       </div> 
-                       <div>
-                         <input type="password" placeholder='password' name="password" className='register-password' value={password} onChange={(e) => setPassword(e.target.value)}/>
-                         <input type="password" placeholder='Repeat password' name="password2" className='register-password' value={password2} onChange={(e) => setPassword2(e.target.value)}/>
-                       </div> 
-                       <button className='back-button'>Back</button>
-                       <Link to='/login'><button type='button' className='next-button'onClick={handleRegister}>Next</button></Link> 
-                     </form>
-                 </div>
-             </div>
+          <div className='formWrapper'>
+            <Link to='/'><span className='logo-register'><img src={Logo} alt="Logo" /></span></Link>
+            <span className='register-title'>Enter your email and password</span>
+            <form onSubmit={handleSecondStepSubmit}>
+              <div>
+                <input type="email" placeholder='Email' name="email" className='register-mail' value={email} onChange={(e) => setEmail(e.target.value)} />
+              </div>
+              <div>
+                <input type="password" placeholder='password' name="password" className='register-password' value={password} onChange={(e) => setPassword(e.target.value)} />
+                <input type="password" placeholder='Repeat password' name="password2" className='register-password' value={password2} onChange={(e) => setPassword2(e.target.value)} />
+              </div>
+              <button className='back-button' type="button" onClick={() => setCurrentStep(1)}>Back</button>
+              <button type='submit' className='next-button'>Next</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {currentStep === 3 && (
+        <div className='formContainer'>
+          <div className='formWrapper'>
+            <span className='logo-register'><img src={Logo} alt="Logo" /></span>
+            <span className='finish-title'>We have sent a four<br /> digit code to your<br />  email</span>
+            <form onSubmit={(e) => e.preventDefault()}>
+              <span className='finish-text'>Enter code</span>
+              <input type="number" placeholder='' className='register-code' value={code} onChange={(e) => setCode(e.target.value)} />
+              <button className='back-button' type="button" onClick={() => setCurrentStep(2)}>Back</button>
+              <Link to='/login'><button type='submit' className='next-button'>Finish</button></Link>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -2279,20 +2422,35 @@ function Notifications() {
 }
 
 function ReaderMain() {
-
-  const {padding} = usePadding();
-  const {lineHeight} = useLineHeight();
-  const {fontFamily} = useFont();
-  
   const [book, setBook] = useState(null);
   const { book_id, chapter_id } = useParams();
   const token = localStorage.getItem('token');
+  const { padding } = usePadding();
+  const { lineHeight } = useLineHeight();
+  const { fontFamily } = useFont();
+  const { fontSize } = useFontSize();
+  const [selectedChapter, setSelectedChapter] = useState(null);
+
+  const [theme, setTheme] = useState(() => {
+    const savedTheme = localStorage.getItem('theme');
+    return savedTheme || 'dark';
+  });
+
+  const onSelectChapter = (chapter) => {
+    setSelectedChapter(chapter);
+  };
 
   const style = {
     paddingLeft: `${padding.left}px`,
     paddingRight: `${padding.right}px`,
     lineHeight: `${lineHeight * 100}%`,
     fontFamily,
+    fontSize: `${fontSize}px`,
+  };
+
+  const changeTheme = (newTheme) => {
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
   };
 
   useEffect(() => {
@@ -2303,7 +2461,7 @@ function ReaderMain() {
             Authorization: `Bearer ${token}`,
           },
         });
-        
+
         if (response.status === 200) {
           setBook(response.data);
           console.log(response.data);
@@ -2314,7 +2472,7 @@ function ReaderMain() {
         console.error('Ошибка при получении данных:', error);
       }
     };
-  
+
     fetchData();
   }, [book_id, chapter_id, token]);
 
@@ -2325,66 +2483,87 @@ function ReaderMain() {
   const { id, title, content } = book;
 
   return (
-    <div className='main'>
+    <main className={`main ${theme}`}>
       <div className='container'>
-        <ReaderSidebar book_id={book_id}/>
+        <ReaderSidebar book_id={book_id} onSelectChapter={onSelectChapter} />
         <div className='reader'>
           <div key={id}>
-            <div className='title'>{title}</div>
-            <hr className='top-line'></hr>
-            <div className='book' style={style}>&emsp;{content}</div>
+            <div className='title'>{selectedChapter ? selectedChapter.title : title}</div>
+            <hr className='top-line' />
+            <div className='book_container'>
+            <div className='book' style={style}>&emsp;{selectedChapter ? selectedChapter.content : content}</div>
+            </div>
           </div>
         </div>
-        <ButtonMenu />
+        <ButtonMenu changeTheme={changeTheme} />
       </div>
-    </div>
+    </main>
   );
 }
 
-function ReaderSidebar({book_id}) {
-
+function ReaderSidebar({ book_id, onSelectChapter }) {
   const [showComponent1, setShowComponent1] = useState(true);
 
   const toggleComponent = () => {
     setShowComponent1(!showComponent1);
   };
 
+  const handleChapterSelect = (chapter) => {
+
+    onSelectChapter(chapter);
+  };
+
   return (
     <div className='sidebar'>
-      <button className='menu__button'onClick={toggleComponent}><a href='#'></a><svg className='burger-icon' version="1.0" xmlns="http://www.w3.org/2000/svg"
-          width="42" height="42" viewBox="0 0 50.000000 50.000000"
-          preserveAspectRatio="xMidYMid meet">
+      <button className='menu__button' onClick={toggleComponent}>
+        <a href='#'>
+        <svg className='burger-icon' version="1.0" xmlns="http://www.w3.org/2000/svg"
+  width="42" height="42" viewBox="0 0 50.000000 50.000000"
+  preserveAspectRatio="xMidYMid meet">
 
-          <g transform="translate(0.000000,50.000000) scale(0.100000,-0.100000)" 
-          stroke="none">
-          <path d="M56 444 c-24 -23 -24 -365 0 -388 23 -24 365 -24 388 0 24 23 24 365
-          0 388 -23 24 -365 24 -388 0z m379 -194 l0 -185 -185 0 -185 0 -3 175 c-1 96
-          0 180 3 187 3 11 44 13 187 11 l183 -3 0 -185z"/>
-          <path d="M120 340 c0 -6 50 -10 130 -10 80 0 130 4 130 10 0 6 -50 10 -130 10
-          -80 0 -130 -4 -130 -10z"/>
-          <path d="M120 250 c0 -6 50 -10 130 -10 80 0 130 4 130 10 0 6 -50 10 -130 10
-          -80 0 -130 -4 -130 -10z"/>
-          <path d="M120 160 c0 -6 50 -10 130 -10 80 0 130 4 130 10 0 6 -50 10 -130 10
-          -80 0 -130 -4 -130 -10z"/>
-          </g>
-          </svg><a/></button>
-        <a><div className='logo-mini'><svg width="227" height="100" viewBox="0 0 227 100" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(0.000000,50.000000) scale(0.100000,-0.100000)" 
+    stroke="none">
+    <path d="M56 444 c-24 -23 -24 -365 0 -388 23 -24 365 -24 388 0 24 23 24 365
+      0 388 -23 24 -365 24 -388 0z m379 -194 l0 -185 -185 0 -185 0 -3 175 c-1 96
+      0 180 3 187 3 11 44 13 187 11 l183 -3 0 -185z"/>
+    <path d="M120 340 c0 -6 50 -10 130 -10 80 0 130 4 130 10 0 6 -50 10 -130 10
+      -80 0 -130 -4 -130 -10z"/>
+    <path d="M120 250 c0 -6 50 -10 130 -10 80 0 130 4 130 10 0 6 -50 10 -130 10
+      -80 0 -130 -4 -130 -10z"/>
+    <path d="M120 160 c0 -6 50 -10 130 -10 80 0 130 4 130 10 0 6 -50 10 -130 10
+      -80 0 -130 -4 -130 -10z"/>
+  </g>
+</svg>
+        </a> 
+      </button>
+      <Link to={'/'}><a>  
+        <div className='logo-mini'>
+        <svg width="227" height="100" viewBox="0 0 227 100" xmlns="http://www.w3.org/2000/svg">
 <g clip-path="url(#clip0_309_961)">
 <path d="M35.9632 5.50044C35.9074 5.69934 35.8329 5.82518 35.9558 5.56133C35.9856 5.50044 36.1121 5.32589 36.1121 5.27312C36.1121 5.36648 35.7883 5.65469 36.0116 5.44361C36.0861 5.3746 36.3728 5.08233 36.0489 5.38678C35.6505 5.76023 36.1196 5.3543 36.1159 5.36242C36.0973 5.41925 35.5165 5.67498 35.8515 5.52885C35.967 5.47608 36.3541 5.31371 35.859 5.5045C35.3638 5.69528 35.7064 5.56539 35.818 5.53291C36.3392 5.38272 35.5277 5.57351 35.5277 5.58162C35.5351 5.55321 35.8143 5.55321 35.8404 5.54915C36.1308 5.50856 35.2187 5.52073 35.5016 5.54915C35.5947 5.55727 35.6915 5.55727 35.7883 5.56539C35.8851 5.5735 35.9744 5.5938 36.0675 5.60192C36.3281 5.61816 35.5388 5.45579 35.7845 5.54915C35.9558 5.6141 36.1419 5.65469 36.3169 5.71964C36.3914 5.74805 36.652 5.86577 36.3169 5.71152C35.967 5.55321 36.2834 5.7034 36.3616 5.74399C36.5105 5.82518 36.652 5.91854 36.7934 6.01596C36.9349 6.11339 37.0652 6.22704 37.203 6.33664C37.5082 6.58426 36.9796 6.08903 37.1285 6.26764C37.1918 6.34476 37.27 6.40971 37.3333 6.48278C37.8619 7.05513 38.2863 7.72897 38.6325 8.44746L38.4203 8.00095C38.9751 9.19031 39.2915 10.4812 39.3511 11.8167L39.3325 11.3174C39.3548 12.0521 39.2915 12.7746 39.1538 13.4972C39.0756 13.9153 38.9788 14.3293 38.8708 14.7393C38.815 14.9504 38.7554 15.1574 38.6921 15.3645C38.6623 15.47 38.6288 15.5715 38.5953 15.677C38.4799 16.0545 38.6661 15.4822 38.5842 15.7217C37.9922 17.4063 37.2811 19.03 36.5366 20.6415C35.9148 21.9892 35.2857 23.3328 34.7682 24.7332C34.1651 26.3772 33.6178 28.0497 33.1189 29.7383C31.1346 36.4564 29.7795 43.5642 29.6306 50.6354C29.5673 53.6149 29.3328 58.0882 32.3781 59.5008C34.7942 60.6212 37.5827 59.2004 39.124 57.1018C39.6601 56.3711 40.1217 55.5958 40.5424 54.7799C41.5736 52.7665 42.4374 50.6516 43.2973 48.5489C44.3025 46.0931 45.2705 43.621 46.2757 41.1611C47.1319 39.0665 47.9919 36.9557 49.0157 34.9504C49.2093 34.5729 49.4066 34.1994 49.6188 33.8382C49.7007 33.6961 49.7901 33.5581 49.8757 33.4201C50.0916 33.075 49.805 33.5987 49.7082 33.6555C49.7603 33.6271 49.8124 33.5094 49.8534 33.4566C50.0842 33.144 50.3299 32.8436 50.5905 32.5595C50.7059 32.4296 50.8474 32.3119 50.9591 32.1779C50.6091 32.6123 50.6612 32.4377 50.8139 32.32C50.8288 32.3078 51.1527 32.048 51.1601 32.0602C51.1638 32.0643 50.5347 32.4255 50.9218 32.2185C51.108 32.117 51.3909 32.0886 50.5979 32.3362C50.7022 32.3038 50.9553 32.251 50.49 32.3484C49.7715 32.4945 50.8325 32.3728 50.181 32.389C49.5295 32.4052 50.6352 32.5108 49.8348 32.3565C49.3396 32.2632 49.5071 32.2835 49.6077 32.3159C49.8534 32.3971 48.9934 31.9953 49.2614 32.1536C49.4662 32.2794 49.2428 32.3281 49.0194 31.9141C49.0418 31.9547 49.0902 31.9831 49.1162 32.0237C49.1758 32.117 49.2354 32.2023 49.2838 32.2997L49.0716 31.8532C49.4327 32.6204 49.4774 33.5581 49.5146 34.4024L49.496 33.9031C49.6188 37.049 49.2279 40.195 49.1609 43.3409C49.1348 44.6277 49.0641 46.0484 49.4066 47.2946C50.0954 49.7951 52.8168 49.6206 54.6373 48.7478C56.1004 48.0497 57.3215 46.7669 58.4458 45.5573C59.5701 44.3476 60.5455 43.1948 61.5544 41.9729C64.2982 38.6403 66.8819 35.1493 69.3055 31.5366C71.5057 28.2567 73.6836 24.8063 75.1318 21.0434C75.3254 20.54 75.4967 20.0285 75.6642 19.5171C75.8318 19.0056 75.3887 18.4536 75.0537 18.2262C74.5622 17.8893 73.799 17.8041 73.2406 17.8812C71.9413 18.0557 70.6867 18.6971 70.2288 20.0935C70.4745 19.3466 70.1878 20.195 70.1171 20.3858C70.0203 20.6496 69.9161 20.9094 69.8118 21.1651C69.5922 21.701 69.3539 22.2287 69.1045 22.7523C68.5609 23.893 67.9653 25.0011 67.3435 26.089C66.6511 27.2946 65.9251 28.4759 65.1731 29.6409C64.7859 30.2417 64.3913 30.8384 63.9892 31.431C63.8924 31.5772 63.7919 31.7192 63.6951 31.8654C63.643 31.9425 63.3377 32.3849 63.5648 32.0561C63.7919 31.7273 63.4419 32.2348 63.3973 32.2997C63.2856 32.4621 63.1739 32.6204 63.0585 32.7828C60.2626 36.7527 57.288 40.6456 54.0156 44.1649C53.7326 44.4694 53.4422 44.7738 53.1481 45.0661C53.029 45.1838 52.9099 45.2975 52.7907 45.4152C52.4668 45.7278 53.3008 44.9606 53.07 45.1595C53.0141 45.2082 52.962 45.2569 52.9061 45.3056C52.787 45.4071 52.6642 45.5086 52.5413 45.606C52.4594 45.6709 52.37 45.7278 52.2881 45.7968C52.0499 45.9957 52.8503 45.5694 52.4259 45.7156C52.4557 45.7075 53.1444 45.5086 52.7051 45.606C53.0513 45.5289 53.23 45.5004 53.539 45.4964C54.0826 45.4923 53.9262 45.4964 53.8071 45.4923C53.5763 45.4761 54.5628 45.6709 54.3208 45.5938C54.0379 45.5004 54.9165 45.9429 54.6745 45.7562C54.4958 45.6222 54.991 46.1621 54.924 45.9916C54.8867 45.8982 54.7862 45.8049 54.7378 45.7075L54.95 46.154C54.641 45.4923 54.6112 44.6764 54.5814 43.9457L54.6001 44.445C54.4847 41.3072 54.8867 38.1694 54.9426 35.0356C54.9649 33.6677 55.017 32.1779 54.6634 30.8465C54.5331 30.3472 54.3208 29.8114 53.9746 29.4501C52.8652 28.2892 51.1117 28.3703 49.7231 28.7884C45.7209 29.99 43.8297 34.4633 42.2289 38.2141C40.6131 41.9973 39.1575 45.8577 37.5678 49.6531C36.9014 51.2402 36.2238 52.8315 35.442 54.3577C35.1628 54.9057 34.8575 55.4253 34.5336 55.9409C34.8017 55.5106 34.8426 55.5106 34.6267 55.7947C34.422 56.0667 34.1986 56.3103 33.9789 56.566C33.7965 56.773 34.1874 56.3711 34.1762 56.3833C34.1018 56.4442 33.871 56.5863 34.2321 56.363C34.422 56.2453 34.6304 56.1519 34.8426 56.0911C34.7682 56.1114 35.5425 55.9815 35.2708 56.0058C34.999 56.0302 35.7734 56.0058 35.6952 56.0058C35.6058 56.0058 35.3899 55.9571 35.8031 56.0342C36.2164 56.1114 36.0116 56.0748 35.9186 56.0423C35.9632 56.0586 36.3839 56.3184 36.1605 56.1479C36.101 56.1032 35.7548 55.8313 36.0228 56.0667C36.276 56.2859 36.0079 56.0261 35.9521 55.9571C35.7957 55.7541 35.6654 55.5309 35.5463 55.2995L35.7585 55.746C35.2596 54.6987 35.1181 53.5703 35.066 52.4052L35.0846 52.9045C34.9171 48.7154 35.3341 44.5019 36.0005 40.3776C36.6929 36.0992 37.6832 31.8694 38.9788 27.7614C39.057 27.5179 39.1351 27.2784 39.2133 27.0348C39.3287 26.6817 39.2059 27.0511 39.1873 27.112C39.2319 26.9699 39.2803 26.8278 39.3287 26.6898C39.4851 26.2311 39.6452 25.7724 39.8127 25.3137C40.118 24.4775 40.453 23.6616 40.8179 22.8538C41.6667 20.9744 42.5714 19.1193 43.3085 17.183C44.0456 15.2467 44.8051 13.0507 44.7604 10.883C44.7195 8.87369 44.2318 7.0186 43.2341 5.31371C42.0688 3.32467 40.2036 2.09065 38.0816 1.74968C35.1554 1.2788 31.4474 2.80509 30.5166 6.08903C30.3752 6.59238 30.7735 7.14038 31.1272 7.37988C31.6186 7.7168 32.3818 7.80204 32.9402 7.72492C34.1911 7.55849 35.5537 6.91712 35.9521 5.51261L35.9632 5.50044Z" />
 <path d="M37.5193 12.1638C39.3716 8.28416 39.0325 4.09428 36.7619 2.80548C34.4913 1.51668 31.149 3.61701 29.2967 7.49669C27.4444 11.3764 27.7836 15.5663 30.0542 16.8551C32.3248 18.1439 35.667 16.0435 37.5193 12.1638Z"  stroke="none" stroke-miterlimit="10"/>
 <path d="M76.0353 36.3825C75.7599 35.2296 77.141 32.8387 78.5669 31.6859C80.1343 30.4194 82.234 31.0486 82.878 32.4206C83.5221 33.7967 82.6025 35.6234 80.9012 36.6625C79.1923 37.7058 76.4002 37.9047 76.0353 36.3825Z"  stroke="#none" stroke-miterlimit="10"/>
 </g>
-</svg>
-</div></a>
-<div className={`reader__sidebar-menu ${showComponent1 ? 'show' : 'hide'}`}>
-
-      {showComponent1 ? <SidebarMenu book_id={book_id}/> : <SidebarMenu2 />} 
-  </div> 
+</svg> 
+        </div>
+      </a></Link>
+      <div className={`reader__sidebar-menu ${showComponent1 ? 'show' : 'hide'}`}>
+        {/* Передаем функцию handleChapterSelect в SidebarMenu */}
+        {showComponent1 ? <SidebarMenu book_id={book_id} onSelectChapter={handleChapterSelect}/> : <SidebarMenu2 />}  
+      </div> 
     </div>
   );
 };
 
-function SidebarMenu() {
+<svg width="227" height="100" viewBox="0 0 227 100" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip0_309_961)">
+<path d="M35.9632 5.50044C35.9074 5.69934 35.8329 5.82518 35.9558 5.56133C35.9856 5.50044 36.1121 5.32589 36.1121 5.27312C36.1121 5.36648 35.7883 5.65469 36.0116 5.44361C36.0861 5.3746 36.3728 5.08233 36.0489 5.38678C35.6505 5.76023 36.1196 5.3543 36.1159 5.36242C36.0973 5.41925 35.5165 5.67498 35.8515 5.52885C35.967 5.47608 36.3541 5.31371 35.859 5.5045C35.3638 5.69528 35.7064 5.56539 35.818 5.53291C36.3392 5.38272 35.5277 5.57351 35.5277 5.58162C35.5351 5.55321 35.8143 5.55321 35.8404 5.54915C36.1308 5.50856 35.2187 5.52073 35.5016 5.54915C35.5947 5.55727 35.6915 5.55727 35.7883 5.56539C35.8851 5.5735 35.9744 5.5938 36.0675 5.60192C36.3281 5.61816 35.5388 5.45579 35.7845 5.54915C35.9558 5.6141 36.1419 5.65469 36.3169 5.71964C36.3914 5.74805 36.652 5.86577 36.3169 5.71152C35.967 5.55321 36.2834 5.7034 36.3616 5.74399C36.5105 5.82518 36.652 5.91854 36.7934 6.01596C36.9349 6.11339 37.0652 6.22704 37.203 6.33664C37.5082 6.58426 36.9796 6.08903 37.1285 6.26764C37.1918 6.34476 37.27 6.40971 37.3333 6.48278C37.8619 7.05513 38.2863 7.72897 38.6325 8.44746L38.4203 8.00095C38.9751 9.19031 39.2915 10.4812 39.3511 11.8167L39.3325 11.3174C39.3548 12.0521 39.2915 12.7746 39.1538 13.4972C39.0756 13.9153 38.9788 14.3293 38.8708 14.7393C38.815 14.9504 38.7554 15.1574 38.6921 15.3645C38.6623 15.47 38.6288 15.5715 38.5953 15.677C38.4799 16.0545 38.6661 15.4822 38.5842 15.7217C37.9922 17.4063 37.2811 19.03 36.5366 20.6415C35.9148 21.9892 35.2857 23.3328 34.7682 24.7332C34.1651 26.3772 33.6178 28.0497 33.1189 29.7383C31.1346 36.4564 29.7795 43.5642 29.6306 50.6354C29.5673 53.6149 29.3328 58.0882 32.3781 59.5008C34.7942 60.6212 37.5827 59.2004 39.124 57.1018C39.6601 56.3711 40.1217 55.5958 40.5424 54.7799C41.5736 52.7665 42.4374 50.6516 43.2973 48.5489C44.3025 46.0931 45.2705 43.621 46.2757 41.1611C47.1319 39.0665 47.9919 36.9557 49.0157 34.9504C49.2093 34.5729 49.4066 34.1994 49.6188 33.8382C49.7007 33.6961 49.7901 33.5581 49.8757 33.4201C50.0916 33.075 49.805 33.5987 49.7082 33.6555C49.7603 33.6271 49.8124 33.5094 49.8534 33.4566C50.0842 33.144 50.3299 32.8436 50.5905 32.5595C50.7059 32.4296 50.8474 32.3119 50.9591 32.1779C50.6091 32.6123 50.6612 32.4377 50.8139 32.32C50.8288 32.3078 51.1527 32.048 51.1601 32.0602C51.1638 32.0643 50.5347 32.4255 50.9218 32.2185C51.108 32.117 51.3909 32.0886 50.5979 32.3362C50.7022 32.3038 50.9553 32.251 50.49 32.3484C49.7715 32.4945 50.8325 32.3728 50.181 32.389C49.5295 32.4052 50.6352 32.5108 49.8348 32.3565C49.3396 32.2632 49.5071 32.2835 49.6077 32.3159C49.8534 32.3971 48.9934 31.9953 49.2614 32.1536C49.4662 32.2794 49.2428 32.3281 49.0194 31.9141C49.0418 31.9547 49.0902 31.9831 49.1162 32.0237C49.1758 32.117 49.2354 32.2023 49.2838 32.2997L49.0716 31.8532C49.4327 32.6204 49.4774 33.5581 49.5146 34.4024L49.496 33.9031C49.6188 37.049 49.2279 40.195 49.1609 43.3409C49.1348 44.6277 49.0641 46.0484 49.4066 47.2946C50.0954 49.7951 52.8168 49.6206 54.6373 48.7478C56.1004 48.0497 57.3215 46.7669 58.4458 45.5573C59.5701 44.3476 60.5455 43.1948 61.5544 41.9729C64.2982 38.6403 66.8819 35.1493 69.3055 31.5366C71.5057 28.2567 73.6836 24.8063 75.1318 21.0434C75.3254 20.54 75.4967 20.0285 75.6642 19.5171C75.8318 19.0056 75.3887 18.4536 75.0537 18.2262C74.5622 17.8893 73.799 17.8041 73.2406 17.8812C71.9413 18.0557 70.6867 18.6971 70.2288 20.0935C70.4745 19.3466 70.1878 20.195 70.1171 20.3858C70.0203 20.6496 69.9161 20.9094 69.8118 21.1651C69.5922 21.701 69.3539 22.2287 69.1045 22.7523C68.5609 23.893 67.9653 25.0011 67.3435 26.089C66.6511 27.2946 65.9251 28.4759 65.1731 29.6409C64.7859 30.2417 64.3913 30.8384 63.9892 31.431C63.8924 31.5772 63.7919 31.7192 63.6951 31.8654C63.643 31.9425 63.3377 32.3849 63.5648 32.0561C63.7919 31.7273 63.4419 32.2348 63.3973 32.2997C63.2856 32.4621 63.1739 32.6204 63.0585 32.7828C60.2626 36.7527 57.288 40.6456 54.0156 44.1649C53.7326 44.4694 53.4422 44.7738 53.1481 45.0661C53.029 45.1838 52.9099 45.2975 52.7907 45.4152C52.4668 45.7278 53.3008 44.9606 53.07 45.1595C53.0141 45.2082 52.962 45.2569 52.9061 45.3056C52.787 45.4071 52.6642 45.5086 52.5413 45.606C52.4594 45.6709 52.37 45.7278 52.2881 45.7968C52.0499 45.9957 52.8503 45.5694 52.4259 45.7156C52.4557 45.7075 53.1444 45.5086 52.7051 45.606C53.0513 45.5289 53.23 45.5004 53.539 45.4964C54.0826 45.4923 53.9262 45.4964 53.8071 45.4923C53.5763 45.4761 54.5628 45.6709 54.3208 45.5938C54.0379 45.5004 54.9165 45.9429 54.6745 45.7562C54.4958 45.6222 54.991 46.1621 54.924 45.9916C54.8867 45.8982 54.7862 45.8049 54.7378 45.7075L54.95 46.154C54.641 45.4923 54.6112 44.6764 54.5814 43.9457L54.6001 44.445C54.4847 41.3072 54.8867 38.1694 54.9426 35.0356C54.9649 33.6677 55.017 32.1779 54.6634 30.8465C54.5331 30.3472 54.3208 29.8114 53.9746 29.4501C52.8652 28.2892 51.1117 28.3703 49.7231 28.7884C45.7209 29.99 43.8297 34.4633 42.2289 38.2141C40.6131 41.9973 39.1575 45.8577 37.5678 49.6531C36.9014 51.2402 36.2238 52.8315 35.442 54.3577C35.1628 54.9057 34.8575 55.4253 34.5336 55.9409C34.8017 55.5106 34.8426 55.5106 34.6267 55.7947C34.422 56.0667 34.1986 56.3103 33.9789 56.566C33.7965 56.773 34.1874 56.3711 34.1762 56.3833C34.1018 56.4442 33.871 56.5863 34.2321 56.363C34.422 56.2453 34.6304 56.1519 34.8426 56.0911C34.7682 56.1114 35.5425 55.9815 35.2708 56.0058C34.999 56.0302 35.7734 56.0058 35.6952 56.0058C35.6058 56.0058 35.3899 55.9571 35.8031 56.0342C36.2164 56.1114 36.0116 56.0748 35.9186 56.0423C35.9632 56.0586 36.3839 56.3184 36.1605 56.1479C36.101 56.1032 35.7548 55.8313 36.0228 56.0667C36.276 56.2859 36.0079 56.0261 35.9521 55.9571C35.7957 55.7541 35.6654 55.5309 35.5463 55.2995L35.7585 55.746C35.2596 54.6987 35.1181 53.5703 35.066 52.4052L35.0846 52.9045C34.9171 48.7154 35.3341 44.5019 36.0005 40.3776C36.6929 36.0992 37.6832 31.8694 38.9788 27.7614C39.057 27.5179 39.1351 27.2784 39.2133 27.0348C39.3287 26.6817 39.2059 27.0511 39.1873 27.112C39.2319 26.9699 39.2803 26.8278 39.3287 26.6898C39.4851 26.2311 39.6452 25.7724 39.8127 25.3137C40.118 24.4775 40.453 23.6616 40.8179 22.8538C41.6667 20.9744 42.5714 19.1193 43.3085 17.183C44.0456 15.2467 44.8051 13.0507 44.7604 10.883C44.7195 8.87369 44.2318 7.0186 43.2341 5.31371C42.0688 3.32467 40.2036 2.09065 38.0816 1.74968C35.1554 1.2788 31.4474 2.80509 30.5166 6.08903C30.3752 6.59238 30.7735 7.14038 31.1272 7.37988C31.6186 7.7168 32.3818 7.80204 32.9402 7.72492C34.1911 7.55849 35.5537 6.91712 35.9521 5.51261L35.9632 5.50044Z" />
+<path d="M37.5193 12.1638C39.3716 8.28416 39.0325 4.09428 36.7619 2.80548C34.4913 1.51668 31.149 3.61701 29.2967 7.49669C27.4444 11.3764 27.7836 15.5663 30.0542 16.8551C32.3248 18.1439 35.667 16.0435 37.5193 12.1638Z"  stroke="none" stroke-miterlimit="10"/>
+<path d="M76.0353 36.3825C75.7599 35.2296 77.141 32.8387 78.5669 31.6859C80.1343 30.4194 82.234 31.0486 82.878 32.4206C83.5221 33.7967 82.6025 35.6234 80.9012 36.6625C79.1923 37.7058 76.4002 37.9047 76.0353 36.3825Z"  stroke="#none" stroke-miterlimit="10"/>
+</g>
+</svg> 
+
+function SidebarMenu({ onSelectChapter }) {
   const [chapters, setChapters] = useState([]);
   const { book_id } = useParams();
   const token = localStorage.getItem('token');
@@ -2413,30 +2592,37 @@ function SidebarMenu() {
   return (
     <ul className='reader__sidebar-menu'>
       <li className='chapter-menu'>
-      {chapters.map(chapter => (  
-        <ul className='chapter-list'>
-        <li className="chapters" key={book_id}>
-                <a href={`${chapter.id}`} className='chapters'>{chapter.title}</a>
-              </li>
-        </ul>
-      ))}
+        {chapters.map(chapter => (  
+          <ul className='chapter-list' key={chapter.id}>
+            <li>
+              <a href="#" onClick={() => onSelectChapter(chapter)} className="chapters">{chapter.title}</a>
+            </li>
+          </ul>
+        ))}
       </li>
     </ul>
   );
 }
 
 function SidebarMenu2() {
+  const location = useLocation();
+
+  useEffect(() => {
+    const navigation = document.getElementById('navigation');
+    if (location.hash && navigation) {
+      navigation.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [location]);
   return(
     <div className='reader__sidebar-menu-2'>
     <ul className='reader__sidebar-menu-2'>
-        <li className='pool'><button className='pool-button'>
-        <div className='sidebar-svg'></div>
-          Home</button></li>
-        <li className='pool'><button className='pool-button'>
+    <Link to={'/'}><li className='pool'><button className='pool-button'>
+        <div className='sidebar-svg'></div>Home</button></li></Link>
+        <Link to="/profile#navigation"><li className='pool'><button className='pool-button'>
           <div className='sidebar-svg'>
 </div>
-          Library</button></li>
-        <li className='pool'><button className='pool-button'>History</button></li>
+          Library</button></li></Link>
+        <Link to={'/history'}><li className='pool'><button className='pool-button'>History</button></li></Link>
         <hr className='reader__sidebar_hr'></hr>
         <div className='book_button'><button className='pool-button'>Books</button></div>
         <hr className='reader__sidebar_hr'></hr>
@@ -2447,7 +2633,7 @@ function SidebarMenu2() {
   )
 }
 
-function ButtonMenu () {
+function ButtonMenu ({ changeTheme }) {
   return (
     <div className='button-reader'>
       <ul className='reader__button-menu'>
@@ -2511,7 +2697,7 @@ function ButtonMenu () {
 </svg></button></li>
         <li><button className='reader_icon'><FullscreenComponent/>
 </button></li>
-        <li><button className='reader_icon'><NavItem><DropdownMenu/></NavItem></button></li>
+        <li><button className='reader_icon'><NavItem><DropdownMenu  changeTheme={changeTheme}/></NavItem></button></li>
       </ul>
     </div>
   )
@@ -2522,40 +2708,40 @@ const FullscreenComponent = ({ children }) => {
 
   const toggleFullscreen = () => {
     if (!isFullscreen) {
-      // Включение полноэкранного режима
-      if (document.documentElement.requestFullscreen) {
-        document.documentElement.requestFullscreen();
-      } else if (document.documentElement.mozRequestFullScreen) {
-        document.documentElement.mozRequestFullScreen();
-      } else if (document.documentElement.webkitRequestFullscreen) {
-        document.documentElement.webkitRequestFullscreen();
-      } else if (document.documentElement.msRequestFullscreen) {
-        document.documentElement.msRequestFullscreen();
-      }
+      enterFullscreen();
     } else {
-      // Выключение полноэкранного режима
-      if (document.exitFullscreen) {
-        document.exitFullscreen()
-          .then(() => setIsFullscreen(false))
-          .catch((err) => console.error("Failed to exit fullscreen:", err));
-      } else if (document.mozCancelFullScreen) {
-        document.mozCancelFullScreen();
-        setIsFullscreen(false);
-      } else if (document.webkitExitFullscreen) {
-        document.webkitExitFullscreen();
-        setIsFullscreen(false);
-      } else if (document.msExitFullscreen) {
-        document.msExitFullscreen();
-        setIsFullscreen(false);
-      }
+      exitFullscreen();
+    }
+  };
+
+  const enterFullscreen = () => {
+    const element = document.documentElement;
+    const requestFullscreen = element.requestFullscreen || 
+                              element.mozRequestFullScreen || 
+                              element.webkitRequestFullscreen || 
+                              element.msRequestFullscreen;
+
+    if (requestFullscreen) {
+      requestFullscreen.call(element);
+      setIsFullscreen(true);
+    }
+  };
+
+  const exitFullscreen = () => {
+    const exitFullscreen = document.exitFullscreen || 
+                           document.mozCancelFullScreen || 
+                           document.webkitExitFullscreen || 
+                           document.msExitFullscreen;
+
+    if (exitFullscreen) {
+      exitFullscreen.call(document);
+      setIsFullscreen(false);
     }
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Escape') {
-      if (isFullscreen) {
-        toggleFullscreen();
-      }
+    if (e.key === 'Escape' && isFullscreen) {
+      exitFullscreen();
     }
   };
 
@@ -2570,28 +2756,30 @@ const FullscreenComponent = ({ children }) => {
 
   return (
     <div>
-      <button className='reader_icon' onClick={toggleFullscreen}><svg version="1.0" xmlns="http://www.w3.org/2000/svg"
- width="42" height="42" viewBox="0 0 50.000000 50.000000"
- preserveAspectRatio="xMidYMid meet">
+      <button className='reader_icon' onClick={toggleFullscreen}>
+        <svg version="1.0" xmlns="http://www.w3.org/2000/svg"
+          width="42" height="42" viewBox="0 0 50.000000 50.000000"
+          preserveAspectRatio="xMidYMid meet">
 
-<g transform="translate(0.000000,50.000000) scale(0.100000,-0.100000)"
- stroke="none">
-<path d="M60 375 c0 -37 4 -65 10 -65 6 0 10 25 10 55 l0 55 55 0 c30 0 55 5
-55 10 0 6 -28 10 -65 10 l-65 0 0 -65z"/>
-<path d="M310 430 c0 -5 25 -10 55 -10 l55 0 0 -55 c0 -30 5 -55 10 -55 6 0
-10 28 10 65 l0 65 -65 0 c-37 0 -65 -4 -65 -10z"/>
-<path d="M60 115 l0 -65 65 0 c37 0 65 4 65 10 0 6 -25 10 -55 10 l-55 0 0 55
-c0 30 -4 55 -10 55 -6 0 -10 -28 -10 -65z"/>
-<path d="M420 125 l0 -55 -55 0 c-30 0 -55 -4 -55 -10 0 -6 28 -10 65 -10 l65
-0 0 65 c0 37 -4 65 -10 65 -5 0 -10 -25 -10 -55z"/>
-</g>
-</svg></button>
+          <g transform="translate(0.000000,50.000000) scale(0.100000,-0.100000)"
+            stroke="none">
+            <path d="M60 375 c0 -37 4 -65 10 -65 6 0 10 25 10 55 l0 55 55 0 c30 0 55 5
+            55 10 0 6 -28 10 -65 10 l-65 0 0 -65z"/>
+            <path d="M310 430 c0 -5 25 -10 55 -10 l55 0 0 -55 c0 -30 5 -55 10 -55 6 0
+            10 28 10 65 l0 65 -65 0 c-37 0 -65 -4 -65 -10z"/>
+            <path d="M60 115 l0 -65 65 0 c37 0 65 4 65 10 0 6 -25 10 -55 10 l-55 0 0 55
+            c0 30 -4 55 -10 55 -6 0 -10 -28 -10 -65z"/>
+            <path d="M420 125 l0 -55 -55 0 c-30 0 -55 -4 -55 -10 0 -6 28 -10 65 -10 l65
+            0 0 65 c0 37 -4 65 -10 65 -5 0 -10 -25 -10 -55z"/>
+          </g>
+        </svg>
+      </button>
     </div>
   );
 };
 
 
-function DropdownMenu() {
+function DropdownMenu({ changeTheme }) {
 
   const [menuHeight, setMenuHeight] = useState(null);
   const dropdownRef = useRef(null)
@@ -2636,7 +2824,7 @@ function DropdownMenu() {
                   <li className='slider'><FontSlider/></li>
                  </ul>
                  <ul>
-                  <li><ThemeButton/></li>
+                  <li><ThemeButton changeTheme={changeTheme}/></li>
                  </ul>
               </li>
             </ul>
@@ -2650,59 +2838,50 @@ function DropdownMenu() {
 };
 
 function NavItem(props) {
+  const [open, setOpen] = useState(false);
+  const node = useRef();
 
-  const [open, setOpen] = useState(true);
+  useEffect(() => {
+    document.addEventListener("click", handleClick);
+
+    return () => {
+      document.removeEventListener("click", handleClick);
+    };
+  }, []);
+
+  const handleClick = (e) => {
+    if (node.current.contains(e.target)) {
+      return;
+    }
+    setOpen(false);
+  };
 
   return (
-    <li className="nav-item">
-      <button href="#" className="icon-button" onClick={() => setOpen(!open)}>
-      <svg version="1.0" xmlns="http://www.w3.org/2000/svg"
- width="42" height="42" viewBox="0 0 50.000000 50.000000" 
- preserveAspectRatio="xMidYMid meet">
-
-<g transform="translate(0.000000,50.000000) scale(0.100000,-0.100000)"
- stroke="none">
-<path d="M210 456 c0 -24 -26 -60 -39 -54 -62 33 -61 33 -84 10 -21 -21 -21
--23 -4 -51 9 -16 17 -31 17 -34 0 -15 -34 -37 -56 -37 -23 0 -25 -3 -22 -37 3
--32 7 -38 34 -45 40 -10 48 -30 26 -68 -16 -28 -16 -30 5 -52 22 -22 24 -22
-52 -5 16 9 31 17 34 17 15 0 37 -34 37 -56 0 -23 3 -25 37 -22 32 3 38 7 45
-34 10 40 32 49 69 27 28 -17 30 -17 52 5 21 22 21 24 5 52 -22 38 -14 58 26
-68 27 7 31 13 34 45 3 34 1 37 -22 37 -22 0 -56 22 -56 37 0 3 8 18 17 34 17
-28 17 30 -5 52 -22 21 -24 21 -52 5 -38 -22 -58 -14 -68 26 -7 27 -13 31 -45
-34 -34 3 -37 1 -37 -22z m65 -28 c13 -43 55 -60 85 -33 16 14 22 15 35 5 13
--11 13 -15 -2 -41 -22 -38 -6 -74 36 -84 42 -9 41 -38 -1 -50 -43 -13 -60 -55
--33 -85 14 -16 15 -22 5 -35 -11 -13 -15 -13 -41 2 -38 23 -77 6 -85 -37 -9
--41 -40 -41 -49 1 -10 42 -46 58 -84 36 -26 -15 -30 -15 -41 -2 -10 13 -9 19
-5 35 27 30 10 72 -33 85 -42 12 -43 41 -1 50 42 10 58 46 36 84 -15 26 -15 30
--2 41 13 10 19 9 35 -5 30 -27 71 -10 84 33 12 42 39 42 51 0z"/>
-<path d="M195 305 c-33 -32 -33 -78 0 -110 32 -33 78 -33 110 0 50 49 15 135
--55 135 -19 0 -40 -9 -55 -25z m95 -15 c11 -11 20 -29 20 -40 0 -26 -34 -60
--60 -60 -26 0 -60 34 -60 60 0 11 9 29 20 40 11 11 29 20 40 20 11 0 29 -9 40
--20z"/>
-</g>
-</svg>
+    <li className="nav-item" ref={node}>
+      <button className="icon-button" onClick={() => setOpen(!open)}>
+        <svg className="burger-icon" version="1.0" xmlns="http://www.w3.org/2000/svg" width="42" height="42" viewBox="0 0 50.000000 50.000000" preserveAspectRatio="xMidYMid meet">
+          <g transform="translate(0.000000,50.000000) scale(0.100000,-0.100000)" stroke="none">
+            <path d="M210 456 c0 -24 -26 -60 -39 -54 -62 33 -61 33 -84 10 -21 -21 -21 -23 -4 -51 9 -16 17 -31 17 -34 0 -15 -34 -37 -56 -37 -23 0 -25 -3 -22 -37 3 -32 7 -38 34 -45 40 -10 48 -30 26 -68 -16 -28 -16 -30 5 -52 22 -22 24 -22 52 5 16 9 31 17 34 17 15 0 37 -34 37 -56 0 -23 3 -25 37 -22 32 3 38 7 45 34 10 40 32 49 69 27 28 -17 30 -17 52 5 21 22 21 24 5 52 -22 38 -14 58 26 68 27 7 31 13 34 45 3 34 1 37 -22 37 -22 0 -56 22 -56 37 0 3 8 18 17 34 17 28 17 30 -5 52 -22 21 -24 21 -52 5 -38 -22 -58 -14 -68 26 -7 27 -13 31 -45 34 -34 3 -37 1 -37 -22z m65 -28 c13 -43 55 -60 85 -33 16 14 22 15 35 5 13 -11 13 -15 -2 -41 -22 -38 -6 -74 36 -84 42 -9 41 -38 -1 -50 -43 -13 -60 -55 -33 -85 14 -16 15 -22 5 -35 -11 -13 -15 -13 -41 2 -38 23 -77 6 -85 -37 -9 -41 -40 -41 -49 1 -10 42 -46 58 -84 36 -26 -15 -30 -15 -41 -2 -10 13 -9 19 5 35 27 30 10 72 -33 85 -42 12 -43 41 -1 50 42 10 58 46 36 84 -15 26 -15 30 -2 41 13 10 19 9 35 -5 30 -27 71 -10 84 33 12 42 39 42 51 0z"/>
+            <path d="M195 305 c-33 -32 -33 -78 0 -110 32 -33 78 -33 110 0 50 49 15 135 -55 135 -19 0 -40 -9 -55 -25z m95 -15 c11 -11 20 -29 20 -40 0 -26 -34 -60 -60 -60 -26 0 -60 34 -60 60 0 11 9 29 20 40 11 11 29 20 40 20 11 0 29 -9 40 -20z"/>
+          </g>
+        </svg>
       </button>
 
       {open && props.children}
     </li>
   );
-};
+}
 
 
 
 
 
 function SliderFontSizer() {
-  const [fontSize, setFontSize] = useState(16); 
+  const { fontSize, setFontSize } = useFontSize(); // Получаем значение размера шрифта и функцию для его обновления из контекста
 
   const handleFontSizeChange = (event) => {
     const newSize = parseInt(event.target.value, 10);
-    setFontSize(newSize);
-
-    const elements = document.querySelectorAll('.book');
-    elements.forEach((element) => {
-      element.style.fontSize = `${newSize}px`;
-    });
+    setFontSize(newSize); // Обновляем размер шрифта через контекст
   };
 
   return (
@@ -2720,6 +2899,7 @@ function SliderFontSizer() {
 }
 
 
+
 function TextWidthSlider() {
   const { padding, updatePadding } = usePadding();
 
@@ -2733,7 +2913,7 @@ function TextWidthSlider() {
       <input
         type="range"
         min="12"
-        max="400"
+        max="200"
         step="1"
         value={padding.left} 
         onChange={handlePaddingChange}
@@ -2786,42 +2966,23 @@ function FontSlider() {
   );
 }
 
-const isDarkTheme = window?.matchMedia('(prefers-color-scheme: dark)').matches
-const defaultTheme = isDarkTheme ? 'dark' : 'light'
-
-export const useTheme = () => {
-  const [theme, setTheme] = useState(
-    localStorage.getItem('app-theme') || defaultTheme
-  )
-
-  useLayoutEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
-    localStorage.setItem('app-theme', theme)
-  }, [theme])
-
-  return { theme, setTheme }
-}
 
 
-function ThemeButton() {
-  const { theme, setTheme } = useTheme('')
 
-  const handleLightThemeClick = () => {
-    setTheme('light')
-  }
-  const handleDarkThemeClick = () => {
-    setTheme('dark')
-  }
-  const handleSepiaThemeClick = () => {
-    setTheme('sepia')
-  }
-  return(
-    <div><button className='white' onClick={handleLightThemeClick}>Hello</button>
-    <button className='black' onClick={handleDarkThemeClick}>Hello</button>
-    <button className='sepia' onClick={handleSepiaThemeClick}>Hello</button>
+function ThemeButton({ changeTheme }) {
+  return (
+    <div>
+      <button className='white' onClick={() => changeTheme('light')}>
+        Light Theme
+      </button>
+      <button className='black' onClick={() => changeTheme('dark')}>
+        Dark Theme
+      </button>
+      <button className='sepia' onClick={() => changeTheme('sepia')}>
+        Sepia Theme
+      </button>
     </div>
-    
-  )
+  );
 }
 
 function StudioMain() {
@@ -3324,5 +3485,154 @@ function StudioDropdownMenu() {
     </div>
   );
 };
+
+function MainHistory() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [profileData, setProfileData] = useState({});
+  const [bookData, setBookData] = useState({});
+  const [menuOpen, setMenuOpen] = useState(false);
+  const token = localStorage.getItem('token');
+  const { book_id } = useParams();
+  const link = `http://localhost:3000/book_detail/${book_id}`;
+  const handleMenuOpen = () => {
+    setMenuOpen(!menuOpen);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setIsLoggedIn(false);
+    window.location.reload();
+  };
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await axios.get(`${apiUrl}/api/history/`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+  
+        if (response.status === 200) {
+          setBookData(response.data);
+        } else {
+        }
+      } catch (error) {
+        console.error('Ошибка при получении данных', error);
+      }
+    };
+
+    const getProfile = async () => {
+      try {
+        const decodedToken = jwtDecode(token);
+        const username = decodedToken.username
+        
+        const response = await axios.get(`${apiUrl}/users/api/${username}/`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (response.status === 200) {
+          setProfileData(response.data);
+          setIsLoggedIn(true);
+        } else {
+          // Обработка ошибки
+        }
+      } catch (error) {
+        console.error('Ошибка при получении профиля', error);
+      }
+    };
+    getProfile();
+    fetchData();
+  }, [book_id, token]);
+
+  return(
+    <div className='main'>
+      <header className='header'>
+      <Link to='/'><a><img className='logo' src={Logo}></img></a></Link>
+        <div className='header-search'>
+          <input type="text" placeholder="search" class="search-input"></input>
+        </div>
+        {isLoggedIn ? (
+          <div className='header-avatar'>
+          <button className='header-avatar-btn' onClick={(e) => { e.preventDefault(); handleMenuOpen(); }}>
+            <img className='header_avatar-img' src={profileData.profileimg} />
+          </button>
+          {menuOpen && (
+            <div className="menu">
+              <Link to='/profile'><button className='menu_button'>Profile</button></Link>
+              <button className='menu_button'>Settings</button>
+              <button className='menu_button' onClick={handleLogout}>Logout</button>
+            </div>
+          )}
+        </div>
+        ) : (
+          <Link to='/login'>
+            <div className='header-signin'>
+              <button className='pool-sign'>
+                <img className='pool_icon-sign' src={Avatar} alt="Sign In" />
+                Sign In
+              </button>
+            </div>
+          </Link>
+        )}
+      </header>
+      <Sidebar />
+      <div className='history__content'>
+        <div>
+          <div className='history__title'>History</div>
+          {Object.keys(bookData).map((period, index) => (
+            <div key={index}>
+              {bookData[period].length > 0 && (
+                <div>
+                  <div className='history_day'>{period}</div>
+                  {bookData[period].map((book, bookIndex) => (
+                    <div key={bookIndex} className='profile__book'>
+                      <div className='profile__first_colum'>
+                        <div>
+                        <div className='profile__img'>
+                          <img src={book.coverpage} className='profile__book-img' alt="Book Cover" />
+                        </div>
+                        <div className='profile__info'>
+                          <div className="like-views__info">{book.views_count}</div>
+                          <div className="cirlce">&bull;</div>
+                          <div className="like-views__info">{book.upvotes}</div>
+                          <div className="cirlce">&bull;</div>
+                          <div className="like-views__info">Changed: {new Date(book.last_modified).toLocaleString()}</div>
+                        </div>
+                      </div>
+                      </div>
+                      <div className='profile__second_colum'>
+                        <div className='books__views'>{book.author}</div>
+                        <ul>
+                          <li className='profile__books_name'>{book.book_name}</li>
+                          <li>
+                            <div className='profile__series_colum'>
+                              <div className='profile__books_series'>Series: {book.series_name}</div>
+                              <div className="cirlce">&bull;</div>
+                              <div className='profile__books_volume'>Volume: {book.volume_number}</div>
+                            </div>
+                          </li>
+                          <li className='profile__books_description'>{book.description}</li>
+                        </ul>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HistoryBar() {
+  return(
+    <div></div>
+  )
+}
 
 export default App;

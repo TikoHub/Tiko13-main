@@ -1,5 +1,4 @@
-import React, {useState, useEffect} from 'react';
-
+import React, { useState, useEffect } from 'react';
 
 const FontSizeContext = React.createContext();
 
@@ -10,11 +9,11 @@ export const useFontSize = () => {
 export const FontSizeProvider = ({ children }) => {
   const [fontSize, setFontSize] = useState(() => {
     const savedSize = localStorage.getItem('fontSize');
-    return savedSize ? parseInt(savedSize, 10) : 16; 
+    return savedSize ? parseInt(savedSize, 10) : 16;
   });
 
   useEffect(() => {
-    localStorage.setItem('fontSize', fontSize.toString()); 
+    localStorage.setItem('fontSize', fontSize.toString());
   }, [fontSize]);
 
   return (
@@ -23,4 +22,3 @@ export const FontSizeProvider = ({ children }) => {
     </FontSizeContext.Provider>
   );
 };
-
