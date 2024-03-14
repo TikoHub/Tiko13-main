@@ -84,10 +84,24 @@ function MainPage(){
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileData, setProfileData] = useState({
   });
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token') || '';
   const logout = () => {
     localStorage.removeItem('authToken');
   };
+  const menuRef = useRef();
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const handleMenuOpen = () => {
     setMenuOpen(!menuOpen);
@@ -138,7 +152,7 @@ function MainPage(){
             <img className='header_avatar-img' src={profileData.profileimg} />
           </button>
           {menuOpen && (
-            <div className="menu">
+            <div ref={menuRef} className="menu">
               <Link to='/profile'><button className='menu_button'>Profile</button></Link>
               <button className='menu_button'>Settings</button>
               <button className='menu_button' onClick={handleLogout}>Logout</button>
@@ -293,7 +307,6 @@ function BookPage() {
                 </div>
               </div>
             </div>
-            
         </div>
         <div className='bookpage__content'>
          <BookpageNavigation  book_id={book_id}/> 
@@ -315,30 +328,39 @@ function Main() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileData, setProfileData] = useState({});
-  const token = localStorage.getItem('token');
-
-
-
+  const navigate = useNavigate();
+  const menuRef = useRef();
 
   const handleMenuOpen = () => {
     setMenuOpen(!menuOpen);
   };
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     setIsLoggedIn(false);
-    window.location.reload();
+    navigate('/');
   };
-
-
-  
 
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        if (token) {
+        const token = localStorage.getItem('token') || '';
+        if (typeof token === 'string' && token.trim() !== '') { 
           const decodedToken = jwtDecode(token);
           const username = decodedToken.username;
           const response = await axios.get(`${apiUrl}/users/api/${username}/`, {
@@ -351,8 +373,12 @@ function Main() {
             setProfileData(response.data);
             setIsLoggedIn(true);
           } else {
-            // Обработка ошибки
+
           }
+        } else {
+          console.log('Токен отсутствует или некорректен');
+
+          navigate('/');
         }
       } catch (error) {
         console.error('Ошибка при получении профиля', error);
@@ -360,7 +386,7 @@ function Main() {
     };
 
     fetchData();
-  }, [token]);
+  }, [navigate]);
 
   return (
     <div className='main'>
@@ -379,7 +405,7 @@ function Main() {
             <img className='header_avatar-img' src={profileData.profileimg} />
           </button>
           {menuOpen && (
-            <div className="menu">
+            <div ref={menuRef}  className="menu">
               <Link to='/profile'><button className='menu_button'>Profile</button></Link>
               <button className='menu_button'>Settings</button>
               <button className='menu_button' onClick={handleLogout}>Logout</button>
@@ -498,7 +524,7 @@ const Sidebar = () => {
   );
 };
 
-function Profile() {
+function Profile({ handleTabClick }) {
   const [profileData, setProfileData] = useState({
     user: {
       first_name: '',
@@ -509,26 +535,30 @@ function Profile() {
   });
   const [editingAbout, setEditingAbout] = useState(false);
   const [newAbout, setNewAbout] = useState('');
-  const token = localStorage.getItem('token');
-
+  const token = localStorage.getItem('token') || ''; 
 
   useEffect(() => {
     const getProfile = async () => {
       try {
-        const decodedToken = jwtDecode(token);
-        const username = decodedToken.username;
-        
-        const response = await axios.get(`${apiUrl}/users/api/${username}/`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
+        // Проверяем, является ли токен строкой и не пустым
+        if (typeof token === 'string' && token.trim() !== '') {
+          const decodedToken = jwtDecode(token);
+          const username = decodedToken.username;
 
-        if (response.status === 200) {
-          setProfileData(response.data);
-          setNewAbout(response.data.about);
+          const response = await axios.get(`${apiUrl}/users/api/${username}/`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+
+          if (response.status === 200) {
+            setProfileData(response.data);
+            setNewAbout(response.data.about);
+          } else {
+            // Обработка ошибки, если ответ от сервера не 200
+          }
         } else {
-          // Обработка ошибки
+          console.log('Токен отсутствует или некорректен');
         }
       } catch (error) {
         console.error('Ошибка при получении профиля', error);
@@ -537,6 +567,7 @@ function Profile() {
 
     getProfile();
   }, [token]);
+
 
   const handleAboutEdit = () => {
     setEditingAbout(true);
@@ -549,23 +580,27 @@ function Profile() {
   const handleSaveAbout = async () => {
     try {
       const decodedToken = jwtDecode(token);
-      const username = decodedToken.username;
-      const response = await axios.put(
-        `${apiUrl}/users/api/${username}/`, 
-        { about: newAbout },
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
+      if (decodedToken && decodedToken.username) {
+        const username = decodedToken.username;
+        const response = await axios.put(
+          `${apiUrl}/users/api/${username}/`, 
+          { about: newAbout },
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          }
+        );
 
-      if (response.status === 200) {
-        setProfileData({ ...profileData, about: newAbout });
-        setEditingAbout(false);
-        console.log('About успешно обновлен');
+        if (response.status === 200) {
+          setProfileData({ ...profileData, about: newAbout });
+          setEditingAbout(false);
+          console.log('About успешно обновлен');
+        } else {
+          console.error('Ошибка при обновлении About:', response.statusText);
+        }
       } else {
-        console.error('Ошибка при обновлении About:', response.statusText);
+        console.log('Некорректный токен');
       }
     } catch (error) {
       console.error('Ошибка при обновлении данных:', error);
@@ -975,6 +1010,10 @@ function ProfileDescription() {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    fetchData();
+  }, []);
+  
   const fetchData = async () => {
     try {
       if (!token) {
@@ -986,11 +1025,12 @@ function ProfileDescription() {
       const username = decodedToken.username;
       const response = await axios.get(`${apiUrl}/users/api/${username}/description`, {
         headers: {
-          Authorization: `Bearer ${token}` // Включение JWT токена в заголовок запроса
+          Authorization: `Bearer ${token}` 
         }
       }); 
-
+  
       setUserData(response.data);
+      setNewDescription(response.data.description); 
     } catch (error) {
       console.error('Ошибка при получении данных:', error);
     }
@@ -1035,7 +1075,7 @@ function ProfileDescription() {
     <div className='description'>
       {inputVisible ? (
         <div className="input-container">
-          <input type="text" className='input_description' value={newDescription} onChange={(e) => setNewDescription(e.target.value)} />
+          <textarea className='input_description' defaultValue={newDescription} onChange={(e) => setNewDescription(e.target.value)} />
           <div>
             <button className='change_description' onClick={handleChangeDescription}>save</button>
             <button className='change_description' onClick={() => setInputVisible(false)}>cancel</button>
@@ -1181,7 +1221,7 @@ const BookProfileItem = ({ filterBy }) => {
   }, [filterBy, username]);
 
   return (
-    <div>
+    <div className='books__items'>
       {books.map((book) => (
         <div className='books-items' key={book.id}>
           <div className='nav-book-items'>
@@ -1490,7 +1530,7 @@ function ProfileSettingsNav() {
               <li><a onClick={() => handleTabClick('tab6')}>Books</a></li>
               </ul>
             </div>
-            <div>
+            <div className='settings__content'>
                       {activeTab === 'tab1' && <ProfileSettings />}
                       {activeTab === 'tab2' && <Privacy />}
                       {activeTab === 'tab3' && <Security />}
@@ -1503,15 +1543,55 @@ function ProfileSettingsNav() {
 }
 function ProfileSettings() {
   const [profileData, setProfileData] = useState({
-    user:{
-    first_name: '',
-    last_name: '',
-    at_username: '',
-  }
+    user: {
+      first_name: '',
+      last_name: '',
+      at_username: '',
+    },
+    // profile: {
+    //   about: '',
+    //   profileimg: '',
+    // },
+    display_dob_option: 1,
+    gender: 'not_specified',
+    date_of_birth: null,
   });
   const token = localStorage.getItem('token');
 
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [atUsername, setAtUsername] = useState('');
 
+  useEffect(() => {
+    const getProfile = async () => {
+      try {
+        const decodedToken = jwtDecode(token);
+        const username = decodedToken.username;
+
+        const response = await axios.get(`${apiUrl}/users/api/${username}/`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.status === 200) {
+          setProfileData(response.data);
+        } else {
+          // Обработка ошибки
+        }
+      } catch (error) {
+        console.error('Ошибка при получении профиля', error);
+      }
+    };
+
+    getProfile();
+  }, [token]);
+
+  useEffect(() => {
+    setFirstName(profileData.user.first_name);
+    setLastName(profileData.user.last_name);
+    setAtUsername(profileData.user.at_username);
+  }, [profileData.user]);
 
   const handleFirstNameChange = (e) => {
     setFirstName(e.target.value);
@@ -1534,7 +1614,7 @@ function ProfileSettings() {
       },
     }));
   };
-  
+
   const handleAtUsernameChange = (e) => {
     setAtUsername(e.target.value);
     setProfileData((prevData) => ({
@@ -1546,92 +1626,73 @@ function ProfileSettings() {
     }));
   };
 
-  const handleAvatarProfileChange = (e) => {
-    setAtUsername(e.target.value);
+  const handleDobVisibilityChange = (e) => {
+    const visibilityOption = parseInt(e.target.value);
     setProfileData((prevData) => ({
       ...prevData,
-      user: {
-        ...prevData.user,
-        profileimg: e.target.value,
-      },
+      display_dob_option: visibilityOption,
+    }));
+  };
+  
+  // Обработчик изменения пола
+  const handleGenderChange = (e) => {
+    const genderOption = e.target.value;
+    setProfileData((prevData) => ({
+      ...prevData,
+      gender: genderOption,
     }));
   };
 
+  const handleSave = async () => {
+    try {
+      const decodedToken = jwtDecode(token);
+      const username = decodedToken.username;
+      const response = await axios.put(`${apiUrl}/users/api/${username}/settings/`, profileData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-  useEffect(() => {
-    const getProfile = async () => {
-      try {
-        const decodedToken = jwtDecode(token);
-        const username = decodedToken.username
-        
-        const response = await axios.get(`${apiUrl}/users/api/${username}/`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (response.status === 200) {
-          setProfileData(response.data);
-        } else {
-          // Обработка ошибки
-        }
-      } catch (error) {
-        console.error('Ошибка при получении профиля', error);
+      if (response.status === 200) {
+        // Success
+      } else {
+        // Handle error
       }
-    };
-
-    getProfile();
-  }, [token]);
-
-
-
-  const { user } = profileData;
-
-  const [firstName, setFirstName] = useState(user.first_name);
-  const [lastName, setLastName] = useState(user.last_name);
-  const [atUsername, setAtUsername] = useState(user.at_username);
-
-
-  useEffect(() => {
-    setFirstName(user.first_name);
-    setLastName(user.last_name);
-    setAtUsername(user.at_username);
-  }, [user.first_name, user.last_name, user.at_username]);
-
-
-
-
+    } catch (error) {
+      console.error('Ошибка при сохранении профиля', error);
+    }
+  };
 
   return (
     <div className='profile-settings'>
       <div className="settings-views">Preview (This is how others see Your profile)</div>
-    <div className="profile-info">
-      <div className='avatar'><img className='avatar-img' src={profileData.profileimg} alt="#" /></div>
-      <div className='user-info'>
+      <div className="profile-info">
+        <div className='avatar'><img className='avatar-img' src={profileData.profileimg} alt="#" /></div>
+        <div className='user-info'>
           <div className='user-name'>
             <div className='first_name'>{firstName}</div>
             <div className='last_name'>{lastName}</div>
           </div>
-        <div className='user-colum'>
-        <div className='user-first__colum'>
-          <div className='user-tag'>{atUsername}</div>
-          <div className='user_followers__info'>
-            <div className='user-followings'>{profileData.following_count}Followings</div>
-            <div className='user-followers'>{profileData.followers_count}Followers</div>
-          </div>
-          <div className='user-book__info'>
-            <div className='user-books'>{profileData.books_count}books</div>
-            <div className='user-series'>{profileData.series_count}series</div>
+          <div className='user-colum'>
+            <div className='user-first__colum'>
+              <div className='user-tag'>{atUsername}</div>
+              <div className='user_followers__info'>
+                <div className='user-followings'>{profileData.following_count}Followings</div>
+                <div className='user-followers'>{profileData.followers_count}Followers</div>
+              </div>
+              <div className='user-book__info'>
+                <div className='user-books'>{profileData.books_count}books</div>
+                <div className='user-series'>{profileData.series_count}series</div>
+              </div>
+            </div>
+            <div className='user-second__colum'>
+              <div className='about'>
+                <div className='about-name'>About</div>
+                <div className='about-description'>{profileData.about}</div>
+              </div>
+            </div>
           </div>
         </div>
-        <div className='user-second__colum'>
-          <div className='about'>
-            <div className='about-name'>About</div>
-            <div className='about-description'>{profileData.about}</div>
-          </div>
-        </div>
-        </div>  
-      </div>
       </div>
       <div className="profile-info__change">
         <div className="change">
@@ -1644,54 +1705,67 @@ function ProfileSettings() {
               </form>
             </li>
             <li className='change-li'>
-              <label htmlFor='FirstName'>Firstname</label> 
-              <input type="text" className='change-input'      id="firstName"
-      value={firstName}
-      onChange={handleFirstNameChange}/>
-              </li>
+              <label htmlFor='FirstName'>Firstname</label>
+              <input
+                type="text"
+                className='change-input'
+                id="firstName"
+                value={firstName}
+                onChange={handleFirstNameChange}
+              />
+            </li>
             <li className='change-li'>
-            <label className='change-label'>Lastname</label>
-            <input type="text" className='change-input' id="lastName"
-      value={lastName}
-      onChange={handleLastNameChange}/>
+              <label className='change-label'>Lastname</label>
+              <input
+                type="text"
+                className='change-input'
+                id="lastName"
+                value={lastName}
+                onChange={handleLastNameChange}
+              />
             </li>
             <li className='change-li'>
               <label className='change-label'>Username</label>
-              <input type="text" className='change-input' id="atUsername"
-      value={atUsername}
-      onChange={handleAtUsernameChange}/>
+              <input
+                type="text"
+                className='change-input'
+                id="atUsername"
+                value={atUsername}
+                onChange={handleAtUsernameChange}
+              />
             </li>
             <li className='change-li'>
-              <label className='change-label'>Date of Birth</label>
-                <BirthSelector />
-            </li>
-            <li className='change-li'>
-              <label className='change-label'>Date of Birth Visibility</label>
-              <select className='change-input'>
-              <option value="1" >No One</option>
-              <option value="2" >Friends Only(Default)</option>
-              <option value="3" >Everyone</option>
-              </select>
-               </li>
-            <li className='change-li'>
-              <label className='change-label'>Gender</label>
-              <select className='change-input'>
-              <option value="1" >Not Specifield</option>
-              <option value="2" >Male</option>
-              <option value="3" >Female</option>
-              <option value="3" >Other</option>
-              </select>
-            </li>
+      <label className='change-label'>Date of Birth</label>
+      <BirthSelector />
+    </li>
+    <li className='change-li'>
+      <label className='change-label'>Date of Birth Visibility</label>
+      <select className='change-input' onChange={handleDobVisibilityChange}>
+        <option value="1">No One</option>
+        <option value="2">Friends Only(Default)</option>
+        <option value="3">Everyone</option>
+      </select>
+    </li>
+    <li className='change-li'>
+      <label className='change-label'>Gender</label>
+      <select className='change-input' onChange={handleGenderChange}>
+        <option value="1">Not Specified</option>
+        <option value="2">Male</option>
+        <option value="3">Female</option>
+        <option value="4">Other</option>
+      </select>
+    </li>
           </ul>
           <div className="change-buttons">
-            <button className='save-button'>Save</button>
+            <button className='save-button' onClick={handleSave}>Save</button>
             <button className='discard-button'>Discard</button>
-         </div>
+          </div>
         </div>
       </div>
-      </div>
-  )
+    </div>
+  );
 }
+
 function Books() {
   const itemsPerPage = 0; 
   const [visibleItems, setVisibleItems] = useState(itemsPerPage);
@@ -1782,16 +1856,14 @@ function Login() {
         email,
         password,
       });
-
+  
       if (response.status === 200) {
         const token = response.data.access;
-        localStorage.setItem('token', String(token));
+        localStorage.setItem('token', token.toString()); 
         setLoggedIn(true);
         navigate('/');
-        alert('вы успешно зашли');
-        console.log(token);
       } else {
-        // Обработка ошибки, если не получен успешный ответ
+       
       }
     } catch (error) {
       console.error('Ошибка при входе', error);
@@ -1894,8 +1966,8 @@ function Register () {
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
-    date_of_birth_month: '',
-    date_of_birth_year: '',
+    dob_month: '',
+    dob_year: '',
     email: '',
     password: '',
     password2: '',
@@ -1952,8 +2024,8 @@ function RegisterStep1 () {
     const [formData, setFormData] = useState({
       first_name: '',
       last_name: '',
-      date_of_birth_month: '',
-      date_of_birth_year: '',
+      dob_month: '',
+      dob_year: '',
     });
   
     const handleChange = (e) => {
@@ -1987,7 +2059,7 @@ function RegisterStep1 () {
             <input name="first_name" type="text" placeholder='First name' className='register-name' value={formData.first_name} onChange={handleChange}/>
             <input name="last_name"  type="text" placeholder='Last name (optional)' className='register-last' value={formData.last_name} onChange={handleChange}/>
             <p className='register-date'>Date of birth (optional)</p>
-            <select name="date_of_birth_month"  className='month' value={formData.date_of_birth_month} onChange={handleChange}>
+            <select name="dob_month"  className='month' value={formData.dob_month} onChange={handleChange}>
               <option value="" disabled selected hidden>Month</option>
               <option type='number' value="1">1</option>
               <option type='number' value="2">2</option>
@@ -2002,7 +2074,7 @@ function RegisterStep1 () {
               <option type='number' value="11">11</option>
               <option type='number' value="12">12</option>
             </select>
-            <input name="date_of_birth_year"  type='number' placeholder='Year' className='year' value={formData.date_of_birth_year} onChange={handleChange}/>
+            <input name="dob_year"  type='number' placeholder='Year' className='year' value={formData.dob_year} onChange={handleChange}/>
             <Link to='/step2'><div><button type='submit' className='next-button' onClick={handleSubmit}>Next</button></div></Link>
         </form>
     </div>
@@ -2123,8 +2195,8 @@ function UserList() {
 function TwoStepRegistration() {
   const [first_name, setFirstName] = useState('');
   const [last_name, setLastName] = useState('');
-  const [date_of_birth_month, setDateOfBirthMonth] = useState('');
-  const [date_of_birth_year, setDateOfBirthYear] = useState('');
+  const [dob_month, setDateOfBirthMonth] = useState('');
+  const [dob_year, setDateOfBirthYear] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
@@ -2145,8 +2217,8 @@ function TwoStepRegistration() {
         password2: password2,
         first_name: first_name,
         last_name: last_name,
-        date_of_birth_month: date_of_birth_month,
-        date_of_birth_year: date_of_birth_year,
+        dob_month: dob_month,
+        dob_year: dob_year,
         code: code
       });
       setCurrentStep(3);
@@ -2168,13 +2240,13 @@ function TwoStepRegistration() {
               <input name="first_name" type="text" placeholder='First name' className='register-name' value={first_name} onChange={(e) => setFirstName(e.target.value)} />
               <input name="last_name" type="text" placeholder='Last name (optional)' className='register-last' value={last_name} onChange={(e) => setLastName(e.target.value)} />
               <p className='register-date'>Date of birth (optional)</p>
-              <select name="date_of_birth_month" className='month' value={date_of_birth_month} onChange={(e) => setDateOfBirthMonth(e.target.value)}>
+              <select name="dob_month" className='month' value={dob_month} onChange={(e) => setDateOfBirthMonth(e.target.value)}>
                 <option value="" disabled>Month</option>
                 <option value="1">1</option>
                 <option value="2">2</option>
                 {/* Добавьте остальные месяцы */}
               </select>
-              <input name="date_of_birth_year" type='number' placeholder='Year' className='year' value={date_of_birth_year} onChange={(e) => setDateOfBirthYear(e.target.value)} />
+              <input name="dob_year" type='number' placeholder='Year' className='year' value={dob_year} onChange={(e) => setDateOfBirthYear(e.target.value)} />
               <div><button type='submit' className='next-button'>Next</button></div>
             </form>
           </div>
@@ -2285,140 +2357,271 @@ const BirthSelector = () => {
 };
 
 function Privacy() {
-   return(
+  const [autoAddReading, setAutoAddReading] = useState(false);
+  const [libraryVisibility, setLibraryVisibility] = useState('friends');
+  const token = localStorage.getItem('token');
+
+  useEffect(() => {
+    const token = localStorage.getItem('token'); 
+
+    if (!token) {
+
+        console.error('Токен не найден.');
+        return;
+    }
+
+    axios.get('http://127.0.0.1:8000/users/api/settings/privacy/', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+    })
+    .then(response => {
+        setAutoAddReading(response.data.auto_add_reading);
+        setLibraryVisibility(response.data.library_visibility);
+    })
+    .catch(error => {
+        console.error('Ошибка при загрузке данных с сервера:', error);
+    });
+}, []);
+  const handleSave = async () => {
+    try {
+        const response = await axios.put(
+            'http://127.0.0.1:8000/users/api/settings/privacy/',
+            {
+                auto_add_reading: autoAddReading,
+                library_visibility: libraryVisibility
+            },
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            }
+        );
+        console.log(response.data);
+
+    } catch (error) {
+        console.error('Ошибка при сохранении настроек:', error);
+
+    }
+};
+
+  const handleDiscard = () => {
+      axios.get('http://127.0.0.1:8000/users/api/settings/privacy/')
+          .then(response => {
+              setAutoAddReading(response.data.auto_add_reading);
+              setLibraryVisibility(response.data.library_visibility);
+          })
+          .catch(error => {
+              console.error('Ошибка при загрузке данных с сервера:', error);
+          });
+  };
+
+  return (
       <div className='privacy-setting'>
-         <div className='privacy-info'>
-            <ul className='privacy-setting-ul'>
-               <li className='privacy-setting-li'>
-                  <label className='privacy-label'>Auto add books to<br></br>the library</label>
-                  <select className='privacy-input'>
-                     <option value="1" >Active (Recommended)</option>
-                     <option value="2" >Off</option>
-                  </select>
-               </li>
-               <li className='privacy-setting-li'>
-                  <label className='privacy-label'>Who can see your<br></br>Library</label>
-                  <select className='privacy-input'>
-                     <option value="1" >No One</option>
-                     <option value="2" >Friends Only (Default)</option>
-                     <option value="3" >Everyone</option>
-                  </select>
-               </li>
-            </ul>
-         </div>
-         <div className="change-buttons">
-            <button className='save-button'>Save</button>
-            <button className='discard-button'>Discard</button>
-         </div>
+          <div className='privacy-info'>
+              <ul className='privacy-setting-ul'>
+                  <li className='privacy-setting-li'>
+                      <label className='privacy-label'>Auto add books to<br></br>the library</label>
+                      <select className='privacy-input' value={autoAddReading ? '1' : '2'} onChange={e => setAutoAddReading(e.target.value === '1')}>
+                          <option value="1">Active (Recommended)</option>
+                          <option value="2">Off</option>
+                      </select>
+                  </li>
+                  <li className='privacy-setting-li'>
+                      <label className='privacy-label'>Who can see your<br></br>Library</label>
+                      <select className='privacy-input' value={libraryVisibility === 'friends' ? '2' : libraryVisibility === 'everyone' ? '3' : '1'} onChange={e => setLibraryVisibility(e.target.value === '2' ? 'friends' : e.target.value === '3' ? 'everyone' : 'no_one')}>
+                          <option value="1">No One</option>
+                          <option value="2">Friends Only (Default)</option>
+                          <option value="3">Everyone</option>
+                      </select>
+                  </li>
+              </ul>
+          </div>
+          <div className="change-buttons">
+              <button className='save-button' onClick={handleSave}>Save</button>
+              <button className='discard-button' onClick={handleDiscard}>Discard</button>
+          </div>
       </div>
-   )
+  );
 }
 
 function Security() {
-   return(
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [repeatPassword, setRepeatPassword] = useState('');
+
+  const saveSettings = async () => {
+      try {
+          const token = localStorage.getItem('token'); // Предположим, что вы храните токен в локальном хранилище
+          const response = await axios.post(
+              'http://127.0.0.1:8000/users/api/settings/security/',
+              {
+                  current_password: currentPassword,
+                  new_password: newPassword,
+                  repeat_password: repeatPassword
+              },
+              {
+                  headers: {
+                      Authorization: `Bearer ${token}`
+                  }
+              }
+          );
+          console.log(response.data);
+      } catch (error) {
+          console.error('Ошибка при сохранении настроек безопасности:', error);
+
+      }
+  };
+
+  const discardChanges = () => {
+
+  };
+
+  return (
       <div className='setting-security'>
-         <div className='setting-views'>We do not share and disclose Your personal information to anyone</div>
-         <div className='setting-password-change'>Password Change</div>
-         <div className='security-info'>
-            <ul className="security-info-ul">
-               <li className='security-info-li'>
-                  <label className='security-label'>Current Password</label>
-                  <input type="text" className='security-input' />
-               </li>
-               <li className="security-info-li">
-                  <div className='pw-change-menu'>
-                     <div className='security-change-pw'>                  <label className='security-pw-label'>New Password</label>
-                  <input type="text" className='security-input' /></div>
-                     <div className='security-change-pw'>                  <label className='security-pw-label'>Repeat Password</label>
-                  <input type="text" className='security-input' /></div>
-                  </div>
-               </li>
-            </ul>
-         </div>
-         <div className="change-buttons">
-            <button className='save-button'>Save</button>
-            <button className='discard-button'>Cancel</button>
-         </div>
+          <div className='setting-views'>We do not share and disclose Your personal information to anyone</div>
+          <div className='setting-password-change'>Password Change</div>
+          <div className='security-info'>
+              <ul className="security-info-ul">
+                  <li className='security-info-li'>
+                      <label className='security-label'>Current Password</label>
+                      <input type="password" className='security-input' value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
+                  </li>
+                  <li className="security-info-li">
+                      <div className='pw-change-menu'>
+                          <div className='security-change-pw'>
+                              <label className='security-pw-label'>New Password</label>
+                              <input type="password" className='security-input' value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+                          </div>
+                          <div className='security-change-pw'>
+                              <label className='security-pw-label'>Repeat Password</label>
+                              <input type="password" className='security-input' value={repeatPassword} onChange={(e) => setRepeatPassword(e.target.value)} />
+                          </div>
+                      </div>
+                  </li>
+              </ul>
+          </div>
+          <div className="change-buttons_sec">
+              <button className='save-button' onClick={saveSettings}>Save</button>
+              <button className='discard-button' onClick={discardChanges}>Cancel</button>
+          </div>
       </div>
-   )
+  );
 }
 
 function Notifications() {
-   const [isToggled, setIsToggled] = useState(false);
+  const [notificationsData, setNotificationsData] = useState(null);
+  const [originalNotificationsData, setOriginalNotificationsData] = useState(null);
+  const [isToggled, setIsToggled] = useState(false);
+  const token = localStorage.getItem('token');
 
-   const notificationsButton = () => {
-     setIsToggled(!isToggled);
-   };
+  useEffect(() => {
+    const fetchNotificationsData = async () => {
+      try {
+        const response = await axios.get('http://127.0.0.1:8000/users/api/settings/notifications/', {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        setNotificationsData(response.data);
+        setOriginalNotificationsData(response.data);
+        setIsToggled(response.data.group_by_author);
+      } catch (error) {
+        console.error('Error fetching notifications data:', error);
+      }
+    };
 
+    fetchNotificationsData();
+  }, []);
 
-   
-   return(
-      <div className='setting-notifications'>
-         <div className='notifications-views'>General Notifications</div>
-         <div className='notifications-menu'>
-            <ul className='notifications-ul'>
-               <li className='notifications-li'>
-                  <label className='notifications-label'>Group notifications by author</label>
-                  <button className={isToggled ? 'notifications-button enabled' : 'notifications-button disabled'} onClick={notificationsButton}></button>
-               </li>
-               <li className='notifications-li'>
-                  <label className='notifications-label'>Show book’s updates</label>
-                  <button className={isToggled ? 'notifications-button enabled' : 'notifications-button disabled'} onClick={notificationsButton}></button>
-               </li>
-               <li className='notifications-li'>
-                  <label className='notifications-label'>Show author’s updates</label>
-                  <button className={isToggled ? 'notifications-button enabled' : 'notifications-button disabled'} onClick={notificationsButton}></button>
-               </li>
-            </ul>
-         </div>
-         <div className='notifications-views'>Book’s Updates</div>
-         <div className='notifications-menu'>
-            <ul>
-               <li className='notifications-li'>
-                  <label className='notifications-label'>New Ebooks</label>
-                  <button className={isToggled ? 'notifications-button enabled' : 'notifications-button disabled'} onClick={notificationsButton}></button>
-               </li>
-               <li className='notifications-li'>
-                  <label className='notifications-label'>Library reading list updates</label>
-                  <button className={isToggled ? 'notifications-button enabled' : 'notifications-button disabled'} onClick={notificationsButton}></button>
-               </li>
-               <li className='notifications-li'>
-                  <label className='notifications-label'>Library wish list updates</label>
-                  <button className={isToggled ? 'notifications-button enabled' : 'notifications-button disabled'} onClick={notificationsButton}></button>
-               </li>
-               <li className='notifications-li'>
-                  <label className='notifications-label'>Library liked updates</label>
-                  <button className={isToggled ? 'notifications-button enabled' : 'notifications-button disabled'} onClick={notificationsButton}></button>
-               </li>
-            </ul>
-         </div>
-         <div className='notifications-views'>Social Updates</div>
-         <div className='notifications-menu'>
-            <ul>
-               <li className='notifications-li'>
-                  <label className='notifications-label'>New Reviews</label>
-                  <button className={isToggled ? 'notifications-button enabled' : 'notifications-button disabled'} onClick={notificationsButton}></button>
-               </li>
-               <li className='notifications-li'>
-                  <label className='notifications-label'>New Followers</label>
-                  <button className={isToggled ? 'notifications-button enabled' : 'notifications-button disabled'} onClick={notificationsButton}></button>
-               </li>
-               <li className='notifications-li'>
-                  <label className='notifications-label'>New Comments</label>
-                  <button className={isToggled ? 'notifications-button enabled' : 'notifications-button disabled'} onClick={notificationsButton}></button>
-               </li>
-               <li className='notifications-li'>
-                  <label className='notifications-label'>Responses to my comments</label>
-                  <button className={isToggled ? 'notifications-button enabled' : 'notifications-button disabled'} onClick={notificationsButton}></button>
-               </li>
-            </ul>
-         </div>
-         <div className="change-buttons">
-            <button className='save-button'>Save</button>
-            <button className='discard-button'>Discard</button>
-         </div>
+  const handleNotificationsToggle = (type) => {
+    setNotificationsData({ ...notificationsData, [type]: !notificationsData[type] });
+  };
+
+  const handleSaveChanges = async () => {
+    try {
+      await axios.post('http://127.0.0.1:8000/users/api/settings/notifications/update/', notificationsData, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      setOriginalNotificationsData(notificationsData);
+    } catch (error) {
+      console.error('Error saving notifications data:', error);
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    setNotificationsData(originalNotificationsData);
+  };
+
+  return (
+    <div className='setting-notifications'>
+      <div className='notifications-views'>General Notifications</div>
+      <div className='notifications-menu'>
+        <ul className='notifications-ul'>
+          <li className='notifications-li'>
+            <label className='notifications-label'>Group notifications by author</label>
+            <button className={notificationsData?.group_by_author ? 'notifications-button enabled' : 'notifications-button disabled'} onClick={() => handleNotificationsToggle('group_by_author')}></button>
+          </li>
+          <li className='notifications-li'>
+            <label className='notifications-label'>Show book’s updates</label>
+            <button className={notificationsData?.show_book_updates ? 'notifications-button enabled' : 'notifications-button disabled'} onClick={() => handleNotificationsToggle('show_book_updates')}></button>
+          </li>
+          <li className='notifications-li'>
+            <label className='notifications-label'>Show author’s updates</label>
+            <button className={notificationsData?.show_author_updates ? 'notifications-button enabled' : 'notifications-button disabled'} onClick={() => handleNotificationsToggle('show_author_updates')}></button>
+          </li>
+        </ul>
       </div>
-   )
+      <div className='notifications-views'>Book’s Updates</div>
+      <div className='notifications-menu'>
+        <ul>
+          <li className='notifications-li'>
+            <label className='notifications-label'>New Ebooks</label>
+            <button className={notificationsData?.newbooks ? 'notifications-button enabled' : 'notifications-button disabled'} onClick={() => handleNotificationsToggle('newbooks')}></button>
+          </li>
+          <li className='notifications-li'>
+            <label className='notifications-label'>Library reading list updates</label>
+            <button className={notificationsData?.library_reading_updates ? 'notifications-button enabled' : 'notifications-button disabled'} onClick={() => handleNotificationsToggle('library_reading_updates')}></button>
+          </li>
+          <li className='notifications-li'>
+            <label className='notifications-label'>Library wish list updates</label>
+            <button className={notificationsData?.library_wishlist_updates ? 'notifications-button enabled' : 'notifications-button disabled'} onClick={() => handleNotificationsToggle('library_wishlist_updates')}></button>
+          </li>
+          <li className='notifications-li'>
+            <label className='notifications-label'>Library liked updates</label>
+            <button className={notificationsData?.library_liked_updates ? 'notifications-button enabled' : 'notifications-button disabled'} onClick={() => handleNotificationsToggle('library_liked_updates')}></button>
+          </li>
+        </ul>
+      </div>
+      <div className='notifications-views'>Social Updates</div>
+      <div className='notifications-menu'>
+        <ul>
+          <li className='notifications-li'>
+            <label className='notifications-label'>New Reviews</label>
+            <button className={notificationsData?.show_review_updates ? 'notifications-button enabled' : 'notifications-button disabled'} onClick={() => handleNotificationsToggle('show_review_updates')}></button>
+          </li>
+          <li className='notifications-li'>
+            <label className='notifications-label'>New Followers</label>
+            <button className={notificationsData?.show_follower_updates ? 'notifications-button enabled' : 'notifications-button disabled'} onClick={() => handleNotificationsToggle('show_follower_updates')}></button>
+          </li>
+          <li className='notifications-li'>
+            <label className='notifications-label'>New Comments</label>
+            <button className={notificationsData?.show_comment_updates ? 'notifications-button enabled' : 'notifications-button disabled'} onClick={() => handleNotificationsToggle('show_comment_updates')}></button>
+          </li>
+          <li className='notifications-li'>
+            <label className='notifications-label'>Responses to my comments</label>
+            <button className={notificationsData?.show_response_updates ? 'notifications-button enabled' : 'notifications-button disabled'} onClick={() => handleNotificationsToggle('show_response_updates')}></button>
+          </li>
+        </ul>
+      </div>
+      <div className="change-buttons_not">
+        <button className='save-button' onClick={handleSaveChanges}>Save</button>
+        <button className='discard-button' onClick={handleDiscardChanges}>Discard</button>
+      </div>
+    </div>
+  );
 }
 
 function ReaderMain() {
@@ -3239,7 +3442,7 @@ const StudioTextInput = () => {
   return (
     <div className='book'>
       <div>
-        <div>
+        <div className='studio-buttons'>
           <button className='studio-button' onClick={handleToggleBoldClick}><svg width="18" height="26" viewBox="0 0 18 26" fill="none" xmlns="http://www.w3.org/2000/svg">
 <path d="M12.444 12.608C14.076 13.064 15.3 13.796 16.116 14.804C16.956 15.788 17.376 17.012 17.376 18.476C17.376 20.828 16.62 22.676 15.108 24.02C13.62 25.34 11.46 26 8.628 26H0.06V0.512H7.584C10.488 0.512 12.672 1.1 14.136 2.276C15.6 3.452 16.332 5.12 16.332 7.28C16.332 9.848 15.036 11.624 12.444 12.608ZM3.48 3.392V11.384H7.584C9.264 11.384 10.536 11.048 11.4 10.376C12.288 9.68 12.732 8.648 12.732 7.28C12.732 4.688 11.016 3.392 7.584 3.392H3.48ZM8.628 23.12C10.284 23.12 11.556 22.724 12.444 21.932C13.332 21.14 13.776 19.988 13.776 18.476C13.776 17.084 13.284 16.04 12.3 15.344C11.34 14.624 9.936 14.264 8.088 14.264H3.48V23.12H8.628Z" fill="white"/>
 </svg>
@@ -3330,8 +3533,10 @@ function StudioNavigation() {
               </ul>
               <hr className='top-line'></hr>
             </div>
+                <div className='studio__tab'>
                       {activeTab === 'tab1' && <StudioTextInput />}
-                      {activeTab === 'tab2' && <BookContent />}
+                      {activeTab === 'tab2' && <StudioSetting />}
+                </div>
         </div>
     </div>
   );
@@ -3579,9 +3784,9 @@ function MainHistory() {
         )}
       </header>
       <Sidebar />
-      <div className='history__content'>
-        <div>
-          <div className='history__title'>History</div>
+      <div className='history__title'>History</div>
+      <div className='history'>
+          <div className='history__content'>
           {Object.keys(bookData).map((period, index) => (
             <div key={index}>
               {bookData[period].length > 0 && (
@@ -3614,7 +3819,7 @@ function MainHistory() {
                               <div className='profile__books_volume'>Volume: {book.volume_number}</div>
                             </div>
                           </li>
-                          <li className='profile__books_description'>{book.description}</li>
+                          <li className='profile__books_description'>{truncateText(book.description, 300)}</li>
                         </ul>
                       </div>
                     </div>
@@ -3623,15 +3828,114 @@ function MainHistory() {
               )}
             </div>
           ))}
-        </div>
+          </div>
+          <HistoryBar />
       </div>
     </div>
   );
 }
 
+function truncateText(text, maxLength) {
+  if (text.length > maxLength) {
+    return text.slice(0, maxLength) + '...'; // добавляем троеточие
+  } else {
+    return text;
+  }
+}
+
 function HistoryBar() {
+  const [recordEnabled, setRecordEnabled] = useState(false); // Изначально запись истории отключена
+  const token = localStorage.getItem('token');
+
+  useEffect(() => {
+    // Получаем состояние записи истории с сервера при загрузке компонента
+    const fetchHistoryRecordState = async () => {
+      try {
+        const response = await axios.get('http://127.0.0.1:8000/api/history/record/', {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        // Выводим данные из ответа в консоль для отладки
+        console.log('Данные от сервера:', response.data);
+        // Устанавливаем состояние записи истории на основе полученных данных с сервера
+        setRecordEnabled(response.data.recordEnabled);
+      } catch (error) {
+        console.error('Ошибка при получении состояния записи истории:', error);
+      }
+    };
+
+    fetchHistoryRecordState();
+  }, [token]);
+
+  const clearHistory = async () => {
+    try {
+      await axios.post('http://127.0.0.1:8000/api/history/delete/', {}, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      console.log('История успешно очищена');
+    } catch (error) {
+      console.error('Ошибка при очистке истории:', error);
+    }
+  };
+
+  const toggleRecord = async () => {
+    try {
+
+      await axios.post('http://127.0.0.1:8000/api/history/record/', {}, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      setRecordEnabled(!recordEnabled);
+      console.log('Состояние записи истории успешно изменено');
+    } catch (error) {
+      console.error('Ошибка при изменении состояния записи истории:', error);
+    }
+  };
+
+  return (
+    <div className='history__bar'>
+      <div className='search__history'>
+        <input type="text" placeholder="Search History" className="search__history_input" />
+      </div>
+      <div className='history__clear'>
+        <button className='history__clear_button' onClick={clearHistory}>Clear History</button>
+      </div>
+      <div className='record__button'>
+        <label className='record-label'>Record History</label>
+        <button className={recordEnabled ? 'notifications-button enabled' : 'notifications-button disabled'} onClick={toggleRecord}></button>
+      </div>
+    </div>
+  );
+}
+
+
+function StudioSetting() {
   return(
-    <div></div>
+    <div className='studio__settings'>
+      <div className='studio__setting'>
+      <div className='studio__settings_first_colum'>
+        <div className='studio__setting_views'>Book</div>
+        <div className='studio__settings_label'>Book Name</div>
+        <div className='studio__settings_label'>Type of Book</div>
+        <div className='studio__settings_label'>Co-Autor</div>
+      </div>
+      <div className='studio__settings_second_colum'>
+        <div><textarea className='studio__settings_name' type="text" /></div>
+        <div><select class='studio__settings_type' name="studio_settings" id="studio_settings">
+          <option value="option1">Epic Novel</option>
+          <option value="option2">Вариант 2</option>
+          <option value="option3">Вариант 3</option>
+          <option value="option4">Вариант 4</option>
+          <option value="option5">Вариант 5</option>
+        </select></div>
+        <div><input className='studio__settings_co-autor' type="text" /></div>
+      </div>
+      </div>
+    </div>
   )
 }
 

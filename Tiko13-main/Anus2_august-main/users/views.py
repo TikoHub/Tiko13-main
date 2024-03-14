@@ -517,57 +517,6 @@ def achievements(request, username):
     return render(request, 'achievements.html', context)
 
 
-def book_settings(request, book_id):
-    from store.forms import BooksForm, BookTypeForm, SeriesForm, ChapterForm
-    from store.models import Series, Book
-    book = get_object_or_404(Book, id=book_id)
-
-    if request.method == 'POST':
-        book_form = BooksForm(data=request.POST, files=request.FILES, instance=book, user=request.user)
-        if book_form.is_valid():
-            book = book_form.save(commit=False)
-            if 'series' in request.POST:  # Ensure the series field is present
-                series_id = request.POST.get('series')  # Get the series id from POST data
-                if series_id:  # if a series was selected
-                    series = Series.objects.get(id=series_id)  # Get the series instance
-                    book.series = series  # Set the book's series to the selected series
-                else:  # If no series was selected (i.e., the series_id is an empty string)
-                    book.series = None
-            book.save()
-
-    else:
-        book_form = BooksForm(instance=book, user=request.user)
-
-    # Instantiate other forms
-    book_type_form = BookTypeForm()
-    series_form = SeriesForm()
-    illustration_form = UploadIllustrationForm()
-    trailer_form = UploadTrailerForm()
-    chapter_form = ChapterForm()  # Instantiate the ChapterForm
-
-    # Fetch all illustration and trailer links
-    illustrations = Illustration.objects.all()
-    trailers = Trailer.objects.all()
-
-    # Fetch all series related to the current user
-    user_series = Series.objects.filter(author=request.user)
-
-    # Include all forms and data in context
-    context = {
-        'book_form': book_form,
-        'illustration_form': illustration_form,
-        'trailer_form': trailer_form,
-        'illustrations': illustrations,
-        'trailers': trailers,
-        'book_type_form': book_type_form,
-        'series_form': series_form,
-        'user_series': user_series,  # Include user_series in the context
-        'chapter_form': chapter_form,  # Include the ChapterForm in the context
-    }
-
-    return render(request, 'settings/book_settings.html', context)
-
-
 class WebPageSettingsAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -582,7 +531,7 @@ class WebPageSettingsAPIView(APIView):
         return Response(serializer.data)
 
     def put(self, request, *args, **kwargs):
-        print(request.data)
+        print("Request data:", request.data)
         profile = request.user.profile
         webpage_settings = WebPageSettings.objects.get(profile=profile)
         serializer = WebPageSettingsSerializer(webpage_settings, data=request.data, partial=True)
@@ -617,6 +566,26 @@ class NotificationSettingsAPIView(generics.RetrieveUpdateAPIView):
         # Ensure that a NotificationSetting instance exists for the user
         obj, created = NotificationSetting.objects.get_or_create(user=self.request.user)
         return obj
+
+
+class UpdateNotificationSettingsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        serializer = NotificationSettingSerializer(data=request.data)
+
+        if serializer.is_valid():
+            # Assuming the NotificationSetting model has a OneToOne relation with User
+            notification_settings, created = NotificationSetting.objects.get_or_create(user=user)
+            # Update the instance with validated data
+            for attr, value in serializer.validated_data.items():
+                setattr(notification_settings, attr, value)
+            notification_settings.save()
+
+            return Response({'message': 'Settings updated successfully'}, status=status.HTTP_200_OK)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class NotificationsAPIView(APIView):

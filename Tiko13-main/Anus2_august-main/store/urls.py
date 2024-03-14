@@ -11,6 +11,7 @@ urlpatterns = [
         path('book_detail/<int:book_id>/content', views.get_book_content, name='get_book_content'), # Главы с датой добавления
         path('book_detail/<int:book_id>/review', ReviewListView.as_view(), name='post_review'), # Отзывы (пока отсутствуют)
         path('book_detail/<int:book_id>/comments/', CommentListCreateView.as_view(), name='book-comments'),# Комментарии
+        path('book_detail/<int:book_id>/add_to_library/', views.AddToReadingView.as_view(), name='add_to_library'),
 
         path('book/<int:book_id>/chapters/', ChapterContentView.as_view(), name='chapter_content'), # Отдел Глав для писателя
         path('book/<int:book_id>/chapter_side/', ChapterListView.as_view(), name='chapter-list'), # Менюшка слева для выбора главы или добавления
@@ -27,6 +28,7 @@ urlpatterns = [
         path('history/', HistoryView.as_view(), name='history'), # История книг (пока не тестил)
         path('history/delete/', delete_history, name='delete_history'),
         path('history/record/', update_history_settings, name='update-history-settings'),
+        path('unlogged-user-history/', UnloggedUserHistoryView.as_view(), name='unlogged-user-history'),
 
         path('news/', NewsNotificationsView.as_view(), name='news_notifications'),
         path('search/', SearchApiView.as_view(), name='search_api'),

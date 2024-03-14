@@ -7,7 +7,6 @@ body {
   padding: 0;
   background: linear-gradient(to left, #000000 85%, #290038);
   background-repeat: no-repeat;
-  height: 100%;
 }
 /* body {
   width: 100%; 
@@ -29,11 +28,11 @@ button:active {
 }
 
 .sidebar {
-  width: 270px;
+  width: 14%;
+  margin-right: 30px;
   z-index: 2;
   float: left;
-  height: 190vh;
-
+  height: 300vh;
 }
 
 .logo {
@@ -42,8 +41,8 @@ button:active {
   padding-left: 50px;
 }
 .main {
+  width: 100%;
   height: 100%;
-  padding-left: 38px;
 }
 
 .pool{
@@ -512,6 +511,7 @@ margin-top: 25px;
   margin-right: 40px;
 }
 
+
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
     -webkit-appearance: none;
@@ -812,12 +812,15 @@ input:-internal-autofill-selected {
   font-style: normal;
   font-weight: 400;
   line-height: normal;
+  transform: translate(-7%, 0%);
  }
 
 .profile-info__change{
   display: flex;
   justify-content: center;
+  transform: translate(-7%, 0%);
 }
+
 
 .change-li {
   justify-content: space-between;
@@ -832,6 +835,8 @@ input:-internal-autofill-selected {
   padding-bottom: 72px;
 }
 
+
+
 .change-input {
   width: 414px;
   height: 27px;
@@ -840,7 +845,7 @@ input:-internal-autofill-selected {
 }
 
 .change {
-  width: 50%;
+  width: 60%;
   padding-top: 40px;
 }
 
@@ -873,6 +878,9 @@ input:-internal-autofill-selected {
   height: 27px;
 }
 
+.description{
+  margin-top: 30px;
+}
 .description-none {
   color: #888;
   font-family: Telex;
@@ -938,6 +946,16 @@ input:-internal-autofill-selected {
   justify-content: center;
   margin-bottom: 100px;
 }
+.change-buttons_not{
+  display: flex;
+  justify-content: center;
+  margin-bottom: 100px;
+}
+.change-buttons_sec {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 100px;
+}
 .save-button {
   width: 133px;
   height: 43px;
@@ -968,9 +986,11 @@ input:-internal-autofill-selected {
 }
 
 
+
 .privacy-setting {
   display: block;
   margin-top: 101px;
+  transform: translate(-7%, 0%);
 }
 .privacy-info {
   display: flex;
@@ -1020,6 +1040,7 @@ input:-internal-autofill-selected {
   font-style: normal;
   font-weight: 400;
   line-height: normal;
+
 }
 
 .security-info {
@@ -1076,6 +1097,7 @@ input:-internal-autofill-selected {
 
 .setting-security {
   margin-top: 70px;
+  transform: translate(-7%, 0%);
 }
 .setting-password-change {
   display: flex;
@@ -1114,6 +1136,7 @@ input:-internal-autofill-selected {
   font-weight: 400;
   line-height: normal;
   padding-right: 111px;
+  
 }
 
 .notifications-views {
@@ -1133,6 +1156,7 @@ input:-internal-autofill-selected {
   font-weight: 400;
   line-height: normal;
   margin-right: 61px;
+  
 }
 
 .notifications-button {
@@ -1195,22 +1219,27 @@ input:-internal-autofill-selected {
 
 .setting-notifications {
   margin-top: 63px;
+  transform: translate(-7%, 0%);
 }
 
 .bookitem-coverpage {
   width: 175px;
   height: 200px;
-  border-radius: 20px;
-  position: relative;
+  border-radius: 10px;
   display: flex;
   justify-content: center;
   overflow: hidden;
+}
+.bookitem-coverpage img {
+  width: 100%;
   object-fit: cover;
 }
 
 .books-items {
   display: flex;
   float: left;
+  width: 280px;
+  margin-bottom: 20px;
 }
 .book-item {
   display: flex;
@@ -1304,6 +1333,7 @@ input:-internal-autofill-selected {
   border-radius: 20px;
   overflow: hidden;
   object-fit: cover;
+  margin-top: 24px;
 }
 
 .profile__book {
@@ -1358,7 +1388,7 @@ input:-internal-autofill-selected {
   font-size: 18px;
   font-style: normal;
   font-weight: 400;
-  line-height: normal;
+  line-height: normal; 
 }
 
 .profile_book {
@@ -1495,11 +1525,13 @@ input:-internal-autofill-selected {
   margin-right: 55px;
 }
 
+
 .bookpage__info_book {
   background-size: 100% auto;
   background-position: center;
   background-repeat: no-repeat;
   border-radius: 20px;
+  background: 0 0 0 0.6;
 }
 
 .bookapage__author_name {
@@ -1749,12 +1781,7 @@ input:-internal-autofill-selected {
 }
 
 
-@media (min-height: 1300px) {
 
-  .book {
-    min-height:1280px ;
-  }
-}
 
 button {
   background: none;
@@ -1873,6 +1900,10 @@ p {
 }
 .book_container{
   width: 93%;
+}
+.studio-buttons {
+  display: flex;
+  align-items: center;
 }
 
 .reader {
@@ -2074,9 +2105,7 @@ p {
 .studio-button {
   width: 36px;
   height: 35px;
-  margin-top: 12px;
   margin-right: 35px;
-  justify-content: space-between;
 }
 
 .studio-select-button {
@@ -2314,6 +2343,9 @@ p {
   margin-top: 10px;
   background-color: #3F3F3F;
   border-radius: 15px;
+  text-align: top;
+  color: white;
+  font-size: 26px;
 }
 
 .description {
@@ -2349,11 +2381,79 @@ p {
   border: none;
   border-radius: 15px;
   resize: none; 
+  color: white;
+  font-size: 18px;
 }
 
 .about_input{
   display: flex;
   
+}
+
+.history{
+  display: flex;
+}
+
+
+.search__history_input {
+  padding-left: 20px;
+  width: 95%;
+  height: 42px;
+  border: none;
+  background-color: #3F3F3F;
+  border-radius: 40px;
+  color: #FFF;
+  font-family: Telex;
+  font-size: 24px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+}
+
+.history__bar{
+  width: 600px;
+  margin-left: 35px;
+  margin-right: 35px;
+}
+
+.history__clear_button {
+  border-radius: 40px;
+  border: 1px #000;
+  background: #000;
+  width: 200px;
+  height: 42px;
+  color: #FFF;
+  font-family: Telex;
+  font-size: 24px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+  margin-top: 50px;
+  text-align: left;
+}
+
+.record-label {
+  color: #FFF;
+  font-family: Telex;
+  font-size: 28px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+  margin-left: 10px;
+}
+.record__button {
+  margin-top: 50px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.history__clear_button:hover{
+  background: #3F3F3F;
+}
+
+.history__content {
+  height: calc(100vh - 60px);
+  overflow-y: auto;
 }
 
 .history_day {
@@ -2382,7 +2482,31 @@ p {
 
 .history__title{
   color: #fff;
+  width: 100%;
   font-size: 44px;
   margin-bottom: 40px;
 }
 
+.studio__settings {
+  margin-top: 40px;
+  transform: translate(-7%, 0%);
+}
+
+.studio__settings_first_colum {
+  display: block;
+  margin-right: 200px;
+}
+
+.studio__settings_second_colum{
+  margin-left: 200px;
+}
+
+.studio__setting {
+  display: flex;
+  justify-content: center;
+}
+
+.studio__setting_views {
+  color:Red;
+  font-size: 24px;
+}

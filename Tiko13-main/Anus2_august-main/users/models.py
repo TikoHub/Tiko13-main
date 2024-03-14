@@ -282,7 +282,7 @@ class NotificationSetting(models.Model):
     show_author_updates = models.BooleanField(default=True)
 
     newbooks = models.BooleanField(default=False)
-    library_readling_updates = models.BooleanField(default=True)
+    library_reading_updates = models.BooleanField(default=True)
     library_wishlist_updates = models.BooleanField(default=True)
     library_liked_updates = models.BooleanField(default=True)
 

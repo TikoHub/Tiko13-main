@@ -48,7 +48,6 @@ class BooksListAPIView(generics.ListAPIView):
         if user.is_authenticated:
             return Book.objects.filter(
                 Q(visibility='public') |
-                Q(visibility='private', author=user) |
                 Q(visibility='followers', author__follower_users__follower=user)
             ).distinct().order_by('-views_count')
         return Book.objects.filter(visibility='public').order_by('-views_count')
@@ -78,6 +77,22 @@ class BookDetailAPIView(generics.RetrieveAPIView):
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         serialized_data = self.get_serializer(instance).data
+
+        # Update user's book reading history if history recording is enabled
+        if request.user.is_authenticated and request.user.profile.record_history:
+            UserBookHistory.objects.update_or_create(
+                user=request.user,
+                book=instance,
+                defaults={'last_accessed': timezone.now()}
+            )
+
+        if not request.user.is_authenticated:
+            unlogged_user_history = request.session.get('unlogged_user_history', [])
+            if instance.id not in unlogged_user_history:
+                unlogged_user_history.append(instance.id)
+                if len(unlogged_user_history) > 10:
+                    unlogged_user_history.pop(0)
+                request.session['unlogged_user_history'] = unlogged_user_history
 
         if 'accept_cookies' in request.COOKIES:
             # Frontend handles the view count
@@ -766,6 +781,7 @@ def dislike_review(request, review_id):
     # Redirect back to the same page
     return redirect(reverse('book_detail', kwargs={'pk': review.book.pk}))
 
+
 @api_view(['GET'])
 def review_detail(request, review_id):
     review = get_object_or_404(Review, id=review_id)
@@ -813,15 +829,43 @@ def downvote_book(request, book_id):
     return redirect(reverse('book_detail', kwargs={'pk': book.pk}))
 
 
-class SelectBookTypeView(FormView):
-    template_name = 'store/book_type.html'
-    form_class = BookTypeForm
-    success_url = reverse_lazy('create_book')
+class AddToReadingView(APIView):
+    permission_classes = [IsAuthenticated]
 
-    def form_valid(self, form):
-        book_type = form.cleaned_data['book_type']
-        self.request.session['book_type'] = book_type
-        return super().form_valid(form)
+    def post(self, request, book_id):
+        user = request.user
+
+        try:
+            book = Book.objects.get(id=book_id)
+            library, _ = Library.objects.get_or_create(user=user)
+
+            # Check if the book is adult and the user is under 18
+            if book.is_adult:
+                if not user.profile.date_of_birth:
+                    return Response({'error': 'Your age is not specified.'}, status=status.HTTP_400_BAD_REQUEST)
+                age = (date.today() - user.profile.date_of_birth).days // 365
+                if age < 18:
+                    return Response({'error': 'This book is for adults only.'}, status=status.HTTP_403_FORBIDDEN)
+
+            # Check if the book is already in the library
+            if book in library.reading_books.all() or book in library.finished_books.all():
+                return Response({'message': 'Book is already in your Library'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Add book to the reading category
+            library.reading_books.add(book)
+            return Response({'message': 'Book added to reading successfully'}, status=status.HTTP_200_OK)
+
+        except Book.DoesNotExist:
+            return Response({'error': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def is_user_adult(self, user):
+        # Assuming you have a date_of_birth field in your user profile model
+        dob = user.profile.date_of_birth
+        today = date.today()
+        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+        return age >= 18
 
 
 class Reader(APIView):
@@ -921,7 +965,22 @@ class SingleChapterView(APIView):
                 defaults={'last_accessed': timezone.now()}
             )
 
+        if not request.user.is_authenticated:
+            history = get_unlogged_user_history(request)
+            if len(history) >= 10:
+                history.pop(0)  # Remove the oldest entry if history is full
+            history.append(chapter.book.id)
+            set_unlogged_user_history(request, history)
+
         return Response(serialized_chapter)
+
+
+def get_unlogged_user_history(request):
+    return request.session.get('unlogged_user_history', [])
+
+
+def set_unlogged_user_history(request, history):
+    request.session['unlogged_user_history'] = history
 
 
 @api_view(['POST'])
@@ -1043,19 +1102,39 @@ def update_user_book_history(user, book):
     logger.debug(f'Updated history for user {user.username} and book {book.name}')
 
 
-@api_view(['POST'])
+@api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def update_history_settings(request):
-    record_history = request.data.get('record_history')
-    if record_history is not None:
-        try:
-            record_history = bool(int(record_history))
-            request.user.profile.record_history = record_history
-            request.user.profile.save()
-            return Response({'message': 'History settings updated successfully'}, status=status.HTTP_200_OK)
-        except ValueError:
-            return Response({'error': 'Invalid value for record_history'}, status=status.HTTP_400_BAD_REQUEST)
-    return Response({'error': 'record_history not provided'}, status=status.HTTP_400_BAD_REQUEST)
+    if request.method == 'GET':
+        return Response({'record_history': request.user.profile.record_history})
+
+    if request.method == 'POST':
+        # Изменяем текущую настройку
+        request.user.profile.record_history = not request.user.profile.record_history
+        request.user.profile.save()
+        return Response({'record_history': request.user.profile.record_history})
+    
+
+class UnloggedUserHistoryView(APIView):
+    def get(self, request):
+        book_ids = get_unlogged_user_history(request)
+        books = Book.objects.filter(id__in=book_ids)
+
+        serializer = BookSerializer(books, many=True)
+        return Response(serializer.data)
+
+    def post(self, request, book_id):
+        book_ids = get_unlogged_user_history(request)
+
+        if len(book_ids) >= 10:
+            book_ids.pop(0)  # Remove the oldest entry if the limit is reached
+
+        book = get_object_or_404(Book, id=book_id)
+        if book.id not in book_ids:
+            book_ids.append(book.id)
+
+        set_unlogged_user_history(request, book_ids)
+        return Response({'message': 'Book added to history'})
 
 
 class NewsNotificationsView(APIView):

@@ -2,7 +2,8 @@ from django.urls import path, include, re_path
 from . import views
 from .views import CustomUserLoginView, ProfileAPIView, RegisterView, WebPageSettingsAPIView, PrivacySettingsAPIView, \
     PasswordChangeRequestView, PasswordChangeVerificationView, VerifyRegistrationView, NotificationSettingsAPIView, \
-    AddToLibraryView, NotificationsAPIView, DepositView, WithdrawView, TransactionHistoryView
+    AddToLibraryView, NotificationsAPIView, DepositView, WithdrawView, TransactionHistoryView, UpdateNotificationSettingsView
+
 from django.views.generic import TemplateView
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -28,6 +29,7 @@ urlpatterns = [
         #path('follow', views.follow, name='follow'),
         #path('conversation/<int:user_id>/', views.conversation_view, name='conversation'), # Пока не трогай
         #path('messages_list/', views.messages_list_view, name='messages_list'), # Пока не трогай
+
         path('add_to_library/', AddToLibraryView.as_view(), name='add_to_library'), # Добавляет книгу в библиотеку пользователя (позже провекрю каким образом)
 
 
@@ -47,6 +49,8 @@ urlpatterns = [
         path('settings/verify-password-change/', PasswordChangeVerificationView.as_view(), name='verify-password-change'), # Выскакивающее окно
 
         path('settings/notifications/', NotificationSettingsAPIView.as_view(), name='settings-notifications'), # Настройки уведомлений пользователя
+        path('settings/notifications/update/', UpdateNotificationSettingsView.as_view(), name='update-notification-settings'),
+
         path('notifications/', NotificationsAPIView.as_view(), name='notifications-api'), # Уведомления пользователя (список уведов)
         path('wallet/deposit/', DepositView.as_view(), name='wallet-deposit'), # Пополнить кошелек
         path('wallet/withdraw/', WithdrawView.as_view(), name='wallet-withdraw'), # Вывести с кошелька (вернуть деньги)
