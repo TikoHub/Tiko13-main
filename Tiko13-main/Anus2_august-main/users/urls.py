@@ -42,8 +42,9 @@ urlpatterns = [
         path('<str:username>/series/', views.get_user_series, name='api_get_user_series'), # Серии пользователя
         path('<str:username>/comments/', views.get_user_comments, name='api_get_user_comments'), # Комментарии пользователя
         path('<str:username>/description/', views.update_profile_description, name='api_update_profile_description'), # Описание пользователя
-        path('<str:username>/settings/', WebPageSettingsAPIView.as_view(), name='api_web_settings'), # Настройки пользователя
         path('upload_temp_profile_img/', views.upload_temp_profile_image, name='upload_temp_profile_img'), # Возможно создаёт темпорари сторейдж для обновы аватарки
+
+        path('settings/web_page_settings', WebPageSettingsAPIView.as_view(), name='api_web_settings'), # Настройки пользователя
         path('settings/user_settings/', UserUpdateAPIView.as_view(), name='test-user'),
 
         path('settings/privacy/', PrivacySettingsAPIView.as_view(), name='privacy_settings'), # Настройки Приватности (надо объединить с security)

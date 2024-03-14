@@ -521,12 +521,8 @@ class WebPageSettingsAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-        try:
-            profile = request.user.profile
-            webpage_settings = WebPageSettings.objects.get(profile=profile)
-        except WebPageSettings.DoesNotExist:
-            return Response({'error': 'WebPageSettings not found.'}, status=404)
-
+        profile = get_object_or_404(Profile, user=request.user)
+        webpage_settings = get_object_or_404(WebPageSettings, profile=profile)
         serializer = WebPageSettingsSerializer(webpage_settings)
         return Response(serializer.data)
 
@@ -547,6 +543,11 @@ class WebPageSettingsAPIView(APIView):
 class UserUpdateAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        serializer = CustomUserSerializer(user)
+        return Response(serializer.data)
+
     def put(self, request, *args, **kwargs):
         user = request.user
         serializer = CustomUserSerializer(user, data=request.data, partial=True)
@@ -554,7 +555,7 @@ class UserUpdateAPIView(APIView):
             serializer.save()
             return Response(serializer.data)
         else:
-            return Response(serializer.errors, status=400)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])
