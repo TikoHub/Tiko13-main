@@ -221,28 +221,17 @@ class CustomProfileSerializer(serializers.ModelSerializer):
 
 
 class WebPageSettingsSerializer(serializers.ModelSerializer):
-    user = CustomUserSerializer(source='profile.user')  # Nested serializer for user
     profile = CustomProfileSerializer()  # Nested serializer for profile
 
     def update(self, instance, validated_data):
-        print(f"CustomUserSerializer update called with validated_data: {validated_data}")
-        user_data = validated_data.pop('user', None)
         profile_data = validated_data.pop('profile', None)
-
-        if user_data:
-            user_instance = instance.profile.user
-            # Now explicitly call the update method of CustomUserSerializer with the correct user_data
-            user_serializer = CustomUserSerializer(instance=user_instance, data=user_data, partial=True)
-            if user_serializer.is_valid(raise_exception=True):
-                user_serializer.save()
-            else:
-                # If user data is invalid, raise an exception or handle it as per your error handling policy
-                print("User data validation failed", user_serializer.errors)
 
         if profile_data is not None:
             profile_serializer = CustomProfileSerializer(instance.profile, data=profile_data, partial=True)
-            if profile_serializer.is_valid(raise_exception=True):
+            if profile_serializer.is_valid():
                 profile_serializer.save()
+            else:
+                raise serializers.ValidationError(profile_serializer.errors)
 
         # Update WebPageSettings instance fields
         for field, value in validated_data.items():
@@ -253,7 +242,7 @@ class WebPageSettingsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = WebPageSettings
-        fields = ('user', 'profile', 'display_dob_option', 'gender', 'date_of_birth')
+        fields = ('profile', 'display_dob_option', 'gender', 'date_of_birth')
 
 
 class PrivacySettingsSerializer(serializers.ModelSerializer):

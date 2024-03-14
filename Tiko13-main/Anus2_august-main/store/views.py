@@ -1113,7 +1113,7 @@ def update_history_settings(request):
         request.user.profile.record_history = not request.user.profile.record_history
         request.user.profile.save()
         return Response({'record_history': request.user.profile.record_history})
-    
+
 
 class UnloggedUserHistoryView(APIView):
     def get(self, request):

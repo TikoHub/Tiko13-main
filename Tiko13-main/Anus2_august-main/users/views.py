@@ -531,10 +531,25 @@ class WebPageSettingsAPIView(APIView):
         return Response(serializer.data)
 
     def put(self, request, *args, **kwargs):
-        print("Request data:", request.data)
+        print("PUT request data:", request.data)
         profile = request.user.profile
         webpage_settings = WebPageSettings.objects.get(profile=profile)
         serializer = WebPageSettingsSerializer(webpage_settings, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            print("Serializer data after save:", serializer.data)
+            return Response(serializer.data)
+        else:
+            print("Serializer errors:", serializer.errors)
+            return Response(serializer.errors, status=400)
+
+
+class UserUpdateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, *args, **kwargs):
+        user = request.user
+        serializer = CustomUserSerializer(user, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
