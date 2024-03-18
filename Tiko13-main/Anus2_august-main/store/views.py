@@ -33,7 +33,7 @@ from .converters import create_fb2, parse_fb2
 from django.core.files.storage import default_storage
 import datetime
 from datetime import date
-from users.models import WebPageSettings, Library, Profile, FollowersCount
+from users.models import WebPageSettings, Library, Profile, FollowersCount, PurchasedBook
 from django.db.models import Exists, OuterRef
 from django.db.models import Q
 from rest_framework.exceptions import PermissionDenied
@@ -1019,6 +1019,28 @@ class PurchaseBookView(APIView):
             return Response({'error': 'Insufficient wallet balance'}, status=400)
 
 
+class RefundBookView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, book_id):
+        user = request.user
+        book = get_object_or_404(Book, id=book_id)
+
+        try:
+            purchased_book = PurchasedBook.objects.get(library=user.library, book=book)
+            # Check if the refund is within the allowed time frame (e.g., 30 days)
+            if timezone.now() - purchased_book.purchase_date <= timedelta(days=30):
+                user.library.purchased_books.remove(book)
+                user.profile.wallet.balance += book.price
+                user.profile.wallet.save()
+                purchased_book.delete()
+                return Response({'message': 'Book refunded successfully'})
+            else:
+                return Response({'error': 'Refund period has expired'}, status=400)
+        except PurchasedBook.DoesNotExist:
+            return Response({'error': 'Book not found in purchased books'}, status=404)
+
+
 class HistoryView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -1078,15 +1100,6 @@ def delete_history(request):
     return Response({'message': 'History deleted successfully'}, status=status.HTTP_200_OK)
 
 
-def update_user_book_history(user, book):
-    # Check if there's an existing history entry for this user and book
-    history_entry, created = UserBookHistory.objects.get_or_create(user=user, book=book)
-
-    # Update the last_accessed timestamp to the current time
-    history_entry.last_accessed = timezone.now()
-    history_entry.save()
-
-
 logger = logging.getLogger('user_history')
 
 
@@ -1097,6 +1110,11 @@ def update_user_book_history(user, book):
     # Update the last_accessed timestamp to the current time
     history_entry.last_accessed = timezone.now()
     history_entry.save()
+
+
+def update_user_book_history_with_logging(user, book):
+    # Update the user book history
+    update_user_book_history(user, book)
 
     # Log the event
     logger.debug(f'Updated history for user {user.username} and book {book.name}')

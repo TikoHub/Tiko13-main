@@ -2,8 +2,8 @@ from django.urls import path, include, re_path
 from . import views
 from .views import CustomUserLoginView, ProfileAPIView, RegisterView, WebPageSettingsAPIView, PrivacySettingsAPIView, \
     PasswordChangeRequestView, PasswordChangeVerificationView, VerifyRegistrationView, NotificationSettingsAPIView, \
-    AddToLibraryView, NotificationsAPIView, DepositView, WithdrawView, TransactionHistoryView, UpdateNotificationSettingsView, \
-    UserUpdateAPIView
+    AddToLibraryView, NotificationsAPIView, DepositView, TransactionHistoryView, UpdateNotificationSettingsView, \
+    UserUpdateAPIView, WalletBalanceView
 
 from django.views.generic import TemplateView
 from rest_framework_simplejwt.views import (
@@ -44,7 +44,7 @@ urlpatterns = [
         path('<str:username>/description/', views.update_profile_description, name='api_update_profile_description'), # Описание пользователя
         path('upload_temp_profile_img/', views.upload_temp_profile_image, name='upload_temp_profile_img'), # Возможно создаёт темпорари сторейдж для обновы аватарки
 
-        path('settings/web_page_settings', WebPageSettingsAPIView.as_view(), name='api_web_settings'), # Настройки пользователя
+        path('settings/web_page_settings/', WebPageSettingsAPIView.as_view(), name='api_web_settings'), # Настройки пользователя
         path('settings/user_settings/', UserUpdateAPIView.as_view(), name='test-user'),
 
         path('settings/privacy/', PrivacySettingsAPIView.as_view(), name='privacy_settings'), # Настройки Приватности (надо объединить с security)
@@ -56,7 +56,8 @@ urlpatterns = [
 
         path('notifications/', NotificationsAPIView.as_view(), name='notifications-api'), # Уведомления пользователя (список уведов)
         path('wallet/deposit/', DepositView.as_view(), name='wallet-deposit'), # Пополнить кошелек
-        path('wallet/withdraw/', WithdrawView.as_view(), name='wallet-withdraw'), # Вывести с кошелька (вернуть деньги)
+      #  path('wallet/withdraw/', WithdrawView.as_view(), name='wallet-withdraw'), # Вывести с кошелька (вернуть деньги)
+        path('wallet/balance/', WalletBalanceView.as_view(), name='wallet-balance'), # Баланс кошелька
         path('wallet/transactions/', TransactionHistoryView.as_view(), name='wallet-transactions'), # История транзакций
         path('payment_successful/', views.payment_successful, name='payment_successful'), # Всплывающее окно после успешной оплаты
         path('payment_failed/', views.payment_failed, name='payment_failed'), # Всплывающее окно после неуспешной оплаты

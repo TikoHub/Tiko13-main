@@ -88,57 +88,49 @@ def generate_unique_username(base_username):
 
 class VerifyRegistrationView(APIView):
     def post(self, request, *args, **kwargs):
-        serializer = VerificationCodeSerializer(data=request.data)
-        if serializer.is_valid():
-            email = serializer.validated_data['email']
-            code = serializer.validated_data['verification_code']
+        code = request.data.get('verification_code')
 
-            try:
-                temp_reg = TemporaryRegistration.objects.get(email=email, verification_code=code)
-                if not temp_reg.is_expired:
-                    # Generate a unique username using a utility function
-                    base_username = temp_reg.first_name.lower()
-                    unique_username = generate_unique_username(base_username)
+        if not code:
+            return Response({'error': 'Verification code is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-                    # Create the actual User record
-                    user = User.objects.create_user(
-                        username=unique_username,
-                        email=temp_reg.email,
-                        password=temp_reg.password
-                    )
+        try:
+            temp_reg = TemporaryRegistration.objects.get(verification_code=code)
+            if not temp_reg.is_expired:
+                # Generate a unique username using a utility function
+                base_username = temp_reg.first_name.lower()
+                unique_username = generate_unique_username(base_username)
 
-                    # Set first and last names
-                    user.first_name = temp_reg.first_name
-                    user.last_name = temp_reg.last_name
-                    user.save()
+                # Create the actual User record with the plain text password
+                user = User.objects.create_user(
+                    username=unique_username,
+                    email=temp_reg.email,
+                    password=temp_reg.password  # Use the plain text password
+                )
 
-                    # Create or get the user's profile
-                    profile, _ = Profile.objects.get_or_create(user=user)
-                    # Set additional profile fields if needed
+                # Set first and last names
+                user.first_name = temp_reg.first_name
+                user.last_name = temp_reg.last_name
+                user.save()
 
-                    # Create or get the user's library
-                    Library.objects.get_or_create(user=user)
+                # Create or get the user's profile
+                profile, _ = Profile.objects.get_or_create(user=user)
 
-                    print(f"DOB Year: {temp_reg.dob_year}, DOB Month: {temp_reg.dob_month}")
-                    dob = date(year=temp_reg.dob_year, month=temp_reg.dob_month, day=1)
-                    print(f"Constructed DOB: {dob}")
+                # Create or get the user's library
+                Library.objects.get_or_create(user=user)
 
-                    # Create or update WebPageSettings
-                    WebPageSettings.objects.update_or_create(
-                        profile=profile,
-                        defaults={'date_of_birth': dob}
-                    )
+                webpage_settings, _ = WebPageSettings.objects.get_or_create(
+                    profile=profile,
+                    defaults={'date_of_birth': date(year=temp_reg.dob_year, month=temp_reg.dob_month, day=1)}
+                )
 
-                    # Delete the temporary registration
-                    temp_reg.delete()
+                # Delete the temporary registration
+                temp_reg.delete()
 
-                    return Response({'status': 'User registered successfully'}, status=status.HTTP_201_CREATED)
-                else:
-                    return Response({'error': 'Verification code expired'}, status=status.HTTP_400_BAD_REQUEST)
-            except TemporaryRegistration.DoesNotExist:
-                return Response({'error': 'Invalid verification details'}, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'status': 'User registered successfully'}, status=status.HTTP_201_CREATED)
+            else:
+                return Response({'error': 'Verification code expired'}, status=status.HTTP_400_BAD_REQUEST)
+        except TemporaryRegistration.DoesNotExist:
+            return Response({'error': 'Invalid verification code'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CustomUserLoginView(APIView):
@@ -787,54 +779,6 @@ def my_books(request):
     return render(request, 'settings/my_books.html', context)
 
 
-def my_account(request):
-    return render(request, 'settings/my_account.html')
-
-
-def my_series(request):
-    # Assuming you want to show series of the currently logged-in user
-    user = request.user
-    user_series = Series.objects.filter(author=user)
-
-    return render(request, 'settings/my_series.html', {'user_series': user_series})
-
-
-def security(request):
-    print("Check1")
-    if request.method == 'POST':
-        print("Check2")
-        if 'change_password' in request.POST:
-            print("Check3")
-            old_password = request.POST.get('old_password')
-            new_password = request.POST.get('new_password')
-            confirm_password = request.POST.get('confirm_password')
-
-            if old_password and new_password and confirm_password:
-                print("Check4")
-                user = authenticate(request, username=request.user.username, password=old_password)
-                if user is None:
-                    print("Check5")
-                    messages.error(request, 'Old password is incorrect')
-                elif new_password != confirm_password:
-                    print("Check6")
-                    messages.error(request, 'New password and confirmation password do not match')
-                else:
-                    print("Check7")
-                    user.set_password(new_password)
-                    user.save()
-                    login(request, user)  # log user back in since their session was invalidated due to password change
-                    messages.success(request, 'Password updated successfully')
-            else:
-                print("Check8")
-                messages.error(request, 'Please fill all the fields')
-
-    return render(request, 'settings/security.html')
-
-
-def purchase_history(request):
-    return render(request, 'settings/purchase_history.html')
-
-
 def conversation_view(request, user_id):
     other_user = get_object_or_404(User, id=user_id)
 
@@ -1048,7 +992,7 @@ class DepositView(APIView):
             return Response({'error': str(e)}, status=400)
 
 
-class WithdrawView(APIView):
+'''class WithdrawView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -1059,6 +1003,16 @@ class WithdrawView(APIView):
             return Response({'message': 'Withdrawal successful'})
         else:
             return Response({'error': 'Insufficient funds'}, status=400)
+'''
+
+
+class WalletBalanceView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        profile = request.user.profile
+        wallet = get_object_or_404(Wallet, profile=profile)
+        return Response({'balance': wallet.balance})
 
 
 class TransactionHistoryView(APIView):

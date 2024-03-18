@@ -47,7 +47,9 @@ urlpatterns = [
         # Сделаны как в Автор Тудей, возможна переработка
 
         path('comments/<int:comment_id>/delete/', views.delete_comment, name='api_delete_comment'), # Удаляет коммент по этой ссылке (Возможно уже не нужно)
-        path('book_detail/<int:book_id>/purchase', PurchaseBookView.as_view(), name='wallet-purchase-book'), # Покупка книги за внутренную сумму
+        path('book_detail/<int:book_id>/purchase/', PurchaseBookView.as_view(), name='wallet-purchase-book'), # Покупка книги за внутренную сумму
+        path('book_detail/<int:book_id>/refund/', RefundBookView.as_view(), name='refund_book'),
+
     ])),
 ]
 

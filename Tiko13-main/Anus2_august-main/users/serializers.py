@@ -12,7 +12,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 class CustomUserRegistrationSerializer(serializers.Serializer):
     first_name = serializers.CharField(required=True)
-    last_name = serializers.CharField(required=False)
+    last_name = serializers.CharField(required=False, allow_blank=True)
     dob_month = serializers.IntegerField(required=True)
     dob_year = serializers.IntegerField(required=True)
 
@@ -21,13 +21,20 @@ class CustomUserRegistrationSerializer(serializers.Serializer):
     password2 = serializers.CharField(write_only=True, required=True)
 
     def validate(self, data):
+        errors = {}
+        if User.objects.filter(email=data['email']).exists():
+            errors['email'] = 'This email is already registered.'
         if data['password'] != data['password2']:
-            raise serializers.ValidationError("Passwords do not match.")
+            errors['password'] = 'Passwords do not match.'
         if data['dob_month'] < 1 or data['dob_month'] > 12:
-            raise serializers.ValidationError("Invalid month.")
+            errors['dob_month'] = 'Invalid month.'
         current_year = timezone.now().year
         if data['dob_year'] > current_year or data['dob_year'] < (current_year - 100):
-            raise serializers.ValidationError("Invalid year.")
+            errors['dob_year'] = 'Invalid year.'
+
+        if errors:
+            raise serializers.ValidationError(errors)
+
         return data
 
 

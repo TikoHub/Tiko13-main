@@ -11,6 +11,7 @@ from django.core.files.images import get_image_dimensions
 from PIL import Image
 from io import BytesIO
 from django.core.files.uploadedfile import InMemoryUploadedFile
+from django.contrib.auth.hashers import make_password
 
 
 class Achievement(models.Model):
@@ -26,7 +27,7 @@ class TemporaryRegistration(models.Model):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100, blank=True)
     email = models.EmailField(unique=True)
-    password = models.CharField(max_length=32)
+    password = models.CharField(max_length=128)
     dob_month = models.IntegerField()
     dob_year = models.IntegerField()
     verification_code = models.CharField(max_length=6)
@@ -132,7 +133,7 @@ class Library(models.Model):
     wish_list_books = models.ManyToManyField(Book, related_name='wishlist_users', blank=True)
     favorites_books = models.ManyToManyField(Book, related_name='favorites_users', blank=True)
     finished_books = models.ManyToManyField(Book, related_name='finished_users', blank=True)
-    purchased_books = models.ManyToManyField(Book, related_name='purchased_by_users', blank=True)
+    purchased_books = models.ManyToManyField(Book, related_name='purchased_by_users', through='PurchasedBook', blank=True)
 
     def __str__(self):
         return f"Library - {self.user.username}"
@@ -142,6 +143,15 @@ class Library(models.Model):
         return (self.reading_books.all() | self.liked_books.all() |
                 self.wish_list_books.all() | self.favorites_books.all() |
                 self.finished_books.all()).distinct()
+
+
+class PurchasedBook(models.Model):
+    library = models.ForeignKey(Library, on_delete=models.CASCADE)
+    book = models.ForeignKey(Book, on_delete=models.CASCADE)
+    purchase_date = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('library', 'book')
 
 
 class Wallet(models.Model):
