@@ -450,7 +450,6 @@ def get_authored_books(request, username):
     return Response(books_serializer.data)
 
 
-
 @api_view(['GET'])
 def get_user_series(request, username):
     try:
@@ -545,7 +544,13 @@ class UserUpdateAPIView(APIView):
         serializer = CustomUserSerializer(user, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data)
+            # Reissue tokens
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                'user': serializer.data,
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+            })
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

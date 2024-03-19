@@ -66,14 +66,10 @@ class CustomUserLoginSerializer(serializers.Serializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
-    at_username = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'at_username', 'first_name', 'last_name']
-
-    def get_at_username(self, obj):
-        return f"@{obj.username}"
+        fields = ['id', 'username', 'first_name', 'last_name']
 
 
 class ProfileSerializer(serializers.ModelSerializer):
@@ -209,7 +205,6 @@ class CustomUserSerializer(serializers.ModelSerializer):
     id = serializers.ReadOnlyField()
 
     def update(self, instance, validated_data):
-        instance.username = validated_data.get('username', instance.username)
         instance.first_name = validated_data.get('first_name', instance.first_name)
         instance.last_name = validated_data.get('last_name', instance.last_name)
         instance.save()
@@ -217,14 +212,14 @@ class CustomUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('username', 'first_name', 'last_name', 'id')
+        fields = ('first_name', 'last_name', 'id')
 
 
 class CustomProfileSerializer(serializers.ModelSerializer):
     id = serializers.ReadOnlyField()
     class Meta:
         model = Profile
-        fields = ('about', 'profileimg', 'id')  # Only include the fields you want from Profile
+        fields = ('about', 'profileimg', 'id', 'banner_image')  # Only include the fields you want from Profile
 
 
 class WebPageSettingsSerializer(serializers.ModelSerializer):
@@ -253,9 +248,11 @@ class WebPageSettingsSerializer(serializers.ModelSerializer):
 
 
 class PrivacySettingsSerializer(serializers.ModelSerializer):
+    current_email = serializers.ReadOnlyField(source='user.email')
+
     class Meta:
         model = Profile
-        fields = ('auto_add_reading', 'library_visibility')
+        fields = ('auto_add_reading', 'library_visibility', 'current_email')
 
 
 '''class EmailChangeSerializer(serializers.Serializer):           # Закомментил возможность менять эмейл

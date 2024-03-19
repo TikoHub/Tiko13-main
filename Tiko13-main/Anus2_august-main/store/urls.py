@@ -36,6 +36,8 @@ urlpatterns = [
         path('books/<int:book_id>/upload/', BookFileUploadView.as_view(), name='book-file-upload'),
         path('studio/books/', StudioBooksAPIView.as_view(), name='studio-books'),
         path('studio/books/<int:book_id>/', StudioBooksAPIView.as_view(), name='update-book-visibility'),
+        path('studio/series/', StudioSeriesAPIView.as_view(), name='studio-series-list'),
+        path('studio/comments/', StudioCommentsAPIView.as_view(), name='studio_comments'),
 
 
         path('reader/<int:book_id>/', Reader.as_view(), name='reader'), # Читать книги (Здесь Список глав с содержимым), надо настроить правильно будет

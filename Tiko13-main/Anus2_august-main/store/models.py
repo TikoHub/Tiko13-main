@@ -10,7 +10,7 @@ User = get_user_model()
 
 
 class Genre(models.Model):
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=50)
     parents = models.ManyToManyField('self', symmetrical=False, related_name='child_subgenres', blank=True)
 
     def __str__(self):
@@ -18,8 +18,8 @@ class Genre(models.Model):
 
 
 class Series(models.Model):
-    name = models.CharField(max_length=200)
-    author = models.ForeignKey(User, on_delete=models.CASCADE, default=None,related_name='authored_series')
+    name = models.CharField(max_length=100)
+    author = models.ForeignKey(User, on_delete=models.CASCADE, default=None, related_name='authored_series')
     description = models.TextField(default='')
     author_remark = models.TextField(default='')
     series_finished = models.BooleanField(default=False)
@@ -60,7 +60,7 @@ class Book(models.Model):
     coverpage = models.ImageField(upload_to='static/images/coverpage', default='default_book_img.png')
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
-    description = models.TextField()
+    description = models.CharField(max_length=2000)
     favourite = models.ManyToManyField(User, related_name='favourite', blank=True)
     display_comments = models.BooleanField(default=True)
     book_type = models.CharField(max_length=50, choices=TYPE_CHOICES)
@@ -71,8 +71,7 @@ class Book(models.Model):
     rating = models.IntegerField(default=0)
     views_count = models.PositiveIntegerField(default=0)
     last_modified = models.DateTimeField(auto_now=True)
-    volume_number = models.PositiveIntegerField(null=True, blank=True,
-                                                  help_text='The number of the book in the series')
+    volume_number = models.PositiveIntegerField(default=1, blank=True, help_text='The number of the book in the series')
     visibility = models.CharField(max_length=10, choices=VISIBILITY_CHOICES, default='public')
 
     def calculate_total_pages(self):
@@ -207,7 +206,7 @@ class ReviewView(models.Model):
 class Comment(models.Model):
     book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='comments')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='store_comments')
-    text = models.TextField()
+    text = models.CharField(max_length=500)
     last_modified = models.DateTimeField(auto_now=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     parent_comment = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies')
@@ -298,3 +297,5 @@ class AuthorNote(models.Model):
 
     def __str__(self):
         return f"Note by {self.author.username} in Chapter {self.chapter.id}"
+
+

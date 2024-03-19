@@ -118,7 +118,7 @@ class BookInfoSerializer(serializers.ModelSerializer):         # Book_Detail/Inf
     formatted_last_modified = serializers.SerializerMethodField()
 
     def get_formatted_last_modified(self, obj):
-        return obj.last_modified.strftime('%m/%d/%Y')
+        return obj.last_modified.strftime('%d.%m.%Y')
 
     def get_total_chapters(self, obj):
         # Assuming you have a related set of chapters
@@ -148,7 +148,7 @@ class BookContentSerializer(serializers.ModelSerializer):  # Book_Detail/Content
 
 class CommentSerializer(serializers.ModelSerializer):
     time_since = serializers.SerializerMethodField()
-    last_modified = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S")
+    last_modified = serializers.DateTimeField(format="%Y.m.%d %H:%M:%S")
     replies = serializers.SerializerMethodField()
     profileimg = serializers.SerializerMethodField()
     username = serializers.SerializerMethodField()
@@ -169,7 +169,6 @@ class CommentSerializer(serializers.ModelSerializer):
 
     def get_username(self, obj):
         return obj.user.username
-
 
     class Meta:
         model = Comment
@@ -357,13 +356,17 @@ class BookFileSerializer(serializers.ModelSerializer):
 
 
 class StudioBookSerializer(serializers.ModelSerializer):
-    series_name = serializers.CharField(source='series.name', read_only=True)
     last_modified_formatted = serializers.SerializerMethodField()
     coverpage = serializers.SerializerMethodField()
+    series_id = serializers.PrimaryKeyRelatedField(
+        source='series',
+        queryset=Series.objects.all(),
+        allow_null=True
+    )
 
     class Meta:
         model = Book
-        fields = ['id', 'name', 'coverpage', 'volume_number', 'series_name', 'is_adult', 'last_modified_formatted', 'status', 'visibility']
+        fields = ['id', 'name', 'coverpage', 'volume_number', 'series_id', 'is_adult', 'last_modified_formatted', 'status', 'visibility']
 
     def get_last_modified_formatted(self, obj):
         return _date(obj.last_modified, "d/m/Y, H:i")
@@ -373,6 +376,55 @@ class StudioBookSerializer(serializers.ModelSerializer):
         if obj.coverpage and request:
             return request.build_absolute_uri(obj.coverpage.url)
         return None
+
+
+class StudioSeriesSerializer(serializers.ModelSerializer):
+    books = StudioBookSerializer(many=True, read_only=True, source='series_books')
+
+    class Meta:
+        model = Series
+        fields = ['id', 'name', 'books']
+
+
+class StudioSeriesBooksSerializer(serializers.ModelSerializer):
+    coverpage = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Book
+        fields = ['id', 'name', 'coverpage', 'volume_number']
+
+    def get_coverpage(self, obj):
+        request = self.context.get('request')
+        if obj.coverpage and request:
+            return request.build_absolute_uri(obj.coverpage.url)
+        return None
+
+
+class StudioCommentSerializer(serializers.ModelSerializer):
+    author_name = serializers.CharField(source='user.username')
+    author_profile_img = serializers.SerializerMethodField()
+    book_coverpage = serializers.SerializerMethodField()
+    book_name = serializers.CharField(source='book.name')
+    formatted_timestamp = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Comment
+        fields = ('id', 'author_name', 'author_profile_img', 'text', 'rating', 'formatted_timestamp', 'book_coverpage', 'book_name')
+
+    def get_author_profile_img(self, obj):
+        request = self.context.get('request')
+        if obj.user.profile.profileimg and request:
+            return request.build_absolute_uri(obj.user.profile.profileimg.url)
+        return None
+
+    def get_book_coverpage(self, obj):
+        request = self.context.get('request')
+        if obj.book.coverpage and request:
+            return request.build_absolute_uri(obj.book.coverpage.url)
+        return None
+
+    def get_formatted_timestamp(self, obj):
+        return obj.timestamp.strftime('%d.%m.%Y %H:%M')
 
 
 class AuthorSerializer(serializers.ModelSerializer):

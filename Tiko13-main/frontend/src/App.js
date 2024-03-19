@@ -529,7 +529,7 @@ function Profile({ handleTabClick }) {
     user: {
       first_name: '',
       last_name: '',
-      at_username: '',
+      username: '',
     },
     about: ''
   });
@@ -625,7 +625,7 @@ function Profile({ handleTabClick }) {
             </div>
             <div className='user-colum'>
               <div className='user-first__colum'>
-                <div className='user-tag'>{profileData.user.at_username}</div>
+                <div className='user-tag'>{profileData.user.username}</div>
                 <div className='user_followers__info'>
                   <div className='user-followings'>{profileData.following_count}Followings</div>
                   <div className='user-followers'>{profileData.followers_count}Followers</div>
@@ -1546,21 +1546,19 @@ function ProfileSettings() {
     user: {
       first_name: '',
       last_name: '',
-      at_username: '',
-    },
-    // profile: {
-    //   about: '',
-    //   profileimg: '',
-    // },
-    display_dob_option: 1,
-    gender: 'not_specified',
-    date_of_birth: null,
+      username: '',
+    }
+  });
+  const [profileChangeData, setProfileChangeData] = useState({
+    first_name: '',
+    last_name: '',
+    username: '',
   });
   const token = localStorage.getItem('token');
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [atUsername, setAtUsername] = useState('');
+  const [username, setAtUsername] = useState('');
 
   useEffect(() => {
     const getProfile = async () => {
@@ -1576,6 +1574,7 @@ function ProfileSettings() {
 
         if (response.status === 200) {
           setProfileData(response.data);
+          setProfileChangeData(response.data.user);
         } else {
           // Обработка ошибки
         }
@@ -1590,42 +1589,35 @@ function ProfileSettings() {
   useEffect(() => {
     setFirstName(profileData.user.first_name);
     setLastName(profileData.user.last_name);
-    setAtUsername(profileData.user.at_username);
-  }, [profileData.user]);
+    setAtUsername(profileData.user.username);
+  }, [profileData]);
 
   const handleFirstNameChange = (e) => {
-    setFirstName(e.target.value);
-    setProfileData((prevData) => ({
+    const value = e.target.value;
+    setFirstName(value);
+    setProfileChangeData((prevData) => ({
       ...prevData,
-      user: {
-        ...prevData.user,
-        first_name: e.target.value,
-      },
+      first_name: value !== profileData.user.first_name ? value : profileData.user.first_name,
     }));
   };
-
+  
   const handleLastNameChange = (e) => {
-    setLastName(e.target.value);
-    setProfileData((prevData) => ({
+    const value = e.target.value;
+    setLastName(value);
+    setProfileChangeData((prevData) => ({
       ...prevData,
-      user: {
-        ...prevData.user,
-        last_name: e.target.value,
-      },
+      last_name: value !== profileData.user.last_name ? value : profileData.user.last_name,
     }));
   };
-
+  
   const handleAtUsernameChange = (e) => {
-    setAtUsername(e.target.value);
-    setProfileData((prevData) => ({
+    const value = e.target.value;
+    setAtUsername(value);
+    setProfileChangeData((prevData) => ({
       ...prevData,
-      user: {
-        ...prevData.user,
-        at_username: e.target.value,
-      },
+      username: value !== profileData.user.username ? value : profileData.user.username,
     }));
   };
-
   const handleDobVisibilityChange = (e) => {
     const visibilityOption = parseInt(e.target.value);
     setProfileData((prevData) => ({
@@ -1634,7 +1626,7 @@ function ProfileSettings() {
     }));
   };
   
-  // Обработчик изменения пола
+
   const handleGenderChange = (e) => {
     const genderOption = e.target.value;
     setProfileData((prevData) => ({
@@ -1645,18 +1637,21 @@ function ProfileSettings() {
 
   const handleSave = async () => {
     try {
-      const decodedToken = jwtDecode(token);
-      const username = decodedToken.username;
-      const response = await axios.put(`${apiUrl}/users/api/${username}/settings/`, profileData, {
+      // Проверяем данные перед отправкой на сервер
+      console.log("Данные перед отправкой на сервер:", profileChangeData);
+
+      const response = await axios.put(`${apiUrl}/users/api/settings/user_settings/`, profileChangeData, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
       if (response.status === 200) {
-        // Success
+        // Успешный ответ от сервера
+        console.log("Успешный ответ от сервера:", response.data);
       } else {
-        // Handle error
+        // Обработка других статусов ответа
+        console.log("Статус ответа от сервера:", response.status);
       }
     } catch (error) {
       console.error('Ошибка при сохранении профиля', error);
@@ -1675,7 +1670,7 @@ function ProfileSettings() {
           </div>
           <div className='user-colum'>
             <div className='user-first__colum'>
-              <div className='user-tag'>{atUsername}</div>
+              <div className='user-tag'>{username}</div>
               <div className='user_followers__info'>
                 <div className='user-followings'>{profileData.following_count}Followings</div>
                 <div className='user-followers'>{profileData.followers_count}Followers</div>
@@ -1730,7 +1725,7 @@ function ProfileSettings() {
                 type="text"
                 className='change-input'
                 id="atUsername"
-                value={atUsername}
+                value={username}
                 onChange={handleAtUsernameChange}
               />
             </li>
@@ -2200,7 +2195,7 @@ function TwoStepRegistration() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
-  const [code, setCode] = useState('');
+  const [verification_code, setCode] = useState('');
   const [currentStep, setCurrentStep] = useState(1);
 
   const handleFirstStepSubmit = (e) => {
@@ -2219,12 +2214,32 @@ function TwoStepRegistration() {
         last_name: last_name,
         dob_month: dob_month,
         dob_year: dob_year,
-        code: code
       });
       setCurrentStep(3);
       console.log('Регистрация успешно завершена');
+      console.log(email)
+      console.log(password)
+      console.log(password2)
+      console.log(first_name)
+      console.log(last_name)
+      console.log(dob_month)
+      console.log(dob_year)
     } catch (error) {
       console.error('Ошибка регистрации:', error);
+    }
+  };
+  const CodeSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post(`${apiUrl}/users/api/register_verification/`, {
+        verification_code: verification_code
+      });
+      setCurrentStep(3);
+      console.log('Регистрация успешно завершена');
+      console.log(verification_code)
+    } catch (error) {
+      console.error('Ошибка регистрации:', error);
+      console.log(verification_code)
     }
   };
 
@@ -2244,7 +2259,16 @@ function TwoStepRegistration() {
                 <option value="" disabled>Month</option>
                 <option value="1">1</option>
                 <option value="2">2</option>
-                {/* Добавьте остальные месяцы */}
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10</option>
+                <option value="11">11</option>
+                <option value="12">12</option>
               </select>
               <input name="dob_year" type='number' placeholder='Year' className='year' value={dob_year} onChange={(e) => setDateOfBirthYear(e.target.value)} />
               <div><button type='submit' className='next-button'>Next</button></div>
@@ -2278,11 +2302,11 @@ function TwoStepRegistration() {
           <div className='formWrapper'>
             <span className='logo-register'><img src={Logo} alt="Logo" /></span>
             <span className='finish-title'>We have sent a four<br /> digit code to your<br />  email</span>
-            <form onSubmit={(e) => e.preventDefault()}>
+            <form>
               <span className='finish-text'>Enter code</span>
-              <input type="number" placeholder='' className='register-code' value={code} onChange={(e) => setCode(e.target.value)} />
+              <input type="number" placeholder='' className='register-code' value={verification_code} onChange={(e) => setCode(e.target.value)} />
               <button className='back-button' type="button" onClick={() => setCurrentStep(2)}>Back</button>
-              <Link to='/login'><button type='submit' className='next-button'>Finish</button></Link>
+              <Link to='/login'><button type='submit' className='next-button' onClick={CodeSubmit}>Finish</button></Link>
             </form>
           </div>
         </div>
@@ -2449,28 +2473,64 @@ function Security() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [repeatPassword, setRepeatPassword] = useState('');
+  const [code, setVerificationCode] = useState('');
+  const [allDataSaved, setAllDataSaved] = useState(false);
 
   const saveSettings = async () => {
       try {
-          const token = localStorage.getItem('token'); // Предположим, что вы храните токен в локальном хранилище
+          const token = localStorage.getItem('token');
           const response = await axios.post(
               'http://127.0.0.1:8000/users/api/settings/security/',
               {
                   current_password: currentPassword,
                   new_password: newPassword,
-                  repeat_password: repeatPassword
+                  confirm_new_password: repeatPassword
               },
               {
                   headers: {
                       Authorization: `Bearer ${token}`
                   }
-              }
+              },
+              
           );
           console.log(response.data);
+          setAllDataSaved(true);
       } catch (error) {
           console.error('Ошибка при сохранении настроек безопасности:', error);
+          console.log(currentPassword);
+          console.log(newPassword);
+          console.log(repeatPassword);
 
       }
+  };
+
+  const handleVerificationCodeChange = (e) => {
+    const code = e.target.value;
+    setVerificationCode(code);
+    if (code.length === 6) {
+      sendVerificationCode(code);
+    }
+  };
+
+  const sendVerificationCode = async (code) => {
+    try {
+      const token = localStorage.getItem('token'); 
+  
+      const response = await axios.post(
+        'http://127.0.0.1:8000/users/api/settings/verify-password-change/',
+        { verification_code: code },
+        {
+          headers: {
+            Authorization: `Bearer ${token}` 
+          }
+        }
+      );
+      console.log('Ответ от сервера:', response.data);
+      setAllDataSaved(false);
+    } catch (error) {
+      console.error('Ошибка при отправке верификационного кода:', error);
+      console.log(code);
+    }
   };
 
   const discardChanges = () => {
@@ -2499,6 +2559,19 @@ function Security() {
                           </div>
                       </div>
                   </li>
+                  {allDataSaved && (
+            <li className="security-info-li">
+              <div className='security-change-pw'>
+                <label className='security-pw-label'>Verification Code</label>
+                <input
+                  type="text"
+                  className='security-input'
+                  value={code}
+                  onChange={handleVerificationCodeChange}
+                />
+              </div>
+            </li>
+          )}
               </ul>
           </div>
           <div className="change-buttons_sec">
@@ -3536,6 +3609,7 @@ function StudioNavigation() {
                 <div className='studio__tab'>
                       {activeTab === 'tab1' && <StudioTextInput />}
                       {activeTab === 'tab2' && <StudioSetting />}
+                      {activeTab === 'tab3' && <SvgTest/> }
                 </div>
         </div>
     </div>
@@ -3844,11 +3918,10 @@ function truncateText(text, maxLength) {
 }
 
 function HistoryBar() {
-  const [recordEnabled, setRecordEnabled] = useState(false); // Изначально запись истории отключена
+  const [recordEnabled, setRecordEnabled] = useState(false);
   const token = localStorage.getItem('token');
 
   useEffect(() => {
-    // Получаем состояние записи истории с сервера при загрузке компонента
     const fetchHistoryRecordState = async () => {
       try {
         const response = await axios.get('http://127.0.0.1:8000/api/history/record/', {
@@ -3856,15 +3929,12 @@ function HistoryBar() {
             Authorization: `Bearer ${token}`
           }
         });
-        // Выводим данные из ответа в консоль для отладки
         console.log('Данные от сервера:', response.data);
-        // Устанавливаем состояние записи истории на основе полученных данных с сервера
         setRecordEnabled(response.data.recordEnabled);
       } catch (error) {
         console.error('Ошибка при получении состояния записи истории:', error);
       }
     };
-
     fetchHistoryRecordState();
   }, [token]);
 
@@ -3883,7 +3953,6 @@ function HistoryBar() {
 
   const toggleRecord = async () => {
     try {
-
       await axios.post('http://127.0.0.1:8000/api/history/record/', {}, {
         headers: {
           Authorization: `Bearer ${token}`
@@ -3906,12 +3975,11 @@ function HistoryBar() {
       </div>
       <div className='record__button'>
         <label className='record-label'>Record History</label>
-        <button className={recordEnabled ? 'notifications-button enabled' : 'notifications-button disabled'} onClick={toggleRecord}></button>
+        <button className={recordEnabled ? 'notifications-button disabled' : 'notifications-button enabled'} onClick={toggleRecord}></button>
       </div>
     </div>
   );
 }
-
 
 function StudioSetting() {
   return(
@@ -3934,6 +4002,20 @@ function StudioSetting() {
         </select></div>
         <div><input className='studio__settings_co-autor' type="text" /></div>
       </div>
+      </div>
+    </div>
+  )
+}
+
+function SvgTest() {
+  return(
+    <div className='svg_test'>
+      <div>
+        <button><svg version="1.1" xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+<path d="M0 0 C0 15.84 0 31.68 0 48 C-9.72574113 52.05239214 -19.47132999 55.98218623 -29.29321289 59.78588867 C-31.06998569 60.47569844 -32.84536175 61.1691157 -34.61938477 61.8659668 C-37.21062639 62.88360683 -39.80590318 63.89024243 -42.40234375 64.89453125 C-43.19197006 65.20695267 -43.98159637 65.51937408 -44.79515076 65.84126282 C-45.90769981 66.26752205 -45.90769981 66.26752205 -47.04272461 66.70239258 C-48.01102455 67.07948112 -48.01102455 67.07948112 -48.99888611 67.46418762 C-51 68 -51 68 -56 68 C-56 52.16 -56 36.32 -56 20 C-46.27425887 15.94760786 -36.52867001 12.01781377 -26.70678711 8.21411133 C-24.93001431 7.52430156 -23.15463825 6.8308843 -21.38061523 6.1340332 C-18.78937361 5.11639317 -16.19409682 4.10975757 -13.59765625 3.10546875 C-12.80802994 2.79304733 -12.01840363 2.48062592 -11.20484924 2.15873718 C-10.46314987 1.87456436 -9.7214505 1.59039154 -8.95727539 1.29760742 C-8.3117421 1.04621506 -7.6662088 0.79482269 -7.00111389 0.53581238 C-5 0 -5 0 0 0 Z M-10.34204102 7.54467773 C-11.2395961 7.88180283 -12.13715118 8.21892792 -13.06190491 8.56626892 C-14.51819557 9.11934471 -14.51819557 9.11934471 -16.00390625 9.68359375 C-16.9975267 10.05855484 -17.99114716 10.43351593 -19.01487732 10.81983948 C-21.11786579 11.61437199 -23.22023078 12.41055637 -25.32202148 13.20825195 C-28.55087425 14.43308987 -31.78210375 15.65148753 -35.01367188 16.86914062 C-37.0522288 17.64024054 -39.0906451 18.41171234 -41.12890625 19.18359375 C-42.10179092 19.55028671 -43.0746756 19.91697968 -44.07704163 20.29478455 C-44.97144455 20.6350618 -45.86584747 20.97533905 -46.78735352 21.32592773 C-47.57852066 21.6257103 -48.36968781 21.92549286 -49.18482971 22.23435974 C-50.98500223 22.85943275 -50.98500223 22.85943275 -52 24 C-52.08861992 26.8116338 -52.11522355 29.59858255 -52.09765625 32.41015625 C-52.0962413 33.25219101 -52.09482635 34.09422577 -52.09336853 34.96177673 C-52.08775263 37.66205335 -52.07519748 40.36224828 -52.0625 43.0625 C-52.05748705 44.88867068 -52.05292379 46.71484266 -52.04882812 48.54101562 C-52.03777804 53.02737542 -52.02050279 57.51367384 -52 62 C-42.95645131 59.49563267 -34.25389178 56.18301154 -25.49243164 52.84716797 C-22.9140274 51.86606853 -20.33315366 50.89168437 -17.75195312 49.91796875 C-16.11443431 49.297268 -14.47705907 48.67618833 -12.83984375 48.0546875 C-12.06704575 47.76302704 -11.29424774 47.47136658 -10.49803162 47.17086792 C-6.98538564 46.03128456 -6.98538564 46.03128456 -4 44 C-3.91138008 41.1883662 -3.88477645 38.40141745 -3.90234375 35.58984375 C-3.9037587 34.74780899 -3.90517365 33.90577423 -3.90663147 33.03822327 C-3.91224737 30.33794665 -3.92480252 27.63775172 -3.9375 24.9375 C-3.94251295 23.11132932 -3.94707621 21.28515734 -3.95117188 19.45898438 C-3.96222196 14.97262458 -3.97949721 10.48632616 -4 6 C-6.43696412 6 -8.05789436 6.6823517 -10.34204102 7.54467773 Z " fill="#000000" transform="translate(88,26)"/>
+<path d="M0 0 C-0.20603943 2.35551453 -0.20603943 2.35551453 -1 5 C-3.01844788 6.32258606 -3.01844788 6.32258606 -5.70336914 7.31176758 C-6.70433121 7.69178421 -7.70529327 8.07180084 -8.73658752 8.46333313 C-9.8251152 8.85312851 -10.91364288 9.24292389 -12.03515625 9.64453125 C-13.14354355 10.05918137 -14.25193085 10.47383148 -15.39390564 10.90104675 C-18.94336549 12.2239348 -22.50245715 13.51839673 -26.0625 14.8125 C-28.46748277 15.70322837 -30.87178977 16.59578366 -33.27539062 17.49023438 C-39.17496905 19.68499982 -45.08672251 21.84104989 -51 24 C-51.33 37.86 -51.66 51.72 -52 66 C-53.32 66 -54.64 66 -56 66 C-56 50.82 -56 35.64 -56 20 C-46.27425887 15.94760786 -36.52867001 12.01781377 -26.70678711 8.21411133 C-24.93001431 7.52430156 -23.15463825 6.8308843 -21.38061523 6.1340332 C-18.78937361 5.11639317 -16.19409682 4.10975757 -13.59765625 3.10546875 C-12.80802994 2.79304733 -12.01840363 2.48062592 -11.20484924 2.15873718 C-7.34279797 0.67904063 -4.2121797 -0.41655465 0 0 Z " fill="#000000" transform="translate(78,18)"/>
+<path d="M0 0 C-0.20603943 2.35551453 -0.20603943 2.35551453 -1 5 C-3.01844788 6.32258606 -3.01844788 6.32258606 -5.70336914 7.31176758 C-6.70433121 7.69178421 -7.70529327 8.07180084 -8.73658752 8.46333313 C-9.8251152 8.85312851 -10.91364288 9.24292389 -12.03515625 9.64453125 C-13.14354355 10.05918137 -14.25193085 10.47383148 -15.39390564 10.90104675 C-18.94336549 12.2239348 -22.50245715 13.51839673 -26.0625 14.8125 C-28.46748277 15.70322837 -30.87178977 16.59578366 -33.27539062 17.49023438 C-39.17496905 19.68499982 -45.08672251 21.84104989 -51 24 C-51.33 37.86 -51.66 51.72 -52 66 C-53.32 66 -54.64 66 -56 66 C-56 50.82 -56 35.64 -56 20 C-46.27425887 15.94760786 -36.52867001 12.01781377 -26.70678711 8.21411133 C-24.93001431 7.52430156 -23.15463825 6.8308843 -21.38061523 6.1340332 C-18.78937361 5.11639317 -16.19409682 4.10975757 -13.59765625 3.10546875 C-12.80802994 2.79304733 -12.01840363 2.48062592 -11.20484924 2.15873718 C-7.34279797 0.67904063 -4.2121797 -0.41655465 0 0 Z " fill="#000000" transform="translate(68,10)"/>
+</svg></button>
       </div>
     </div>
   )

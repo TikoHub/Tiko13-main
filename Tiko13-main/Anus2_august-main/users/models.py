@@ -24,8 +24,8 @@ class Achievement(models.Model):
 
 
 class TemporaryRegistration(models.Model):
-    first_name = models.CharField(max_length=100)
-    last_name = models.CharField(max_length=100, blank=True)
+    first_name = models.CharField(max_length=32)
+    last_name = models.CharField(max_length=32, blank=True)
     email = models.EmailField(unique=True)
     password = models.CharField(max_length=128)
     dob_month = models.IntegerField()
@@ -86,13 +86,13 @@ class UsersNotificationSettings(models.Model):
 
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    about = models.TextField(blank=True)
+    about = models.CharField(max_length=500, blank=True)
     profileimg = models.ImageField(upload_to='profile_images', default='blank-profile-picture.png')
     bookmarks = models.ManyToManyField(Review, related_name='bookmark_profiles', blank=True)
     achievements = models.ManyToManyField(Achievement, blank=True)
     blacklist = models.ManyToManyField(User, related_name="blacklisted_by", blank=True)
     auto_add_reading = models.BooleanField(default=True)
-    description = models.TextField(blank=True, null=True) # Не уверен что мне этот метод нравится
+    description = models.CharField(max_length=1000, blank=True, null=True) # Не уверен что мне этот метод нравится
     record_history = models.BooleanField(default=True)
     banner_image = models.ImageField(
         upload_to='banner_images',
@@ -311,3 +311,5 @@ class StripeCustomer(models.Model):
 def create_user_payment(sender, instance, created, **kwargs):
     if created:
         StripeCustomer.objects.create(user=instance)
+
+

@@ -176,6 +176,60 @@ class StudioBooksAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class StudioSeriesAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Get series created by the user
+        series = Series.objects.filter(author=request.user).prefetch_related('books')
+        series_data = []
+        for serie in series:
+            books = serie.books.all()
+            books_data = StudioSeriesBooksSerializer(books, many=True, context={'request': request}).data
+            series_data.append({
+                'id': serie.id,
+                'name': serie.name,
+                'books': books_data
+            })
+
+        # Get books that are not part of any series
+        standalone_books = Book.objects.filter(author=request.user, series__isnull=True)
+        standalone_books_data = StudioSeriesBooksSerializer(standalone_books, context={'request': request}, many=True).data
+
+        # Combine series and standalone books in the response
+        response_data = {
+            'series': series_data,
+            'standalone_books': standalone_books_data
+        }
+        return Response(response_data)
+
+    def put(self, request, book_id):
+        book = get_object_or_404(Book, id=book_id, author=request.user)
+        serializer = StudioBookSerializer(book, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            # Update volume numbers of other books in the series if needed
+            if 'volume_number' in serializer.validated_data:
+                self.update_volume_numbers(book)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def update_volume_numbers(self, book):
+        # Logic to update volume numbers of other books in the series
+        # This could involve reordering books based on their new volume numbers
+        pass
+
+
+class StudioCommentsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Get comments for books where the logged-in user is the author
+        comments = Comment.objects.filter(book__author=request.user).order_by('-timestamp')
+        serializer = StudioCommentSerializer(comments, many=True, context={'request': request})
+        return Response(serializer.data)
+
+
 class BooksCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
