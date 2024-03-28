@@ -12,6 +12,9 @@ urlpatterns = [
         path('book_detail/<int:book_id>/review', ReviewListView.as_view(), name='post_review'), # Отзывы (пока отсутствуют)
         path('book_detail/<int:book_id>/comments/', CommentListCreateView.as_view(), name='book-comments'),# Комментарии
         path('book_detail/<int:book_id>/add_to_library/', views.AddToReadingView.as_view(), name='add_to_library'),
+        path('book_detail/<int:book_id>/download/<str:format>/', views.DownloadBookView.as_view(), name='download_book'),
+        path('book_detail/<int:book_id>/comments/<int:comment_id>/like/', LikeCommentView.as_view(), name='like_comment'),
+        path('book_detail/<int:book_id>/comments/<int:comment_id>/dislike/', DislikeCommentView.as_view(), name='dislike_comment'),
 
         path('book/<int:book_id>/chapters/', ChapterContentView.as_view(), name='chapter_content'), # Отдел Глав для писателя
         path('book/<int:book_id>/chapter_side/', ChapterListView.as_view(), name='chapter-list'), # Менюшка слева для выбора главы или добавления
@@ -25,6 +28,7 @@ urlpatterns = [
         path('book/<int:book_id>/settings/', BookSettingsView.as_view(), name='book_settings'), # Настройки Книги (MVP Studio Settings 1)
         path('book/<int:book_id>/illustrations/', IllustrationView.as_view(), name='book_illustrations'), # Иллюстрации Книги (Еще нету)
         path('book/<int:book_id>/booksale/', BookSaleView.as_view(), name='book_sale'), # Книги на Продажу (возможно скидка) (Еще нету)
+
         path('history/', HistoryView.as_view(), name='history'), # История книг (пока не тестил)
         path('history/delete/', delete_history, name='delete_history'),
         path('history/record/', update_history_settings, name='update-history-settings'),
@@ -37,7 +41,9 @@ urlpatterns = [
         path('studio/books/', StudioBooksAPIView.as_view(), name='studio-books'),
         path('studio/books/<int:book_id>/', StudioBooksAPIView.as_view(), name='update-book-visibility'),
         path('studio/series/', StudioSeriesAPIView.as_view(), name='studio-series-list'),
+        path('studio/series/<int:book_id>/', StudioSeriesAPIView.as_view(), name='studio-series'),
         path('studio/comments/', StudioCommentsAPIView.as_view(), name='studio_comments'),
+        path('studio/comments/<int:comment_id>/', views.StudioCommentsAPIView.as_view(), name='studio_comments_delete'),
 
 
         path('reader/<int:book_id>/', Reader.as_view(), name='reader'), # Читать книги (Здесь Список глав с содержимым), надо настроить правильно будет

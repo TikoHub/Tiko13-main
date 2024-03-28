@@ -333,10 +333,19 @@ def get_library_content(request, username):
     try:
         user = User.objects.get(username=username)
         library, created = Library.objects.get_or_create(user=user)
-    except User.DoesNotExist:
-        return Response({'error': 'User does not exist.'}, status=404)
+        profile = user.profile
+    except (User.DoesNotExist, Library.DoesNotExist):
+        return Response({'error': 'User or library does not exist.'}, status=404)
 
-    filter_by = request.query_params.get('filter_by')  # Add your filter logic here
+    # Check library visibility
+    if profile.library_visibility == 'private':
+        if request.user != user:
+            return Response({'error': 'This library is private.'}, status=403)
+    elif profile.library_visibility == 'followers':
+        if request.user != user and not user.followers.filter(id=request.user.id).exists():
+            return Response({'error': 'This library is visible only to followers.'}, status=403)
+
+    filter_by = request.query_params.get('filter_by')
 
     if filter_by == 'reading':
         books_qs = library.reading_books.all()
@@ -351,10 +360,7 @@ def get_library_content(request, username):
     else:
         books_qs = library.get_all_books()
 
-    # Serialize the book data with request context
     books_serializer = LibraryBookSerializer(books_qs, many=True, context={'request': request})
-
-    # Return the serialized book data in the response
     return Response(books_serializer.data)
 
 

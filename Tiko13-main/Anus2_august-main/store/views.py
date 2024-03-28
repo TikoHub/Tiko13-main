@@ -38,6 +38,7 @@ from django.db.models import Exists, OuterRef
 from django.db.models import Q
 from rest_framework.exceptions import PermissionDenied
 import logging
+from django.http import FileResponse, Http404
 
 
 class BooksListAPIView(generics.ListAPIView):
@@ -205,20 +206,31 @@ class StudioSeriesAPIView(APIView):
 
     def put(self, request, book_id):
         book = get_object_or_404(Book, id=book_id, author=request.user)
+        old_series = book.series
         serializer = StudioBookSerializer(book, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            # Update volume numbers of other books in the series if needed
-            if 'volume_number' in serializer.validated_data:
-                self.update_volume_numbers(book)
+            if 'volume_number' in serializer.validated_data or 'series' in serializer.validated_data:
+                self.update_volume_numbers(book, old_series=old_series)
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def update_volume_numbers(self, book):
-        # Logic to update volume numbers of other books in the series
-        # This could involve reordering books based on their new volume numbers
-        pass
+    def update_volume_numbers(self, updated_book, old_series=None):
+        # Update volume numbers in the old series if the book was moved from another series
+        if old_series:
+            old_series_books = old_series.books.exclude(id=updated_book.id).order_by('volume_number')
+            for i, book in enumerate(old_series_books, start=1):
+                book.volume_number = i
+                book.save(update_fields=['volume_number'])
 
+        # Update volume numbers in the new series if the book is part of a series
+        if updated_book.series:
+            new_series_books = updated_book.series.books.exclude(id=updated_book.id).order_by('volume_number')
+            new_books_list = list(new_series_books)
+            new_books_list.insert(updated_book.volume_number - 1, updated_book)
+            for i, book in enumerate(new_books_list, start=1):
+                book.volume_number = i
+                book.save(update_fields=['volume_number'])
 
 class StudioCommentsAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -228,6 +240,15 @@ class StudioCommentsAPIView(APIView):
         comments = Comment.objects.filter(book__author=request.user).order_by('-timestamp')
         serializer = StudioCommentSerializer(comments, many=True, context={'request': request})
         return Response(serializer.data)
+
+    def delete(self, request, comment_id):
+        comment = get_object_or_404(Comment, id=comment_id)
+        if comment.book.author != request.user:
+            return Response({'error': 'You are not authorized to delete this comment.'},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        comment.delete()
+        return Response({'status': 'Comment deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
 
 
 class BooksCreateAPIView(APIView):
@@ -450,6 +471,23 @@ class ChapterUploadView(APIView):
         return Response({'message': 'Chapter uploaded successfully'})
 
 
+class DownloadBookView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, book_id, format):
+        book = get_object_or_404(Book, pk=book_id)
+
+        if not book.can_user_download(request.user):
+            return Response({'error': 'You are not allowed to download this book.'}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            # Assuming you have a method to get the file path based on the format
+            file_path = book.get_file_path(format)
+            return FileResponse(open(file_path, 'rb'), as_attachment=True, filename=f'{book.name}.{format}')
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+
 class SearchApiView(APIView):
     def get(self, request):
         query = request.query_params.get('q', '')
@@ -471,22 +509,30 @@ class SearchApiView(APIView):
 class BookSettingsView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get_serializer_context(self):
-        context = {}
-        followers_usernames = self.request.user.follower_users.values_list('follower__username', flat=True)
-        context['co_author_queryset'] = User.objects.filter(username__in=followers_usernames)
-        return context
+    def get(self, request, book_id, format=None):
+        book = get_object_or_404(Book, pk=book_id)
+
+        if book.author != request.user:
+            return Response({'error': 'You do not have permission to view the settings of this book'}, status=status.HTTP_403_FORBIDDEN)
+
+        # Create the context for the serializer
+        followers_usernames = request.user.follower_users.values_list('follower__username', flat=True)
+        context = {'co_author_queryset': User.objects.filter(username__in=followers_usernames)}
+
+        serializer = BookSettingsSerializer(book, context=context)
+        return Response(serializer.data)
 
     def patch(self, request, book_id, format=None):
-        try:
-            book = Book.objects.get(pk=book_id)
-        except Book.DoesNotExist:
-            return Response({'error': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
+        book = get_object_or_404(Book, pk=book_id)
 
         if book.author != request.user:
             return Response({'error': 'You do not have permission to edit this book'}, status=status.HTTP_403_FORBIDDEN)
 
-        serializer = BookSettingsSerializer(book, data=request.data, partial=True, context=self.get_serializer_context())
+        # Create the context for the serializer
+        followers_usernames = request.user.follower_users.values_list('follower__username', flat=True)
+        context = {'co_author_queryset': User.objects.filter(username__in=followers_usernames)}
+
+        serializer = BookSettingsSerializer(book, data=request.data, partial=True, context=context)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
@@ -605,6 +651,9 @@ class CommentListCreateView(APIView):
 
     def post(self, request, book_id):
         book = get_object_or_404(Book, pk=book_id)
+        if not book.can_user_comment(request.user):
+            return Response({'error': 'You are not allowed to comment on this book.'}, status=status.HTTP_403_FORBIDDEN)
+
         serializer = CreateCommentSerializer(data=request.data)
         if serializer.is_valid():
             new_comment = serializer.save(user=request.user, book=book)
@@ -623,16 +672,35 @@ class CommentListCreateView(APIView):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['post'])
-    def like_comment(self, request, book_id, comment_id):
-        # Logic to like a comment
-        pass
 
-    @action(detail=True, methods=['post'])
-    def dislike_comment(self, request, book_id, comment_id):
-        # Logic to dislike a comment
-        pass
+class LikeCommentView(APIView):
+    permission_classes = [IsAuthenticated]
 
+    def post(self, request, book_id, comment_id):
+
+        comment = get_object_or_404(Comment, id=comment_id, book_id=book_id)
+        if comment.user == request.user:
+            return Response({'error': 'You cannot like your own comment.'}, status=status.HTTP_403_FORBIDDEN)
+
+        CommentDislike.objects.filter(comment=comment, user=request.user).delete()
+        like, created = CommentLike.objects.get_or_create(comment=comment, user=request.user)
+
+        return Response({'status': 'liked' if created else 'like exists'}, status=status.HTTP_200_OK)
+
+
+class DislikeCommentView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, book_id, comment_id):
+
+        comment = get_object_or_404(Comment, id=comment_id, book_id=book_id)
+        if comment.user == request.user:
+            return Response({'error': 'You cannot dislike your own comment.'}, status=status.HTTP_403_FORBIDDEN)
+
+        CommentLike.objects.filter(comment=comment, user=request.user).delete()
+        dislike, created = CommentDislike.objects.get_or_create(comment=comment, user=request.user)
+
+        return Response({'status': 'disliked' if created else 'dislike exists'}, status=status.HTTP_200_OK)
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])

@@ -291,10 +291,28 @@ class BookSettingsSerializer(serializers.ModelSerializer):
         queryset=User.objects.none(),  # Initially set to none
         required=False
     )
+    co_author2 = serializers.SlugRelatedField(
+        slug_field='username',
+        queryset=User.objects.none(),
+        required=False,
+        allow_null=True
+    )
+
+    genre = serializers.SlugRelatedField(
+        slug_field='name',
+        queryset=Genre.objects.all(),
+        required=True
+    )
+    subgenres = serializers.SlugRelatedField(
+        slug_field='name',
+        queryset=Genre.objects.all(),
+        many=True,
+        required=False
+    )
 
     class Meta:
         model = Book
-        fields = ['name', 'book_type', 'co_author']
+        fields = ['name', 'book_type', 'co_author', 'co_author2', 'genre', 'subgenres', 'description', 'authors_note', 'is_adult', 'visibility', 'comment_access', 'download_access']
         extra_kwargs = {
             'name': {'required': True},
             'book_type': {'required': True}
@@ -304,6 +322,7 @@ class BookSettingsSerializer(serializers.ModelSerializer):
         super().__init__(*args, **kwargs)
         if 'co_author_queryset' in self.context:
             self.fields['co_author'].queryset = self.context['co_author_queryset']
+            self.fields['co_author2'].queryset = self.context['co_author_queryset']
 
 
 class IllustrationSerializer(serializers.ModelSerializer):

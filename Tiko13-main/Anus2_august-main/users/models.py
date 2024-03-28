@@ -101,14 +101,14 @@ class Profile(models.Model):
     )
 
     LIBRARY_VISIBILITY_CHOICES = (
-        ('no_one', 'No One'),
-        ('friends', 'Friends Only'),
+        ('private', 'Private'),
+        ('followers', 'Followers'),
         ('everyone', 'Everyone'),
     )
     library_visibility = models.CharField(
         max_length=10,
         choices=LIBRARY_VISIBILITY_CHOICES,
-        default='friends'
+        default='everyone'
     )
 
     def unread_notification_count(self):

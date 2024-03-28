@@ -44,35 +44,46 @@ class Book(models.Model):
     VISIBILITY_CHOICES = (
         ('public', 'Public'),
         ('private', 'Private'),
-        ('followers', 'Followers'),
+      #  ('followers', 'Followers'),
         ('unlisted', 'Unlisted'),
     )
+    COMMENT_DOWNLOAD_CHOICES = (
+        ('public', 'Everyone'),
+        ('private', 'No one'),
+        ('followers', 'Followers'),
+    )
+
+    def get_undefined_genre():
+        return Genre.objects.get_or_create(name='Undefined')[0].id
 
     author = models.ForeignKey(User, on_delete=models.CASCADE, default=None,related_name='authored_books')
     co_author = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
                                   related_name='coauthored_books')
     co_author2 = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
                                   related_name='coauthored_books2')
-    genre = models.ForeignKey(Genre, on_delete=models.CASCADE)
+    genre = models.ForeignKey(Genre, on_delete=models.CASCADE, default=get_undefined_genre)
     subgenres = models.ManyToManyField(Genre, related_name='subgenres', blank=True)
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, default='Book Name')
     price = models.DecimalField(max_digits=6, decimal_places=2, default=0.00)
     coverpage = models.ImageField(upload_to='static/images/coverpage', default='default_book_img.png')
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
-    description = models.CharField(max_length=2000)
+    description = models.CharField(max_length=2000, default="Book's Description")
     favourite = models.ManyToManyField(User, related_name='favourite', blank=True)
     display_comments = models.BooleanField(default=True)
-    book_type = models.CharField(max_length=50, choices=TYPE_CHOICES)
+    book_type = models.CharField(max_length=50, choices=TYPE_CHOICES, default='epic_novel')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='in_progress')
     series = models.ForeignKey(Series, on_delete=models.SET_NULL, null=True, blank=True, related_name='books')
-    #author_remark = models.TextField(blank=True)
+    authors_note = models.TextField(default="Author's Note")
     is_adult = models.BooleanField(default=False)
     rating = models.IntegerField(default=0)
     views_count = models.PositiveIntegerField(default=0)
     last_modified = models.DateTimeField(auto_now=True)
-    volume_number = models.PositiveIntegerField(default=1, blank=True, help_text='The number of the book in the series')
-    visibility = models.CharField(max_length=10, choices=VISIBILITY_CHOICES, default='public')
+    volume_number = models.PositiveIntegerField(default=1, help_text='The number of the book in the series')
+    visibility = models.CharField(max_length=10, choices=VISIBILITY_CHOICES, default='private')
+    comment_access = models.CharField(max_length=10, choices=COMMENT_DOWNLOAD_CHOICES, default='public')
+    download_access = models.CharField(max_length=10, choices=COMMENT_DOWNLOAD_CHOICES, default='public')
+    demo_version = models.BooleanField(default=False)
 
     def calculate_total_pages(self):
         total_characters = sum(len(chapter.content) for chapter in self.chapters.all())
@@ -82,18 +93,21 @@ class Book(models.Model):
         return "Free" if self.price == 0 else self.price
 
     def save(self, *args, **kwargs):
-        if not self.series_id:  # If "No Series" was selected or not provided...
-            self.series = None
-            self.volume_number = None  # Reset sequence number if the book is not part of a series
-        else:
-            # If the book is part of a series and doesn't have a sequence number, assign one
-            if self.volume_number is None:
+        if self.series:  # If the book is part of a series
+            if not self.volume_number:
                 # Get the current highest sequence number in the series
                 current_max = self.series.books.aggregate(Max('volume_number'))['volume_number__max']
                 self.volume_number = (current_max + 1) if current_max is not None else 1
+            else:
+                # Update volume numbers for subsequent books in the series
+                subsequent_books = self.series.books.filter(volume_number__gte=self.volume_number).exclude(pk=self.pk)
+                for book in subsequent_books:
+                    book.volume_number += 1
+                    book.save(update_fields=['volume_number'])
+        else:  # If the book is not part of a series
+            self.volume_number = 1  # Set volume number to 1
 
-        # Call the "real" save method
-        super().save(*args, **kwargs)
+        super().save(*args, **kwargs)  # Save the book with all updates
 
     def like_count(self):
         return self.likes.count()
@@ -108,6 +122,24 @@ class Book(models.Model):
 
     def downvote_count(self):
         return self.downvotes.count()
+
+    def can_user_comment(self, user):
+        if self.comment_access == 'public':
+            return True
+        elif self.comment_access == 'private':
+            return False
+        elif self.comment_access == 'followers' and user in self.author.profile.followers.all():
+            return True
+        return False
+
+    def can_user_download(self, user):
+        if self.download_access == 'public':
+            return True
+        elif self.download_access == 'private':
+            return False
+        elif self.download_access == 'followers' and user in self.author.profile.followers.all():
+            return True
+        return False
 
 
 class BookFile(models.Model):
