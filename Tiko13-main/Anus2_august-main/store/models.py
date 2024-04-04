@@ -5,6 +5,7 @@ from datetime import timedelta, datetime
 from django.db.models import Max
 from django.conf import settings
 from .utils import get_client_ip
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 User = get_user_model()
 
@@ -141,6 +142,20 @@ class Book(models.Model):
             return True
         return False
 
+    def notify_users(self):
+        from users.notification_utils import send_book_update_notifications
+        send_book_update_notifications(self)
+
+    @property
+    def latest_chapter_title(self):
+        # Assuming you have a Chapter model with a foreign key to Book
+        latest_chapter = self.chapters.order_by('-created').first()
+        return latest_chapter.title if latest_chapter else None
+
+    def chapter_count(self):
+        # Implement this method to return the number of chapters in the book
+        return self.chapters.count()
+
 
 class BookFile(models.Model):
     book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='files')
@@ -214,9 +229,14 @@ class Review(models.Model):
     views_count = models.PositiveIntegerField(default=0)
     last_viewed = models.DateTimeField(null=True, blank=True)
     rating = models.IntegerField(default=0)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    plot_rating = models.IntegerField(default=0, validators=[MinValueValidator(1), MaxValueValidator(10)])
+    characters_rating = models.IntegerField(default=0, validators=[MinValueValidator(1), MaxValueValidator(10)])
+    main_character_rating = models.IntegerField(default=0, validators=[MinValueValidator(1), MaxValueValidator(10)])
+    genre_fit_rating = models.IntegerField(default=0, validators=[MinValueValidator(1), MaxValueValidator(10)])
 
     def count_likes(self):
-        return self.likes.count()
+            return self.likes.count()
 
     def count_dislikes(self):
         return self.dislikes.count()
@@ -329,5 +349,14 @@ class AuthorNote(models.Model):
 
     def __str__(self):
         return f"Note by {self.author.username} in Chapter {self.chapter.id}"
+
+
+class Illustration(models.Model):
+    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='illustrations')
+    description = models.CharField(max_length=255, default='Illustration Descrpition')
+    image = models.ImageField(upload_to='illustrations/')
+
+    def __str__(self):
+        return f"{self.description} (Illustration for {self.book.name})"
 
 

@@ -10,17 +10,19 @@ class FollowerHelper:
 
     @staticmethod
     def follow(follower, user):
+        if follower == user:
+            return None  # Prevent users from following themselves
+
         if not FollowerHelper.is_following(follower, user):
             new_follower = FollowersCount.objects.create(follower=follower, user=user)
 
             # Check if the user wants to receive new follower notifications
-            if user.notification_settings.new_follower_notifications:
+            if user.notification_settings.show_follower_updates:
                 # Create a new notification for gaining a new follower
                 Notification.objects.create(
-                    recipient=user,
-                    sender=follower,
-                    notification_type='new_follower',
-                    # Additional fields as needed, such as a message or related content
+                    recipient=user.profile,  # Make sure to use user.profile, not user
+                    sender=follower.profile,  # Use follower.profile, not follower
+                    notification_type='new follower',
                 )
 
             return new_follower

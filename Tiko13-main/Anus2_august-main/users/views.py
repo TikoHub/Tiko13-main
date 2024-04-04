@@ -32,8 +32,8 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 import stripe
 
-from .forms import UploadIllustrationForm, UploadTrailerForm
-from .models import Achievement, Illustration, Trailer, Notification, Conversation, Message, \
+from .forms import UploadTrailerForm
+from .models import Achievement, Trailer, Notification, Conversation, Message, \
     WebPageSettings, Library, EmailVerification, TemporaryRegistration, Wallet, StripeCustomer, \
     UsersNotificationSettings
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -220,34 +220,21 @@ class ProfileAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-def follow(request):
-    if request.method == 'POST':
-        follower_username = request.POST.get('follower', '')
-        user_username = request.POST.get('user', '')
-        try:
-            follower = User.objects.get(username=follower_username)
-            user = User.objects.get(username=user_username)
-        except User.DoesNotExist:
-            return redirect('/')
+class FollowView(APIView):
+    permission_classes = [IsAuthenticated]
 
-        if FollowerHelper.is_following(follower, user):
-            FollowerHelper.unfollow(follower, user)
+    def post(self, request, username):
+        user_to_follow = get_object_or_404(User, username=username)
+        follower = request.user
+
+        if FollowerHelper.is_following(follower, user_to_follow):
+            FollowerHelper.unfollow(follower, user_to_follow)
+            message = f"You stopped following {username}."
         else:
-            FollowerHelper.follow(follower, user)
+            FollowerHelper.follow(follower, user_to_follow)
+            message = f"You are now following {username}."
 
-            notification = Notification(
-                recipient=user.profile,
-                sender=follower.profile,
-                notification_type='follow'
-            )
-            print(f'Follower: {follower}, Profile: {follower.profile}, Username: {follower.profile.nickname}')
-            print(f'User: {user}, Profile: {user.profile}, Username: {user.profile.nickname}')
-
-            notification.save()
-
-        return redirect('./profile/' + user_username)
-    else:
-        return redirect('/')
+        return Response({"message": message}, status=status.HTTP_200_OK)
 
 
 class AddToLibraryView(APIView):
@@ -441,6 +428,16 @@ def get_user_comments(request, username):
 # Тико, еще подумай что делать с parent comment-ом при удалении комментария(к примеру, парент коммент у мен был Андрей, но он удалил комментарий, что случается)
 # Должно высвечиваться что комментарий удалён, соответственно, айди комментария остаётся, и только текст удаляется, и если текст удаляется
 # То отображать что комментарий удалён (или узнать еще способы)
+
+
+@api_view(['GET'])
+def get_user_reviews(request, username):
+    user = get_object_or_404(User, username=username)
+    reviews = Review.objects.filter(author=user)
+    serializer = ReviewSerializer(reviews, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
 @api_view(['GET'])
 def get_authored_books(request, username):
     try:
@@ -473,23 +470,23 @@ def get_user_series(request, username):
 @api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated])
 def update_profile_description(request, username):
-    if request.user.username != username:
-        return Response({'error': 'You do not have permission to access this profile.'}, status=status.HTTP_403_FORBIDDEN)
-
-    profile = request.user.profile
+    profile = get_object_or_404(Profile, user__username=username)
 
     if request.method == 'GET':
         serializer = ProfileDescriptionSerializer(profile)
         return Response(serializer.data)
 
     elif request.method == 'PUT':
+        if request.user.username != username:
+            return Response({'error': 'You do not have permission to edit this profile.'},
+                            status=status.HTTP_403_FORBIDDEN)
+
         serializer = ProfileDescriptionSerializer(profile, data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response({'message': 'Description updated successfully.'}, status=status.HTTP_200_OK)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 def get_achievements_content(request, username):
@@ -607,10 +604,16 @@ class UpdateNotificationSettingsView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class NotificationsAPIView(APIView):
-    def get(self, request, *args, **kwargs):
-        user = request.user
-        notifications = Notification.objects.filter(recipient=user.profile)
+class UserNotificationsAPIView(APIView):
+    def get(self, request, username, *args, **kwargs):
+        user = get_object_or_404(User, username=username)
+
+        # Ensure the authenticated user is the same as the user whose notifications are being requested
+        if request.user != user:
+            return Response({'error': 'You do not have permission to access these notifications.'},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        notifications = Notification.objects.filter(recipient=user.profile).order_by('-timestamp')
         serializer = NotificationSerializer(notifications, many=True)
         return Response(serializer.data)
 

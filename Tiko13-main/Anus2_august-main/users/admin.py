@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Profile, FollowersCount, Library, Achievement, WebPageSettings, TemporaryRegistration, Wallet, PurchasedBook
+from .models import Profile, FollowersCount, Library, Achievement, WebPageSettings, TemporaryRegistration, Wallet, PurchasedBook, Notification, UsersNotificationSettings
 
 admin.site.register(Profile)
 admin.site.register(FollowersCount)
@@ -9,3 +9,5 @@ admin.site.register(WebPageSettings)
 admin.site.register(TemporaryRegistration)
 admin.site.register(Wallet)
 admin.site.register(PurchasedBook)
+admin.site.register(Notification)
+admin.site.register(UsersNotificationSettings)

@@ -5,5 +5,6 @@ class StoreConfig(AppConfig):
     name = 'store'
 
     def ready(self):
+        import store.signals
         # Import the signals module to ensure signal handlers are registered
         from . import signals  # This line is important!

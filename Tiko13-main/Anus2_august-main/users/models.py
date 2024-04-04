@@ -42,11 +42,13 @@ class Notification(models.Model):
     # Define types of notifications
     TYPE_CHOICES = (
         ('like', 'Like'),
-        ('comment', 'Comment'),
-        ('follow', 'Follow'),
+        ('comment reply', 'Comment reply'),
+        ('new follower', 'New Follower'),
         ('review_update', 'Review Update'),
         ('book_update', 'Book Update'),
         ('author_update', 'Author Update'),
+        ('new comment', 'New Comment'),
+        ('new_ebook', 'New Ebook'),
     )
 
     recipient = models.ForeignKey('Profile', on_delete=models.CASCADE, related_name='notifications')
@@ -55,14 +57,24 @@ class Notification(models.Model):
     read = models.BooleanField(default=False)
     timestamp = models.DateTimeField(auto_now_add=True)
     book = models.ForeignKey('store.Book', on_delete=models.SET_NULL, null=True, blank=True, related_name='user_book_preference_notification')
+    message = models.TextField(blank=True, null=True)
+
+    def save(self, *args, **kwargs):
+        if not self.message:
+            self.message = self.get_message()
+        super().save(*args, **kwargs)
 
     def get_message(self):
         if self.notification_type == 'follow':
             return f"{self.sender.user.username} followed you"
-        elif self.notification_type == 'comment':
+        elif self.notification_type == 'comment reply':
             return f"{self.sender.user.username} replied to your comment"
+        elif self.notification_type == 'new comment':
+            return f"{self.sender.user.username} commented on your book {self.book.name}"
         elif self.notification_type == 'book_update':
             return f"New update in {self.book.name}"
+        elif self.notification_type == 'new_ebook':  # Add this block
+            return f"New Ebook: {self.book.name}"
         else:
             return ""
 
@@ -82,6 +94,15 @@ class UsersNotificationSettings(models.Model):
     notify_wishlist = models.BooleanField(default=True)
     notify_favorites = models.BooleanField(default=True)
     chapter_notification_threshold = models.IntegerField(default=1, choices=CHAPTER_NOTIFICATION_CHOICES)  # Default to 1 chapter
+
+
+class UserBookChapterNotification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chapter_notifications')
+    book = models.ForeignKey('store.Book', on_delete=models.CASCADE, related_name='chapter_notifications')
+    last_notified_chapter_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        unique_together = ('user', 'book')
 
 
 class Profile(models.Model):
@@ -195,10 +216,6 @@ class WalletTransaction(models.Model):
 
     def __str__(self):
         return f"{self.wallet.profile.user.username} - {self.transaction_type} - {self.amount}"
-
-
-class Illustration(models.Model):
-    image = models.ImageField(upload_to='static/images/illustrations')
 
 
 class Trailer(models.Model):

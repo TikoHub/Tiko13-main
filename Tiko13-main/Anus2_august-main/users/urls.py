@@ -2,8 +2,8 @@ from django.urls import path, include, re_path
 from . import views
 from .views import CustomUserLoginView, ProfileAPIView, RegisterView, WebPageSettingsAPIView, PrivacySettingsAPIView, \
     PasswordChangeRequestView, PasswordChangeVerificationView, VerifyRegistrationView, NotificationSettingsAPIView, \
-    AddToLibraryView, NotificationsAPIView, DepositView, TransactionHistoryView, UpdateNotificationSettingsView, \
-    UserUpdateAPIView, WalletBalanceView
+    AddToLibraryView, WalletBalanceView, DepositView, TransactionHistoryView, UpdateNotificationSettingsView, \
+    UserUpdateAPIView, UserNotificationsAPIView, FollowView
 
 from django.views.generic import TemplateView
 from rest_framework_simplejwt.views import (
@@ -27,8 +27,9 @@ urlpatterns = [
         path('token/verify/', TokenVerifyView.as_view(), name='token_verify'),
         path('accounts/', include('allauth.urls')), # Пока не трогай
         path('auth/', include('allauth.socialaccount.urls')), # Пока не трогай
-        #path('follow', views.follow, name='follow'),
-        #path('conversation/<int:user_id>/', views.conversation_view, name='conversation'), # Пока не трогай
+        path('<str:username>/follow/', FollowView.as_view(), name='follow'),
+
+    #path('conversation/<int:user_id>/', views.conversation_view, name='conversation'), # Пока не трогай
         #path('messages_list/', views.messages_list_view, name='messages_list'), # Пока не трогай
 
         path('add_to_library/', AddToLibraryView.as_view(), name='add_to_library'), # Добавляет книгу в библиотеку пользователя (позже провекрю каким образом)
@@ -37,10 +38,11 @@ urlpatterns = [
         path('<str:username>/followers/', views.followers_list, name='followers-list'), # Подписчики
         path('<str:username>/following/', views.following_list, name='following-list'), # Подписки
         path('<str:username>/', ProfileAPIView.as_view(), name='api-profile'), # Профиль пользователя (Временный Адрес, буду убирать все api/ штуки позже
-        path('<str:username>/library', views.get_library_content, name='api_get_library_content'), # Библиотека пользователя
+        path('<str:username>/library/', views.get_library_content, name='api_get_library_content'), # Библиотека пользователя
         path('<str:username>/books/', views.get_authored_books, name='api_get_authored_books'),     # Книги пользователя
         path('<str:username>/series/', views.get_user_series, name='api_get_user_series'), # Серии пользователя
         path('<str:username>/comments/', views.get_user_comments, name='api_get_user_comments'), # Комментарии пользователя
+        path('<str:username>/reviews/', views.get_user_reviews, name='user-reviews'), # Отзывы пользователя
         path('<str:username>/description/', views.update_profile_description, name='api_update_profile_description'), # Описание пользователя
         path('upload_temp_profile_img/', views.upload_temp_profile_image, name='upload_temp_profile_img'), # Возможно создаёт темпорари сторейдж для обновы аватарки
 
@@ -54,7 +56,8 @@ urlpatterns = [
         path('settings/notifications/', NotificationSettingsAPIView.as_view(), name='settings-notifications'), # Настройки уведомлений пользователя
         path('settings/notifications/update/', UpdateNotificationSettingsView.as_view(), name='update-notification-settings'),
 
-        path('notifications/', NotificationsAPIView.as_view(), name='notifications-api'), # Уведомления пользователя (список уведов)
+        path('<str:username>/notifications/', UserNotificationsAPIView.as_view(), name='user-notifications-api'), # Уведомления пользователя (список уведов)
+
         path('wallet/deposit/', DepositView.as_view(), name='wallet-deposit'), # Пополнить кошелек
       #  path('wallet/withdraw/', WithdrawView.as_view(), name='wallet-withdraw'), # Вывести с кошелька (вернуть деньги)
         path('wallet/balance/', WalletBalanceView.as_view(), name='wallet-balance'), # Баланс кошелька

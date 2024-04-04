@@ -5,7 +5,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, AllowAny
 from datetime import timedelta
 from django.utils import timezone
-from .models import CommentLike, CommentDislike, ReviewLike, ReviewDislike, Series, Genre, BookUpvote, BookDownvote, Chapter, AuthorNote
+from .models import CommentLike, CommentDislike, ReviewLike, ReviewDislike, Series, Genre, BookUpvote, BookDownvote, Chapter, AuthorNote, Illustration
 from django.contrib.auth.models import User, auth
 from django.contrib.auth.mixins import LoginRequiredMixin
 from .forms import BooksForm, CommentForm, ReviewCreateForm, BookTypeForm, SeriesForm, ChapterForm
@@ -19,7 +19,7 @@ from django.db.models import Count
 from django.urls import reverse_lazy, reverse
 from django.views.generic.edit import FormView
 from django.contrib import messages
-from users.models import Notification, Library, Wallet, Illustration
+from users.models import Notification, Library, Wallet
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -33,12 +33,13 @@ from .converters import create_fb2, parse_fb2
 from django.core.files.storage import default_storage
 import datetime
 from datetime import date
-from users.models import WebPageSettings, Library, Profile, FollowersCount, PurchasedBook
+from users.models import WebPageSettings, Library, Profile, FollowersCount, PurchasedBook, NotificationSetting
 from django.db.models import Exists, OuterRef
 from django.db.models import Q
 from rest_framework.exceptions import PermissionDenied
 import logging
 from django.http import FileResponse, Http404
+from .permissions import IsBookAuthor
 
 
 class BooksListAPIView(generics.ListAPIView):
@@ -46,12 +47,15 @@ class BooksListAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
+        base_query = Book.objects.exclude(genre__name='Undefined')  # Exclude books with "Undefined" genre
+
         if user.is_authenticated:
-            return Book.objects.filter(
+            return base_query.filter(
                 Q(visibility='public') |
                 Q(visibility='followers', author__follower_users__follower=user)
             ).distinct().order_by('-views_count')
-        return Book.objects.filter(visibility='public').order_by('-views_count')
+
+        return base_query.filter(visibility='public').order_by('-views_count')
 
 
 class BookDetailAPIView(generics.RetrieveAPIView):
@@ -232,6 +236,7 @@ class StudioSeriesAPIView(APIView):
                 book.volume_number = i
                 book.save(update_fields=['volume_number'])
 
+
 class StudioCommentsAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -249,6 +254,87 @@ class StudioCommentsAPIView(APIView):
 
         comment.delete()
         return Response({'status': 'Comment deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
+
+
+class StudioIllustrationsAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsBookAuthor]
+    parser_classes = (MultiPartParser, FormParser)
+
+    def get(self, request, *args, **kwargs):
+        book_id = kwargs.get('book_id')
+        try:
+            book = Book.objects.get(id=book_id)
+        except Book.DoesNotExist:
+            return Response({'error': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Check if the request user is the author of the book
+        self.check_object_permissions(request, book)
+
+        book_serializer = BookSerializer(book, context={'request': request})
+        illustrations = Illustration.objects.filter(book=book)
+        illustrations_serializer = IllustrationSerializer(illustrations, many=True, context={'request': request})
+
+        return Response({
+            'cover_page': book_serializer.data['coverpage'],
+            'illustrations': illustrations_serializer.data
+        })
+
+    def post(self, request, *args, **kwargs):
+        book_id = kwargs.get('book_id')
+        try:
+            book = Book.objects.get(id=book_id)
+        except Book.DoesNotExist:
+            return Response({'error': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Set the book's cover page
+        cover_image = request.data.get('cover_image')
+        if cover_image:
+            book.coverpage = cover_image
+            book.save()
+
+        # Add illustrations with descriptions
+        for key in request.data.keys():
+            if key.startswith('illustration_image_'):
+                index = key.split('_')[-1]
+                image = request.data[key]
+                description = request.data.get(f'illustration_description_{index}', '')
+
+                serializer = IllustrationSerializer(data={'image': image, 'description': description},
+                                                    context={'request': request})
+                if serializer.is_valid():
+                    serializer.save(book=book)
+                else:
+                    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({'message': 'Cover page and illustrations updated successfully'},
+                        status=status.HTTP_201_CREATED)
+
+    def put(self, request, *args, **kwargs):
+        book_id = kwargs.get('book_id')
+        illustration_id = kwargs.get('illustration_id')
+
+        try:
+            illustration = Illustration.objects.get(id=illustration_id, book__id=book_id)
+        except Illustration.DoesNotExist:
+            return Response({'error': 'Illustration not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = IllustrationSerializer(illustration, data=request.data, partial=True, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, *args, **kwargs):
+        book_id = kwargs.get('book_id')
+        illustration_id = kwargs.get('illustration_id')
+
+        try:
+            illustration = Illustration.objects.get(id=illustration_id, book__id=book_id)
+        except Illustration.DoesNotExist:
+            return Response({'error': 'Illustration not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        illustration.delete()
+        return Response({'message': 'Illustration deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
 
 
 class BooksCreateAPIView(APIView):
@@ -542,16 +628,9 @@ class BookSettingsView(APIView):
 
 class IllustrationView(APIView):
     def get(self, request, *args, **kwargs):
-        illustrations = Illustration.objects.filter(book_id=kwargs['book_id'])
-        serializer = IllustrationSerializer(illustrations, many=True)
+        illustrations = Illustration.objects.filter(book__id=kwargs['book_id'])
+        serializer = IllustrationSerializer(illustrations, many=True, context={'request': request})
         return Response(serializer.data)
-
-    def post(self, request, *args, **kwargs):
-        serializer = IllustrationSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(book_id=kwargs['book_id'])
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class BookSaleView(APIView):
@@ -657,17 +736,6 @@ class CommentListCreateView(APIView):
         serializer = CreateCommentSerializer(data=request.data)
         if serializer.is_valid():
             new_comment = serializer.save(user=request.user, book=book)
-
-            # Check if the new comment is a reply to another comment
-            if new_comment.parent_comment:
-                # Create a notification for the parent comment's author
-                Notification.objects.create(
-                    recipient=new_comment.parent_comment.user.profile,
-                    sender=request.user.profile,
-                    notification_type='comment_reply',
-                    book=book
-                )
-
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -702,6 +770,7 @@ class DislikeCommentView(APIView):
 
         return Response({'status': 'disliked' if created else 'dislike exists'}, status=status.HTTP_200_OK)
 
+
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def delete_comment(request, comment_id):
@@ -714,78 +783,6 @@ def delete_comment(request, comment_id):
     return Response({'message': 'Comment deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
 
 
-def like_comment(request, comment_id):
-    comment = get_object_or_404(Comment, id=comment_id)
-
-    # Check if the user has already disliked the comment
-    if CommentDislike.objects.filter(user=request.user, comment=comment).exists():
-        # User has previously disliked the comment, so remove the dislike
-        CommentDislike.objects.filter(user=request.user, comment=comment).delete()
-
-    # Perform the logic for handling the like action
-    CommentLike.objects.get_or_create(user=request.user, comment=comment)
-
-    # Prepare the response data
-    like_count = comment.count_likes()
-    dislike_count = comment.count_dislikes()
-    response_data = {
-        'like_count': like_count,
-        'dislike_count': dislike_count
-    }
-
-    return JsonResponse(response_data)
-
-
-def dislike_comment(request, comment_id):
-    comment = get_object_or_404(Comment, id=comment_id)
-
-    # Check if the user has already liked the comment
-    if CommentLike.objects.filter(user=request.user, comment=comment).exists():
-        # User has previously liked the comment, so remove the like
-        CommentLike.objects.filter(user=request.user, comment=comment).delete()
-
-    # Perform the logic for handling the dislike action
-    CommentDislike.objects.get_or_create(user=request.user, comment=comment)
-
-    # Prepare the response data
-    like_count = comment.count_likes()
-    dislike_count = comment.count_dislikes()
-    response_data = {
-        'like_count': like_count,
-        'dislike_count': dislike_count
-    }
-
-    return JsonResponse(response_data)
-
-
-class ReviewCreateView(CreateView):
-    model = Review
-    form_class = ReviewCreateForm
-    template_name = 'review/review_create.html'
-    success_url = '/reviews/'  # URL to redirect after successfully creating a review
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        book_id = self.kwargs['pk']
-        book = get_object_or_404(Book, pk=book_id)
-        kwargs['initial']['book'] = book
-        return kwargs
-
-    def form_valid(self, form):
-        book_id = self.kwargs['pk']
-        book = get_object_or_404(Book, pk=book_id)
-        form.instance.book = book
-        form.instance.author = self.request.user
-        return super().form_valid(form)
-
-
-def review_toggle(request, pk):
-    book = get_object_or_404(Book, pk=pk)
-    book.display_comments = not book.display_comments
-    book.save()
-    return redirect('book_detail', pk=pk)
-
-
 class ReviewListView(generics.ListCreateAPIView):
     serializer_class = ReviewSerializer
 
@@ -793,115 +790,41 @@ class ReviewListView(generics.ListCreateAPIView):
         book_id = self.kwargs.get('book_id')
         return Review.objects.filter(book_id=book_id)
 
-    def get(self, request, *args, **kwargs):
-        reviews = self.get_queryset()
-        for review in reviews:
-            if 'accept_cookies' in request.COOKIES:
-                # Frontend handles the view count
-                pass
-            else:
-                ip_address = get_client_ip(request)
-                last_viewed = check_review_ip_last_viewed(ip_address, review)
-                if not last_viewed or (timezone.now() - last_viewed > timedelta(days=1)):
-                    review.views_count += 1
-                    review.save()
-                    update_review_ip_last_viewed(ip_address, review)
-
-        return super().get(request, *args, **kwargs)
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return ReviewCreateSerializer
+        return ReviewSerializer
 
     def perform_create(self, serializer):
-        book = get_object_or_404(Book, pk=self.kwargs.get('book_id'))
-        serializer.save(user=self.request.user, book=book)
-
-        # Send notification if the reviewer is not the book's author
-        if book.author != self.request.user:
-            if book.author.notification_settings.show_review_updates:
-                Notification.objects.create(
-                    recipient=book.author,
-                    sender=self.request.user.profile,
-                    notification_type='new_review',
-                    # Additional fields as needed
-                )
+        serializer.save()
 
 
-def like_review(request, review_id):
-    review = get_object_or_404(Review, id=review_id)
-    user = request.user
-
-    # Check if the user has already disliked the review
-    if ReviewDislike.objects.filter(user=request.user, review=review).exists():
-        # User has previously disliked the review, so remove the dislike
-        ReviewDislike.objects.filter(user=request.user, review=review).delete()
-        review.rating += 1
-
-    # Perform the logic for handling the like action
-    ReviewLike.objects.get_or_create(user=request.user, review=review)
-    review.rating += 1
-    review.save()
-
-    # Redirect back to the same page
-    return redirect(reverse('book_detail', kwargs={'pk': review.book.pk}))
-
-
-class ReviewCreateAPIView(generics.CreateAPIView):
-    queryset = Review.objects.all()
-    serializer_class = ReviewSerializer
+class LikeReviewView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def perform_create(self, serializer):
-        book_id = self.kwargs.get('pk')
-        book = generics.get_object_or_404(Book, pk=book_id)
-        serializer.save(author=self.request.user, book=book)
+    def post(self, request, book_id, review_id):
+        review = get_object_or_404(Review, id=review_id, book_id=book_id)
+        if review.author == request.user:
+            return Response({'error': 'You cannot like your own review.'}, status=status.HTTP_403_FORBIDDEN)
+
+        ReviewDislike.objects.filter(review=review, user=request.user).delete()
+        like, created = ReviewLike.objects.get_or_create(review=review, user=request.user)
+
+        return Response({'status': 'liked' if created else 'like exists'}, status=status.HTTP_200_OK)
 
 
-'''class ReviewToggleAPIView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, pk):
-        book = generics.get_object_or_404(Book, pk=pk)
-        book.display_comments = not book.display_comments
-        book.save()
-        return Response({'message': 'Display comments toggled'}, status=status.HTTP_200_OK)'''
-
-
-class LikeReviewAPIView(generics.CreateAPIView):
-    queryset = ReviewLike.objects.all()
-    serializer_class = ReviewLikeSerializer
+class DislikeReviewView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def perform_create(self, serializer):
-        review_id = self.kwargs.get('pk')
-        review = generics.get_object_or_404(Review, pk=review_id)
-        # Add logic for liking the review here
+    def post(self, request, book_id, review_id):
+        review = get_object_or_404(Review, id=review_id, book_id=book_id)
+        if review.author == request.user:
+            return Response({'error': 'You cannot dislike your own review.'}, status=status.HTTP_403_FORBIDDEN)
 
+        ReviewLike.objects.filter(review=review, user=request.user).delete()
+        dislike, created = ReviewDislike.objects.get_or_create(review=review, user=request.user)
 
-class DislikeReviewAPIView(generics.CreateAPIView):
-    queryset = ReviewDislike.objects.all()
-    serializer_class = ReviewDislikeSerializer
-    permission_classes = [IsAuthenticated]
-
-    def perform_create(self, serializer):
-        review_id = self.kwargs.get('pk')
-        review = generics.get_object_or_404(Review, pk=review_id)
-        # Add logic for disliking the review here
-
-
-def dislike_review(request, review_id):
-    review = get_object_or_404(Review, id=review_id)
-
-    # Check if the user has already liked the review
-    if ReviewLike.objects.filter(user=request.user, review=review).exists():
-        # User has previously liked the review, so remove the like
-        ReviewLike.objects.filter(user=request.user, review=review).delete()
-        review.rating -= 1
-
-    # Perform the logic for handling the dislike action
-    ReviewDislike.objects.get_or_create(user=request.user, review=review)
-    review.rating -= 1
-    review.save()
-
-    # Redirect back to the same page
-    return redirect(reverse('book_detail', kwargs={'pk': review.book.pk}))
+        return Response({'status': 'disliked' if created else 'dislike exists'}, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])

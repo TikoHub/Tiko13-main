@@ -1,6 +1,6 @@
 from rest_framework import serializers
-from .models import Chapter, Book, Comment, Review, Genre, Series, BookView, ReviewLike, ReviewDislike, AuthorNote, BookFile
-from users.models import Profile, FollowersCount, Illustration
+from .models import Chapter, Book, Comment, Review, Genre, Series, BookView, ReviewLike, ReviewDislike, AuthorNote, BookFile, Illustration
+from users.models import Profile, FollowersCount
 from django.utils.formats import date_format
 from django.shortcuts import get_object_or_404
 from django.utils.timesince import timesince
@@ -177,10 +177,16 @@ class CommentSerializer(serializers.ModelSerializer):
     def get_time_since(self, obj):
         if obj.timestamp:
             time_difference = timezone.now() - obj.timestamp
-            if time_difference < timedelta(days=1):
-                return timesince(obj.timestamp) + " ago"
+            if time_difference < timedelta(seconds=60):
+                return "just now"
+            elif time_difference < timedelta(minutes=60):
+                return f"{time_difference.seconds // 60} minutes ago"
+            elif time_difference < timedelta(days=1):
+                return f"{time_difference.seconds // 3600} hours ago"
+            elif time_difference < timedelta(weeks=1):
+                return f"{time_difference.days} days ago"
             else:
-                return obj.timestamp.strftime("%m-%d-%Y")
+                return obj.timestamp.strftime("%m.%d.%Y")
         return ""
 
     def get_replies(self, obj):
@@ -238,6 +244,9 @@ class ReviewSerializer(serializers.ModelSerializer):
     views_count = serializers.IntegerField(read_only=True)
     like_count = serializers.SerializerMethodField()
     dislike_count = serializers.SerializerMethodField()
+    author_username = serializers.ReadOnlyField(source='author.username')
+    author_profile_img = serializers.SerializerMethodField()
+    formatted_timestamp = serializers.SerializerMethodField()
 
     def get_like_count(self, obj):
         return ReviewLike.objects.filter(review=obj).count()
@@ -245,18 +254,39 @@ class ReviewSerializer(serializers.ModelSerializer):
     def get_dislike_count(self, obj):
         return ReviewDislike.objects.filter(review=obj).count()
 
+    def get_author_profile_img(self, obj):
+        if obj.author.profile.profileimg:
+            return self.context['request'].build_absolute_uri(obj.author.profile.profileimg.url)
+        return None
+
+    def get_formatted_timestamp(self, obj):
+        time_difference = timezone.now() - obj.created
+        if time_difference < timedelta(seconds=60):
+            return "just now"
+        elif time_difference < timedelta(minutes=60):
+            return f"{time_difference.seconds // 60} minutes ago"
+        elif time_difference < timedelta(days=1):
+            return f"{time_difference.seconds // 3600} hours ago"
+        elif time_difference < timedelta(weeks=1):
+            return f"{time_difference.days} days ago"
+        else:
+            return obj.created.strftime('%d.%m.%Y')
+
     class Meta:
         model = Review
-        fields = ['id', 'text', 'book', 'author', 'views_count', 'like_count', 'dislike_count']
+        fields = ['id', 'text', 'book', 'author', 'author_username', 'author_profile_img', 'views_count', 'like_count',
+                  'dislike_count', 'plot_rating', 'characters_rating', 'main_character_rating', 'genre_fit_rating', 'formatted_timestamp']
+
+
+class ReviewCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Review
+        fields = ['text', 'plot_rating', 'characters_rating', 'main_character_rating', 'genre_fit_rating']
 
     def create(self, validated_data):
-        # Assuming that 'author' comes from the request user and 'book' from the request data
         user = self.context['request'].user
-        book_id = self.context['request'].data.get('book_id')
-
-        # Fetch the book instance based on the provided book_id
+        book_id = self.context['view'].kwargs.get('book_id')
         book = get_object_or_404(Book, id=book_id)
-
         review = Review.objects.create(author=user, book=book, **validated_data)
         return review
 
@@ -325,12 +355,6 @@ class BookSettingsSerializer(serializers.ModelSerializer):
             self.fields['co_author2'].queryset = self.context['co_author_queryset']
 
 
-class IllustrationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Illustration  # Assuming you have an Illustration model
-        fields = ['image']  # Add any other relevant fields
-
-
 class BookSaleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Book
@@ -397,12 +421,12 @@ class StudioBookSerializer(serializers.ModelSerializer):
         return None
 
 
-class StudioSeriesSerializer(serializers.ModelSerializer):
-    books = StudioBookSerializer(many=True, read_only=True, source='series_books')
+class IllustrationSerializer(serializers.ModelSerializer):
+    book = serializers.ReadOnlyField(source='book.id')
 
     class Meta:
-        model = Series
-        fields = ['id', 'name', 'books']
+        model = Illustration
+        fields = ['id', 'book', 'image', 'description']
 
 
 class StudioSeriesBooksSerializer(serializers.ModelSerializer):

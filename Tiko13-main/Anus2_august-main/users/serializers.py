@@ -2,10 +2,11 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Profile, WebPageSettings, TemporaryPasswordStorage, TemporaryRegistration, Notification, \
     NotificationSetting, WalletTransaction, UsersNotificationSettings
-from store.models import Book, Genre, Series, Comment, BookUpvote
+from store.models import Book, Genre, Series, Comment, BookUpvote, Review
 from .helpers import FollowerHelper
 from django.utils.formats import date_format
 from django.utils import timezone
+from datetime import timedelta
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -201,6 +202,27 @@ class CommentSerializer(serializers.ModelSerializer):
         return obj.book.name if obj.book else None
 
 
+class ReviewSerializer(serializers.ModelSerializer):
+    formatted_timestamp = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Review
+        fields = ['id', 'book', 'text', 'created', 'views_count', 'last_viewed', 'rating', 'formatted_timestamp']
+
+    def get_formatted_timestamp(self, obj):
+        time_difference = timezone.now() - obj.created
+        if time_difference < timedelta(seconds=60):
+            return "just now"
+        elif time_difference < timedelta(minutes=60):
+            return f"{time_difference.seconds // 60} minutes ago"
+        elif time_difference < timedelta(days=1):
+            return f"{time_difference.seconds // 3600} hours ago"
+        elif time_difference < timedelta(weeks=1):
+            return f"{time_difference.days} days ago"
+        else:
+            return obj.created.strftime('%d.%m.%Y')
+
+
 class CustomUserSerializer(serializers.ModelSerializer):
     id = serializers.ReadOnlyField()
 
@@ -305,15 +327,31 @@ class PasswordChangeVerificationSerializer(serializers.Serializer):
 
 
 class NotificationSerializer(serializers.ModelSerializer):
+    formatted_timestamp = serializers.SerializerMethodField()
     message = serializers.SerializerMethodField()
 
+    def get_formatted_timestamp(self, obj):
+        time_difference = timezone.now() - obj.timestamp
+        if time_difference < timedelta(minutes=1):
+            return "just now"
+        elif time_difference < timedelta(hours=1):
+            return f"{time_difference.seconds // 60} minutes ago"
+        elif time_difference < timedelta(days=1):
+            return f"{time_difference.seconds // 3600} hours ago"
+        elif time_difference < timedelta(days=30):
+            return f"{time_difference.days} days ago"
+        else:
+            return "More than a month ago"
+
     def get_message(self, obj):
-        if obj.notification_type == 'review_update':
-            return f"{obj.sender.user.username} updated a review"
+        if obj.notification_type == 'book_update':
+            return f"{obj.book.name}: {obj.book.latest_chapter_title}"  # Assuming you have a latest_chapter_title field in your Book model
+        # Add other conditions for different notification types
+        return ""
 
     class Meta:
         model = Notification
-        fields = ['id', 'recipient', 'sender', 'notification_type', 'read', 'timestamp', 'message']
+        fields = ['id', 'recipient', 'sender', 'notification_type', 'read', 'formatted_timestamp', 'message']
 
 
 class NotificationSettingSerializer(serializers.ModelSerializer):
@@ -368,3 +406,26 @@ class UserNotificationSettingsSerializer(serializers.ModelSerializer):
         ]
 
 
+class FollowSerializer(serializers.Serializer):
+    def validate(self, data):
+        follower = self.context['request'].user
+        user_username = self.context['view'].kwargs.get('username')
+        try:
+            user = User.objects.get(username=user_username)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("User does not exist")
+
+        if follower == user:
+            raise serializers.ValidationError("You cannot follow yourself")
+
+        return {'follower': follower, 'user': user}
+
+    def create(self, validated_data):
+        follower = validated_data['follower']
+        user = validated_data['user']
+
+        if FollowerHelper.is_following(follower, user):
+            FollowerHelper.unfollow(follower, user)
+        else:
+            FollowerHelper.follow(follower, user)
+        return {'follower': follower, 'user': user}
