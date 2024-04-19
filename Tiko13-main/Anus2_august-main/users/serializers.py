@@ -186,20 +186,33 @@ class ParentCommentSerializer(serializers.ModelSerializer):
 
 class CommentSerializer(serializers.ModelSerializer):
     parent_comment = ParentCommentSerializer(read_only=True)
+    replies = serializers.SerializerMethodField()
     book_name = serializers.SerializerMethodField()
     formatted_timestamp = serializers.SerializerMethodField()
 
-    def get_formatted_timestamp(self, obj):
-        return obj.timestamp.strftime('%m/%d/%Y %H:%M')  # Formats the timestamp
-
     class Meta:
         model = Comment
-        fields = ['id', 'book', 'book_name', 'text', 'formatted_timestamp', 'parent_comment']
+        fields = ['id', 'book', 'book_name', 'text', 'formatted_timestamp', 'parent_comment', 'replies']
         # Во фронте добавить типа, if parent_comment is null : use book
 
     def get_book_name(self, obj):
         # Return the name of the book associated with this comment
         return obj.book.name if obj.book else None
+
+    def get_formatted_timestamp(self, obj):
+        return obj.timestamp.strftime('%m/%d/%Y %H:%M')  # Formats the timestamp
+
+    def get_parent_comment(self, obj):
+        # This will serialize the parent comment if it exists
+        if obj.parent_comment:
+            return CommentSerializer(obj.parent_comment).data
+        return None
+
+    def get_replies(self, obj):
+        # Recursive serialization to fetch replies to a comment
+        if obj.replies.all().exists():
+            return CommentSerializer(obj.replies.all(), many=True).data
+        return []
 
 
 class ReviewSerializer(serializers.ModelSerializer):
@@ -330,6 +343,9 @@ class NotificationSerializer(serializers.ModelSerializer):
     formatted_timestamp = serializers.SerializerMethodField()
     message = serializers.SerializerMethodField()
 
+    from django.utils import timezone
+    from datetime import timedelta
+
     def get_formatted_timestamp(self, obj):
         time_difference = timezone.now() - obj.timestamp
         if time_difference < timedelta(minutes=1):
@@ -340,14 +356,25 @@ class NotificationSerializer(serializers.ModelSerializer):
             return f"{time_difference.seconds // 3600} hours ago"
         elif time_difference < timedelta(days=30):
             return f"{time_difference.days} days ago"
+        elif time_difference < timedelta(days=60):
+            return f"1 month ago"
+        elif time_difference < timedelta(days=90):
+            return f"2 months ago"
+        elif time_difference < timedelta(days=120):
+            return f"3 months ago"
+        elif time_difference < timedelta(days=150):
+            return f"4 months ago"
+        elif time_difference < timedelta(days=180):
+            return f"5 months ago"
+        elif time_difference < timedelta(days=360):
+            return f"half a year ago"
+        elif time_difference < timedelta(days=720):
+            return f"a year ago"
         else:
-            return "More than a month ago"
+            return obj.timestamp.strftime('%d.%m.%Y')
 
     def get_message(self, obj):
-        if obj.notification_type == 'book_update':
-            return f"{obj.book.name}: {obj.book.latest_chapter_title}"  # Assuming you have a latest_chapter_title field in your Book model
-        # Add other conditions for different notification types
-        return ""
+        return obj.message
 
     class Meta:
         model = Notification

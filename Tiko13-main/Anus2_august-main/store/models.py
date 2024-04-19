@@ -38,9 +38,10 @@ class Book(models.Model):
     )
 
     STATUS_CHOICES = (
-        ('in_progress', 'In Progress'),
-        ('finished', 'Finished'),
-        ('draft', 'Draft'),
+        ('created', 'Created'),
+        ('published', 'Published'),
+        ('uploaded', 'Uploaded'),
+        ('changed', 'Changed'),
     )
     VISIBILITY_CHOICES = (
         ('public', 'Public'),
@@ -73,7 +74,7 @@ class Book(models.Model):
     favourite = models.ManyToManyField(User, related_name='favourite', blank=True)
     display_comments = models.BooleanField(default=True)
     book_type = models.CharField(max_length=50, choices=TYPE_CHOICES, default='epic_novel')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='in_progress')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='created')
     series = models.ForeignKey(Series, on_delete=models.SET_NULL, null=True, blank=True, related_name='books')
     authors_note = models.TextField(default="Author's Note")
     is_adult = models.BooleanField(default=False)
@@ -94,6 +95,7 @@ class Book(models.Model):
         return "Free" if self.price == 0 else self.price
 
     def save(self, *args, **kwargs):
+        from users.models import Notification
         if self.series:  # If the book is part of a series
             if not self.volume_number:
                 # Get the current highest sequence number in the series
@@ -107,6 +109,22 @@ class Book(models.Model):
                     book.save(update_fields=['volume_number'])
         else:  # If the book is not part of a series
             self.volume_number = 1  # Set volume number to 1
+
+        if self.pk:  # Check if the book already exists in the database
+            old_book = Book.objects.get(pk=self.pk)
+            if old_book.visibility != 'public' and self.visibility == 'public' and self.genre.name != 'Undefined':
+                # The book's visibility has been changed to public and the genre is defined
+                existing_user = User.objects.get(
+                    username='Tika')  # Replace 'admin' with the username of an existing user
+                users = User.objects.filter(notification_settings__newbooks=True)
+                for user in users:
+                    Notification.objects.create(
+                        recipient=user.profile,
+                        sender=existing_user.profile,
+                        notification_type='new_book',
+                        book=self,
+                        message=f'{self.name} has just been released!'
+                    )
 
         super().save(*args, **kwargs)  # Save the book with all updates
 
@@ -144,7 +162,10 @@ class Book(models.Model):
 
     def notify_users(self):
         from users.notification_utils import send_book_update_notifications
-        send_book_update_notifications(self)
+        latest_chapter = self.chapters.order_by('-created').first()
+        if latest_chapter and latest_chapter.published:
+            chapter_title = latest_chapter.title
+            send_book_update_notifications(self, chapter_title)
 
     @property
     def latest_chapter_title(self):
@@ -158,9 +179,18 @@ class Book(models.Model):
 
 
 class BookFile(models.Model):
+    FILE_TYPE_CHOICES = (
+        ('fb2', 'FB2'),
+        ('epub', 'EPUB'),
+        ('docx', 'DOCX'),
+        ('txt', 'TXT'),
+        ('pdf', 'PDF'),
+        ('xml', 'XML')  # Если вы решите добавить XML как отдельный тип
+    )
+
     book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='files')
     file = models.FileField(upload_to='books/')
-    file_type = models.CharField(max_length=10)
+    file_type = models.CharField(max_length=10, choices=FILE_TYPE_CHOICES)
 
     def __str__(self):
         return f"{self.book.name} - {self.file_type}"
@@ -228,18 +258,16 @@ class Review(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     views_count = models.PositiveIntegerField(default=0)
     last_viewed = models.DateTimeField(null=True, blank=True)
-    rating = models.IntegerField(default=0)
+    likes = models.ManyToManyField(User, related_name='review_likes', blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     plot_rating = models.IntegerField(default=0, validators=[MinValueValidator(1), MaxValueValidator(10)])
     characters_rating = models.IntegerField(default=0, validators=[MinValueValidator(1), MaxValueValidator(10)])
     main_character_rating = models.IntegerField(default=0, validators=[MinValueValidator(1), MaxValueValidator(10)])
     genre_fit_rating = models.IntegerField(default=0, validators=[MinValueValidator(1), MaxValueValidator(10)])
 
-    def count_likes(self):
-            return self.likes.count()
-
-    def count_dislikes(self):
-        return self.dislikes.count()
+    @property
+    def like_count(self):
+        return self.likes.count()
 
     def save(self, *args, **kwargs):
         genre = self.book.genre
@@ -355,6 +383,8 @@ class Illustration(models.Model):
     book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='illustrations')
     description = models.CharField(max_length=255, default='Illustration Descrpition')
     image = models.ImageField(upload_to='illustrations/')
+    use_for_library_cover = models.BooleanField(default=False,
+                                                help_text="Use the left side of the picture for the library book cover")
 
     def __str__(self):
         return f"{self.description} (Illustration for {self.book.name})"

@@ -1,5 +1,7 @@
 from .models import FollowersCount, Notification
 from django.contrib.auth.models import User
+from django.utils import timezone
+
 
 class FollowerHelper:
     @staticmethod
@@ -18,12 +20,24 @@ class FollowerHelper:
 
             # Check if the user wants to receive new follower notifications
             if user.notification_settings.show_follower_updates:
-                # Create a new notification for gaining a new follower
-                Notification.objects.create(
-                    recipient=user.profile,  # Make sure to use user.profile, not user
-                    sender=follower.profile,  # Use follower.profile, not follower
-                    notification_type='new follower',
-                )
+                # Check if there is an existing "new follower" notification
+                notification = Notification.objects.filter(
+                    recipient=user.profile,
+                    sender=follower.profile,
+                    notification_type='new follower'
+                ).first()
+
+                if notification:
+                    # Update the timestamp of the existing notification
+                    notification.timestamp = timezone.now()
+                    notification.save()
+                else:
+                    # Create a new notification
+                    Notification.objects.create(
+                        recipient=user.profile,  # Make sure to use user.profile, not user
+                        sender=follower.profile,  # Use follower.profile, not follower
+                        notification_type='new follower',
+                    )
 
             return new_follower
         return None

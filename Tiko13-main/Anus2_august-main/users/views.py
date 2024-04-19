@@ -112,17 +112,6 @@ class VerifyRegistrationView(APIView):
                 user.last_name = temp_reg.last_name
                 user.save()
 
-                # Create or get the user's profile
-                profile, _ = Profile.objects.get_or_create(user=user)
-
-                # Create or get the user's library
-                Library.objects.get_or_create(user=user)
-
-                webpage_settings, _ = WebPageSettings.objects.get_or_create(
-                    profile=profile,
-                    defaults={'date_of_birth': date(year=temp_reg.dob_year, month=temp_reg.dob_month, day=1)}
-                )
-
                 # Delete the temporary registration
                 temp_reg.delete()
 
@@ -650,8 +639,9 @@ def notification_count(request):
                                                 # Тут я удалил старые нотификации, так как еще незатестил её поэтому оставил их
 
 
-def notify_users_of_new_chapter(book): # Функция для оповещения пользователей о новой главе NEWS
+def notify_users_of_new_chapter(book):
     new_chapter_count = book.chapters.filter(published=True).count()  # Assuming you have a published field on your chapter model
+    new_chapter_title = book.chapters.order_by('-created').first().title
 
     # Identify users based on their preferences and relation to the book
     interested_users = User.objects.filter(
@@ -667,7 +657,8 @@ def notify_users_of_new_chapter(book): # Функция для оповещен�
         Notification.objects.create(
             recipient=user.profile,
             notification_type='book_update',
-            book=book
+            book=book,
+            message=f"{book.name}: {new_chapter_title}"
         )
 
 

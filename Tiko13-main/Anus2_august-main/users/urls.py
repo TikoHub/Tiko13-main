@@ -29,7 +29,7 @@ urlpatterns = [
         path('auth/', include('allauth.socialaccount.urls')), # Пока не трогай
         path('<str:username>/follow/', FollowView.as_view(), name='follow'),
 
-    #path('conversation/<int:user_id>/', views.conversation_view, name='conversation'), # Пока не трогай
+        #path('conversation/<int:user_id>/', views.conversation_view, name='conversation'), # Пока не трогай
         #path('messages_list/', views.messages_list_view, name='messages_list'), # Пока не трогай
 
         path('add_to_library/', AddToLibraryView.as_view(), name='add_to_library'), # Добавляет книгу в библиотеку пользователя (позже провекрю каким образом)

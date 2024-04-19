@@ -60,8 +60,9 @@ class Notification(models.Model):
     message = models.TextField(blank=True, null=True)
 
     def save(self, *args, **kwargs):
-        if not self.message:
-            self.message = self.get_message()
+        if not self.pk:
+            if not self.message:
+                self.message = self.get_message()
         super().save(*args, **kwargs)
 
     def get_message(self):
@@ -75,6 +76,8 @@ class Notification(models.Model):
             return f"New update in {self.book.name}"
         elif self.notification_type == 'new_ebook':  # Add this block
             return f"New Ebook: {self.book.name}"
+        elif self.notification_type == 'review_update':
+            return f"{self.sender.user.username} reviewed your book {self.book.name}"
         else:
             return ""
 
@@ -100,6 +103,7 @@ class UserBookChapterNotification(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chapter_notifications')
     book = models.ForeignKey('store.Book', on_delete=models.CASCADE, related_name='chapter_notifications')
     last_notified_chapter_count = models.PositiveIntegerField(default=0)
+    chapter_count_at_last_notification = models.PositiveIntegerField(default=0)
 
     class Meta:
         unique_together = ('user', 'book')
@@ -312,6 +316,7 @@ class NotificationSetting(models.Model):
     library_reading_updates = models.BooleanField(default=True)
     library_wishlist_updates = models.BooleanField(default=True)
     library_liked_updates = models.BooleanField(default=True)
+    library_favourite_updates = models.BooleanField(default=False)
 
     show_review_updates = models.BooleanField(default=True)
     show_comment_updates = models.BooleanField(default=True)

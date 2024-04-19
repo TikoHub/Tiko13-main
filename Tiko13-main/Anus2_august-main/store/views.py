@@ -40,6 +40,12 @@ from rest_framework.exceptions import PermissionDenied
 import logging
 from django.http import FileResponse, Http404
 from .permissions import IsBookAuthor
+from users.notification_utils import send_book_update_notifications
+from lxml import etree
+from docx import Document
+import fitz
+import zipfile
+from bs4 import BeautifulSoup
 
 
 class BooksListAPIView(generics.ListAPIView):
@@ -152,15 +158,6 @@ class StudioWelcomeAPIView(APIView):
             book_type = serializer.validated_data.get('book_type')
             new_book = Book.objects.create(author=request.user, book_type=book_type)
             return Response({'message': 'Book created successfully', 'book_id': new_book.id}, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class BookFileUploadView(APIView):
-    def post(self, request, book_id):
-        serializer = BookFileSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(book_id=book_id)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -324,6 +321,25 @@ class StudioIllustrationsAPIView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    def patch(self, request, *args, **kwargs):
+        book_id = kwargs.get('book_id')
+        illustration_id = request.data.get('illustration_id')
+        use_for_library_cover = request.data.get('use_for_library_cover', False)
+
+        try:
+            book = Book.objects.get(id=book_id)
+            illustration = Illustration.objects.get(id=illustration_id, book=book)
+        except (Book.DoesNotExist, Illustration.DoesNotExist):
+            return Response({'error': 'Book or Illustration not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Check if the request user is the author of the book
+        self.check_object_permissions(request, book)
+
+        illustration.use_for_library_cover = use_for_library_cover
+        illustration.save()
+
+        return Response({'message': 'Illustration updated successfully'}, status=status.HTTP_200_OK)
+
     def delete(self, request, *args, **kwargs):
         book_id = kwargs.get('book_id')
         illustration_id = kwargs.get('illustration_id')
@@ -394,6 +410,7 @@ class AddChapterView(APIView):
             # Create an empty chapter
             new_chapter = Chapter.objects.create(book=book)
             serializer = ChapterSerializers(new_chapter)
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         except Book.DoesNotExist:
@@ -430,17 +447,6 @@ class StudioChapterView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['post'])
-    def toggle_publish(self, request, book_id, chapter_id):
-        chapter = get_object_or_404(Chapter, id=chapter_id, book__id=book_id)
-        if request.user != chapter.book.author:
-            return Response({'error': 'You are not authorized to change the publication status of this chapter.'},
-                            status=status.HTTP_403_FORBIDDEN)
-
-        chapter.published = not chapter.published
-        chapter.save()
-        return Response({'published': chapter.published})
-
     def delete(self, request, book_id, chapter_id, format=None):
         try:
             chapter = Chapter.objects.get(pk=chapter_id, book_id=book_id)
@@ -455,6 +461,42 @@ class StudioChapterView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@api_view(['POST'])
+def toggle_publish_chapter(request, book_id, chapter_id):
+    chapter = get_object_or_404(Chapter, id=chapter_id, book__id=book_id)
+    if request.user != chapter.book.author:
+        return Response({'error': 'You are not authorized to change the publication status of this chapter.'},
+                        status=status.HTTP_403_FORBIDDEN)
+
+    chapter.published = not chapter.published
+    chapter.save()
+
+    if chapter.published:
+        chapter.book.notify_users()
+
+    return Response({'published': chapter.published})
+# Ниже вариант если надо будет все предыдущие главы паблишить вместе с выбранной
+'''@api_view(['POST']) 
+def toggle_publish_chapter(request, book_id, chapter_id):
+    chapter = get_object_or_404(Chapter, id=chapter_id, book__id=book_id)
+    if request.user != chapter.book.author:
+        return Response({'error': 'You are not authorized to change the publication status of this chapter.'},
+                        status=status.HTTP_403_FORBIDDEN)
+
+    last_published_chapter = Chapter.objects.filter(book=chapter.book, published=True, chapter_number__lt=chapter.chapter_number).order_by('-chapter_number').first()
+    if last_published_chapter:
+        intermediate_chapters = Chapter.objects.filter(book=chapter.book, published=False, chapter_number__gt=last_published_chapter.chapter_number, chapter_number__lt=chapter.chapter_number)
+        for intermediate_chapter in intermediate_chapters:
+            intermediate_chapter.published = True
+            intermediate_chapter.save()
+    
+    chapter.published = True
+    chapter.save()
+
+    chapter.book.notify_users()
+
+    return Response({'published': chapter.published})
+'''
 @api_view(['POST'])
 def add_author_note(request, book_id, chapter_id):
     try:
@@ -620,6 +662,10 @@ class BookSettingsView(APIView):
 
         serializer = BookSettingsSerializer(book, data=request.data, partial=True, context=context)
         if serializer.is_valid():
+            if 'is_adult' in serializer.validated_data and serializer.validated_data['is_adult'] is True:
+                if not serializer.validated_data.get('confirm_adult_content', False):
+                    return Response({'error': 'Please confirm that you want to set this book as adult content.'},
+                                    status=status.HTTP_400_BAD_REQUEST)
             serializer.save()
             return Response(serializer.data)
 
@@ -713,18 +759,14 @@ class CommentListCreateView(APIView):
         Instantiates and returns the list of permissions that this view requires.
         """
         if self.request.method == 'POST':
-            self.permission_classes = [IsAuthenticated, ]
+            self.permission_classes = [IsAuthenticated, ]  # Only authenticated users can post comments
         else:
-            self.permission_classes = [AllowAny, ]
+            self.permission_classes = [AllowAny, ]  # Allow anyone to read comments
         return super(CommentListCreateView, self).get_permissions()
 
     def get(self, request, book_id):
         book = get_object_or_404(Book, pk=book_id)
-        comments = Comment.objects.filter(book=book, parent_comment=None).order_by('-rating')
-
-        # No need to manually include 'is_author' field and calculate 'rating' here
-        # It should be handled in the serializer if it's part of your model logic
-
+        comments = Comment.objects.filter(book=book, parent_comment__isnull=True).order_by('-rating')
         serialized_comments = CommentSerializer(comments, many=True, context={'request': request})
         return Response({'comments': serialized_comments.data})
 
@@ -733,9 +775,15 @@ class CommentListCreateView(APIView):
         if not book.can_user_comment(request.user):
             return Response({'error': 'You are not allowed to comment on this book.'}, status=status.HTTP_403_FORBIDDEN)
 
-        serializer = CreateCommentSerializer(data=request.data)
+        # Check if a parent_comment_id is provided in the request data
+        parent_comment_id = request.data.get('parent_comment_id')
+        parent_comment = None
+        if parent_comment_id:
+            parent_comment = get_object_or_404(Comment, id=parent_comment_id)
+
+        serializer = CreateCommentSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            new_comment = serializer.save(user=request.user, book=book)
+            new_comment = serializer.save(user=request.user, book=book, parent_comment=parent_comment)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -807,24 +855,16 @@ class LikeReviewView(APIView):
         if review.author == request.user:
             return Response({'error': 'You cannot like your own review.'}, status=status.HTTP_403_FORBIDDEN)
 
-        ReviewDislike.objects.filter(review=review, user=request.user).delete()
-        like, created = ReviewLike.objects.get_or_create(review=review, user=request.user)
+        # Toggle the like
+        if request.user in review.likes.all():
+            review.likes.remove(request.user)
+            status_message = 'like removed'
+        else:
+            review.likes.add(request.user)
+            status_message = 'liked'
 
-        return Response({'status': 'liked' if created else 'like exists'}, status=status.HTTP_200_OK)
+        return Response({'status': status_message}, status=status.HTTP_200_OK)
 
-
-class DislikeReviewView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request, book_id, review_id):
-        review = get_object_or_404(Review, id=review_id, book_id=book_id)
-        if review.author == request.user:
-            return Response({'error': 'You cannot dislike your own review.'}, status=status.HTTP_403_FORBIDDEN)
-
-        ReviewLike.objects.filter(review=review, user=request.user).delete()
-        dislike, created = ReviewDislike.objects.get_or_create(review=review, user=request.user)
-
-        return Response({'status': 'disliked' if created else 'dislike exists'}, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
@@ -1212,3 +1252,110 @@ class NewsNotificationsView(APIView):
 
         serializer = NotificationSerializer(notifications, many=True)
         return Response(serializer.data)
+
+
+def parse_fb2_and_create_chapters(file_path, book):
+    # Загрузка файла FB2
+    tree = etree.parse(file_path)
+    root = tree.getroot()
+
+    # Предполагаем, что namespace для элементов FB2, может отличаться
+    ns = {'fb': 'http://www.gribuser.ru/xml/fictionbook/2.0'}
+
+    # Итерация по главам в файле
+    for section in root.findall('.//fb:section', namespaces=ns):
+        title_element = section.find('.//fb:title', namespaces=ns)
+        title = "".join(title_element.itertext()) if title_element is not None else None
+
+        # Сбор текста из параграфов
+        content = ""
+        for p in section.findall('.//fb:p', namespaces=ns):
+            content += "\n".join(p.itertext())
+
+        # Создание главы
+        chapter = Chapter(
+            book=book,
+            title=title,
+            content=content.strip(),
+            created=timezone.now(),
+            updated=timezone.now(),
+            published=False  # или True, если должно быть сразу опубликовано
+        )
+        chapter.save()
+
+
+def parse_docx_and_create_chapters(file_path, book):
+    doc = Document(file_path)
+    for i, _ in enumerate(doc.paragraphs):
+        if doc.paragraphs[i].text.startswith('Chapter'):
+            title = doc.paragraphs[i].text
+            content = '\n'.join(p.text for p in doc.paragraphs[i+1:])
+            Chapter.objects.create(book=book, title=title, content=content)
+            break
+
+
+def parse_pdf_and_create_chapters(file_path, book):
+    doc = fitz.open(file_path)
+    text = ""
+    for page in doc:
+        text += page.get_text()
+    # Здесь предполагается, что вы будете делить текст на главы каким-то способом
+    Chapter.objects.create(book=book, title="Full Text", content=text)
+
+
+def parse_xml_and_create_chapters(file_path, book):
+    tree = etree.parse(file_path)
+    root = tree.getroot()
+    for chapter in root.findall('.//chapter'):
+        title = chapter.find('title').text
+        content = "".join(p.text for p in chapter.findall('.//paragraph'))
+        Chapter.objects.create(book=book, title=title, content=content)
+
+
+def parse_txt_and_create_chapters(file_path, book):
+    with open(file_path, 'r', encoding='utf-8') as file:
+        text = file.read()
+        chapters = text.split('Chapter')  # Предполагаем, что главы разделены словом 'Chapter'
+        for i, chapter in enumerate(chapters):
+            title = f"Chapter {i+1}"
+            content = chapter.strip()
+            Chapter.objects.create(book=book, title=title, content=content)
+
+
+def parse_epub_and_create_chapters(file_path, book):
+    with zipfile.ZipFile(file_path, 'r') as zf:
+        for filename in zf.namelist():
+            if filename.endswith('.html'):
+                with zf.open(filename) as file:
+                    soup = BeautifulSoup(file, 'html.parser')
+                    title = soup.title.string if soup.title else "Untitled Chapter"
+                    content = str(soup.body)
+                    Chapter.objects.create(book=book, title=title, content=content)
+
+
+class BookFileUploadView(APIView):
+    handlers = {
+        'fb2': parse_fb2_and_create_chapters,
+        'epub': parse_epub_and_create_chapters,  # функция обработки EPUB
+        'docx': parse_docx_and_create_chapters,  # функция обработки DOCX
+        'txt': parse_txt_and_create_chapters,    # функция обработки TXT
+        'pdf': parse_pdf_and_create_chapters,    # функция обработки PDF
+        'xml': parse_xml_and_create_chapters     # функция обработки XML (если добавите)
+    }
+
+    def post(self, request):
+        serializer = BookFileSerializer(data=request.data)
+        if serializer.is_valid():
+            # Создаем новую книгу с типом по умолчанию
+            book = Book.objects.create(author=request.user, book_type='default_type')
+            book_file = serializer.save(book=book)
+            # Обработка файла в зависимости от типа
+            handler = self.handlers.get(book_file.file_type)
+            if handler:
+                handler(book_file.file.path, book)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            else:
+                return Response({"error": "No handler for file type"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+

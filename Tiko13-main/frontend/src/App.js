@@ -902,11 +902,9 @@ function BookComment({ book_id }) {
   useEffect(() => {
     const fetchComments = async () => {
       try {
-        const response = await axios.get(`${apiUrl}/api/book_detail/${book_id}/comments/`, {
-          headers: {
-            Authorization: `Bearer ${token}`, 
-          },
-        });
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const response = await axios.get(`${apiUrl}/api/book_detail/${book_id}/comments/`, { headers });
+
         setComments(response.data.comments);
         setLoading(false);
       } catch (error) {
@@ -1891,7 +1889,8 @@ function Login() {
         </Link>
         <span className="google">
           <div className="google_button">
-            <a className="google-button">
+            {/* Update the href to point to your Django backend URL for Google login */}
+            <a href="http://localhost:8000/users/api/accounts/google/login/" className="google-button">
               <img className="google_icon" src={Google} alt="Google" />
               Sign in via Google
             </a>
@@ -1899,7 +1898,8 @@ function Login() {
         </span>
         <span className="google">
           <div className="face_button">
-            <a className="face-button">
+            {/* Update the href to point to your Django backend URL for Facebook login */}
+            <a href="http://localhost:8000/users/api/accounts/facebook/login/" className="face-button">
               <img className="face_icon" src={Face} alt="Facebook" />
               Sign in via Facebook
             </a>

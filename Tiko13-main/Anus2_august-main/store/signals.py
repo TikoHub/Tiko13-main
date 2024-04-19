@@ -59,18 +59,3 @@ def book_update_notification(sender, instance, **kwargs):
     instance.notify_users()
 
 
-@receiver(post_save, sender=Book)
-def send_new_book_notification(sender, instance, created, **kwargs):
-    if created:
-        # Use an existing user's profile as the sender
-        existing_user = User.objects.get(username='Tika')  # Replace 'admin' with the username of an existing user
-        # Get users who have enabled new book notifications
-        users = User.objects.filter(user_notification_settings__notify_newbooks=True)
-        for user in users:
-            Notification.objects.create(
-                recipient=user.profile,
-                sender=existing_user.profile,
-                notification_type='new_book',
-                book=instance,
-                message=f'New Ebook: {instance.name}'
-            )

@@ -202,6 +202,10 @@ class CreateCommentSerializer(serializers.ModelSerializer):
         model = Comment
         fields = ['id', 'text', 'parent_comment', 'image']
 
+    def create(self, validated_data):
+        # Additional logic can be added here if needed
+        return Comment.objects.create(**validated_data)
+
 
 class GenreSerializer(serializers.ModelSerializer):
     class Meta:
@@ -242,17 +246,10 @@ class BookViewSerializer(serializers.ModelSerializer):
 
 class ReviewSerializer(serializers.ModelSerializer):
     views_count = serializers.IntegerField(read_only=True)
-    like_count = serializers.SerializerMethodField()
-    dislike_count = serializers.SerializerMethodField()
+    like_count = serializers.ReadOnlyField()
     author_username = serializers.ReadOnlyField(source='author.username')
     author_profile_img = serializers.SerializerMethodField()
     formatted_timestamp = serializers.SerializerMethodField()
-
-    def get_like_count(self, obj):
-        return ReviewLike.objects.filter(review=obj).count()
-
-    def get_dislike_count(self, obj):
-        return ReviewDislike.objects.filter(review=obj).count()
 
     def get_author_profile_img(self, obj):
         if obj.author.profile.profileimg:
@@ -275,7 +272,7 @@ class ReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = Review
         fields = ['id', 'text', 'book', 'author', 'author_username', 'author_profile_img', 'views_count', 'like_count',
-                  'dislike_count', 'plot_rating', 'characters_rating', 'main_character_rating', 'genre_fit_rating', 'formatted_timestamp']
+                  'plot_rating', 'characters_rating', 'main_character_rating', 'genre_fit_rating', 'formatted_timestamp']
 
 
 class ReviewCreateSerializer(serializers.ModelSerializer):
@@ -316,6 +313,8 @@ class ChapterContentSerializer(serializers.ModelSerializer):
 
 
 class BookSettingsSerializer(serializers.ModelSerializer):
+    confirm_adult_content = serializers.BooleanField(write_only=True, default=False, required=False)
+
     co_author = serializers.SlugRelatedField(
         slug_field='username',
         queryset=User.objects.none(),  # Initially set to none
@@ -342,7 +341,8 @@ class BookSettingsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Book
-        fields = ['name', 'book_type', 'co_author', 'co_author2', 'genre', 'subgenres', 'description', 'authors_note', 'is_adult', 'visibility', 'comment_access', 'download_access']
+        fields = ['name', 'book_type', 'co_author', 'co_author2', 'genre', 'subgenres', 'description', 'authors_note',
+                  'is_adult', 'visibility', 'comment_access', 'download_access', 'confirm_adult_content']
         extra_kwargs = {
             'name': {'required': True},
             'book_type': {'required': True}
@@ -353,6 +353,13 @@ class BookSettingsSerializer(serializers.ModelSerializer):
         if 'co_author_queryset' in self.context:
             self.fields['co_author'].queryset = self.context['co_author_queryset']
             self.fields['co_author2'].queryset = self.context['co_author_queryset']
+
+    def validate_is_adult(self, value):
+        instance = self.instance
+        if instance and instance.is_adult and not value:
+            raise serializers.ValidationError(
+                "You cannot change 'is_adult' back to False once it has been set to True.")
+        return value
 
 
 class BookSaleSerializer(serializers.ModelSerializer):
@@ -373,19 +380,10 @@ class AuthorNoteSerializer(serializers.ModelSerializer):
 
 class NotificationSerializer(serializers.ModelSerializer):
     book = BookSerializer(read_only=True)
-    message = serializers.SerializerMethodField()
 
     class Meta:
         model = Notification
         fields = ['id', 'book', 'message', 'timestamp']
-
-    def get_message(self, obj):
-        # Customize the message based on the notification type
-        if obj.notification_type == 'book_update':
-            new_chapters_count = obj.book.chapters.filter(created__gt=obj.timestamp).count()
-            return f"New update in {obj.book.name}: {new_chapters_count} new chapters"
-        else:
-            return obj.get_message()
 
 
 class BookTypeSerializer(serializers.Serializer):
@@ -393,9 +391,18 @@ class BookTypeSerializer(serializers.Serializer):
 
 
 class BookFileSerializer(serializers.ModelSerializer):
+    book = serializers.PrimaryKeyRelatedField(queryset=Book.objects.all(), required=False)
+
     class Meta:
         model = BookFile
         fields = ['id', 'book', 'file', 'file_type']
+
+    def create(self, validated_data):
+        if 'book' not in validated_data:
+            # Создаем книгу с типом по умолчанию, если не предоставлен book
+            book = Book.objects.create(author=self.context['request'].user, book_type='default_type')
+            validated_data['book'] = book
+        return super().create(validated_data)
 
 
 class StudioBookSerializer(serializers.ModelSerializer):
@@ -426,7 +433,7 @@ class IllustrationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Illustration
-        fields = ['id', 'book', 'image', 'description']
+        fields = ['id', 'book', 'image', 'description', 'use_for_library_cover']
 
 
 class StudioSeriesBooksSerializer(serializers.ModelSerializer):
