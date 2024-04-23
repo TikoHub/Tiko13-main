@@ -57,6 +57,8 @@ class Notification(models.Model):
     read = models.BooleanField(default=False)
     timestamp = models.DateTimeField(auto_now_add=True)
     book = models.ForeignKey('store.Book', on_delete=models.SET_NULL, null=True, blank=True, related_name='user_book_preference_notification')
+    book_name = models.CharField(max_length=255, blank=True, null=True)
+    chapter_title = models.CharField(max_length=255, blank=True, null=True)
     message = models.TextField(blank=True, null=True)
 
     def save(self, *args, **kwargs):

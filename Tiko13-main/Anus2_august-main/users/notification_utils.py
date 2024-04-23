@@ -33,17 +33,17 @@ def send_book_update_notifications(book, chapter_title):
             obj, created = UserBookChapterNotificationModel.objects.get_or_create(user=user, book=book)
             chapters_since_last_notified = book.chapter_count() - obj.last_notified_chapter_count
             if chapters_since_last_notified >= user_settings.chapter_notification_threshold:
-                # Update the last notified chapter count and send a notification
                 obj.last_notified_chapter_count = book.chapter_count()
                 obj.save()
-                message = f"{book.name}: {chapter_title}"  # Use the passed chapter title
                 NotificationModel.objects.create(
                     recipient=user.profile,
                     sender=book.author.profile,
                     notification_type='book_update',
                     book=book,
-                    message=message
+                    book_name=book.name,
+                    chapter_title=chapter_title
                 )
+
 
 
 

@@ -15,7 +15,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.http import HttpResponse, HttpResponseRedirect
 from django.http import JsonResponse
-from django.db.models import Count
+from django.db.models import Count, Max
 from django.urls import reverse_lazy, reverse
 from django.views.generic.edit import FormView
 from django.contrib import messages
@@ -1244,14 +1244,39 @@ class NewsNotificationsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # Filter notifications based on the user's preferences and the types of notifications they want to receive
+        # Aggregate notifications by book and count them
         notifications = Notification.objects.filter(
             recipient=request.user.profile,
             notification_type='book_update'
-        ).order_by('-timestamp')
+        ).values('book').annotate(
+            updates_count=Count('id'),
+            latest_timestamp=Max('timestamp')
+        ).order_by('-latest_timestamp')
 
-        serializer = NotificationSerializer(notifications, many=True)
-        return Response(serializer.data)
+        serialized_notifications = []
+        for notif in notifications:
+            try:
+                book = Book.objects.get(id=notif['book'])
+                book_data = NewsInfoSerializer(book, context={'request': request}).data
+                related_notifications = Notification.objects.filter(
+                    book_id=notif['book']
+                ).order_by('-timestamp')
+
+                updates_list = [{
+                    'chapter_title': n.chapter_title,  # Assuming the chapter title or similar descriptor is stored in `message`
+                    'formatted_timestamp': n.timestamp.strftime('%m.%d.%Y at %I:%M %p')
+                } for n in related_notifications]
+
+                serialized_notifications.append({
+                    "book": book_data,
+                    "updates_count": notif['updates_count'],
+                    "updates_list": updates_list  # List of updates with chapter titles and timestamps
+                })
+            except Book.DoesNotExist:
+                continue  # Skip if the book doesn't exist
+
+        return Response(serialized_notifications)
+
 
 
 def parse_fb2_and_create_chapters(file_path, book):

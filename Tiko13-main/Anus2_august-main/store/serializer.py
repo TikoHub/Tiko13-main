@@ -378,12 +378,35 @@ class AuthorNoteSerializer(serializers.ModelSerializer):
         fields = ['id', 'chapter', 'author', 'start_position', 'end_position', 'note_text']
 
 
-class NotificationSerializer(serializers.ModelSerializer):
-    book = BookSerializer(read_only=True)
+class NewsInfoSerializer(serializers.ModelSerializer):
+    author_username = serializers.CharField(source='author.username')
+    author_profile_img = serializers.SerializerMethodField()
+
+    def get_author_profile_img(self, obj):
+        if obj.author.profile.profileimg:
+            return self.context['request'].build_absolute_uri(obj.author.profile.profileimg.url)
+        return None
 
     class Meta:
-        model = Notification
-        fields = ['id', 'book', 'message', 'timestamp']
+        model = Book
+        fields = ['id', 'name', 'author_username', 'author_profile_img', 'coverpage', 'views_count', 'volume_number', 'is_adult']
+
+
+class NewsSerializer(serializers.Serializer):
+    book = serializers.SerializerMethodField()
+    updates_count = serializers.IntegerField()
+    timestamp = serializers.DateTimeField()  # Ensure this is DateTimeField
+    formatted_timestamp = serializers.SerializerMethodField()
+
+    def get_book(self, obj):
+        book = Book.objects.get(id=obj['book_id'])
+        return NewsInfoSerializer(book, context=self.context).data
+
+    def get_formatted_timestamp(self, obj):
+        return obj['timestamp'].strftime('%m.%d.%Y at %I:%M %p')
+
+    class Meta:
+        fields = ['book', 'updates_count', 'formatted_timestamp']
 
 
 class BookTypeSerializer(serializers.Serializer):
