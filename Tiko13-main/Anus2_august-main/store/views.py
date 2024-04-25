@@ -46,6 +46,7 @@ from docx import Document
 import fitz
 import zipfile
 from bs4 import BeautifulSoup
+from django.db import transaction
 
 
 class BooksListAPIView(generics.ListAPIView):
@@ -238,10 +239,19 @@ class StudioCommentsAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # Get comments for books where the logged-in user is the author
-        comments = Comment.objects.filter(book__author=request.user).order_by('-timestamp')
+        # Get only top-level comments for books where the logged-in user is the author
+        comments = Comment.objects.filter(book__author=request.user, parent_comment__isnull=True).order_by('-timestamp')
         serializer = StudioCommentSerializer(comments, many=True, context={'request': request})
         return Response(serializer.data)
+
+    def post(self, request):
+        # Deserialize data to create a new comment or reply
+        serializer = StudioCommentSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            comment = serializer.save(user=request.user, parent_comment_id=request.data.get('parent_comment_id'))
+            return Response(StudioCommentSerializer(comment).data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, comment_id):
         comment = get_object_or_404(Comment, id=comment_id)
@@ -398,20 +408,28 @@ class AddChapterView(APIView):
 
     def post(self, request, book_id):
         try:
-            book = Book.objects.get(id=book_id)
-            if book.author != request.user:
-                return Response({'error': 'You are not the author of this book.'}, status=status.HTTP_403_FORBIDDEN)
+            with transaction.atomic():
+                book = Book.objects.select_for_update().get(id=book_id)  # Lock the book record for update
+                if book.author != request.user:
+                    return Response({'error': 'You are not the author of this book.'}, status=status.HTTP_403_FORBIDDEN)
 
-            # Check if the book is of type "Short Story / Poem" and already has a chapter
-            if book.book_type == 'short_story_poem' and book.chapters.exists():
-                return Response({'error': 'Short Story / Poem books can only have one chapter.'},
-                                status=status.HTTP_400_BAD_REQUEST)
+                # Refresh the book instance to ensure it's up-to-date
+                book.refresh_from_db()
 
-            # Create an empty chapter
-            new_chapter = Chapter.objects.create(book=book)
-            serializer = ChapterSerializers(new_chapter)
+                # Check if the book is of type "Short Story / Poem" and already has a chapter
+                if book.book_type == 'short_story_poem' and book.chapters.exists():
+                    return Response({'error': 'Short Story / Poem books can only have one chapter.'},
+                                    status=status.HTTP_400_BAD_REQUEST)
 
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+                # Create an empty chapter
+                last_chapter_number = book.chapters.aggregate(Max('chapter_number'))['chapter_number__max'] or 0
+                next_chapter_number = last_chapter_number + 1
+
+                # Create an empty chapter with the next chapter number
+                new_chapter = Chapter.objects.create(book=book, chapter_number=next_chapter_number)
+                serializer = ChapterSerializers(new_chapter)
+
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         except Book.DoesNotExist:
             return Response({'error': 'Book not found.'}, status=status.HTTP_404_NOT_FOUND)
@@ -471,32 +489,50 @@ def toggle_publish_chapter(request, book_id, chapter_id):
     chapter.published = not chapter.published
     chapter.save()
 
+    # Ensure notifications are triggered only for this chapter when it's published
     if chapter.published:
-        chapter.book.notify_users()
+        send_book_update_notifications_here(chapter.book, chapter.title)
 
     return Response({'published': chapter.published})
-# Ниже вариант если надо будет все предыдущие главы паблишить вместе с выбранной
-'''@api_view(['POST']) 
-def toggle_publish_chapter(request, book_id, chapter_id):
-    chapter = get_object_or_404(Chapter, id=chapter_id, book__id=book_id)
-    if request.user != chapter.book.author:
-        return Response({'error': 'You are not authorized to change the publication status of this chapter.'},
-                        status=status.HTTP_403_FORBIDDEN)
 
-    last_published_chapter = Chapter.objects.filter(book=chapter.book, published=True, chapter_number__lt=chapter.chapter_number).order_by('-chapter_number').first()
-    if last_published_chapter:
-        intermediate_chapters = Chapter.objects.filter(book=chapter.book, published=False, chapter_number__gt=last_published_chapter.chapter_number, chapter_number__lt=chapter.chapter_number)
-        for intermediate_chapter in intermediate_chapters:
-            intermediate_chapter.published = True
-            intermediate_chapter.save()
-    
-    chapter.published = True
-    chapter.save()
 
-    chapter.book.notify_users()
+def send_book_update_notifications_here(book, chapter_title):
+    from django.apps import apps
+    NotificationModel = apps.get_model('users', 'Notification')
+    UserBookChapterNotificationModel = apps.get_model('users', 'UserBookChapterNotification')
 
-    return Response({'published': chapter.published})
-'''
+    all_users = set()
+    categories = ['reading', 'liked', 'wishlist', 'favorites']
+    for category in categories:
+        users_in_category = getattr(book, f'{category}_users').all().values_list('user', flat=True)
+        all_users.update(users_in_category)
+
+    all_users = User.objects.filter(id__in=all_users)
+
+    for user in all_users:
+        user_settings = user.user_notification_settings
+        obj, created = UserBookChapterNotificationModel.objects.get_or_create(user=user, book=book)
+        current_chapter_count = book.chapter_count()
+        chapters_since_last_notified = current_chapter_count - obj.chapter_count_at_last_notification
+
+        if chapters_since_last_notified >= user_settings.chapter_notification_threshold:
+            NotificationModel.objects.create(
+                recipient=user.profile,
+                sender=book.author.profile,
+                notification_type='book_update',
+                book=book,
+                book_name=book.name,
+                chapter_title=chapter_title
+            )
+
+            obj.chapter_count_at_last_notification = current_chapter_count
+            obj.save()
+
+            print(f"Notification sent for user {user.username} for chapter {chapter_title}. Updated last notified chapter count to {current_chapter_count}")
+        else:
+            print(f"No notification sent for user {user.username}. Chapters since last notified: {chapters_since_last_notified}, Threshold: {user_settings.chapter_notification_threshold}")
+
+
 @api_view(['POST'])
 def add_author_note(request, book_id, chapter_id):
     try:

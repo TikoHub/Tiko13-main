@@ -3,7 +3,7 @@ from . import views
 from .views import CustomUserLoginView, ProfileAPIView, RegisterView, WebPageSettingsAPIView, PrivacySettingsAPIView, \
     PasswordChangeRequestView, PasswordChangeVerificationView, VerifyRegistrationView, NotificationSettingsAPIView, \
     AddToLibraryView, WalletBalanceView, DepositView, TransactionHistoryView, UpdateNotificationSettingsView, \
-    UserUpdateAPIView, UserNotificationsAPIView, FollowView
+    UserUpdateAPIView, UserNotificationsAPIView, FollowView, UserNotificationSettingsView, TokenCheckView
 
 from django.views.generic import TemplateView
 from rest_framework_simplejwt.views import (
@@ -28,7 +28,9 @@ urlpatterns = [
         path('accounts/', include('allauth.urls')), # Пока не трогай
         path('auth/', include('allauth.socialaccount.urls')), # Пока не трогай
         path('<str:username>/follow/', FollowView.as_view(), name='follow'),
+        path('token-check/', TokenCheckView.as_view(), name='token-check'),
 
+        path('forgot_password/', views.forgot_password, name='forgot_password'),
         #path('conversation/<int:user_id>/', views.conversation_view, name='conversation'), # Пока не трогай
         #path('messages_list/', views.messages_list_view, name='messages_list'), # Пока не трогай
 
@@ -55,6 +57,7 @@ urlpatterns = [
 
         path('settings/notifications/', NotificationSettingsAPIView.as_view(), name='settings-notifications'), # Настройки уведомлений пользователя
         path('settings/notifications/update/', UpdateNotificationSettingsView.as_view(), name='update-notification-settings'),
+        path('settings/notifications/news/', UserNotificationSettingsView.as_view(), name='user_notification_news_settings'),
 
         path('<str:username>/notifications/', UserNotificationsAPIView.as_view(), name='user-notifications-api'), # Уведомления пользователя (список уведов)
 

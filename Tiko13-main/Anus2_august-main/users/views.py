@@ -31,12 +31,13 @@ from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 import stripe
+import requests
 
-from .forms import UploadTrailerForm
-from .models import Achievement, Trailer, Notification, Conversation, Message, \
+
+from .models import Achievement, Notification, Conversation, Message, \
     WebPageSettings, Library, EmailVerification, TemporaryRegistration, Wallet, StripeCustomer, \
     UsersNotificationSettings
-from rest_framework_simplejwt.views import TokenObtainPairView
+
 from .serializers import *
 
 
@@ -155,6 +156,36 @@ class CustomUserLoginView(APIView):
                 return Response({'error': 'Invalid email or password.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
+# views.py
+
+@api_view(['POST'])
+def forgot_password(request):
+    captcha_response = request.data.get('captcha')
+    # Verify CAPTCHA using the secret key from settings
+    data = {
+        'secret': settings.RECAPTCHA_SECRET_KEY,
+        'response': captcha_response
+    }
+    r = requests.post('https://www.google.com/recaptcha/api/siteverify', data=data)
+    result = r.json()
+    if not result.get('success'):
+        return Response({"error": "Invalid CAPTCHA"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Generate the 6-digit code
+    code = str(random.randint(1000, 9999))
+
+    # Attempt to get the user by email
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response({"error": "Email not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    # Send the verification email
+    send_verification_email(user, code)
+
+    return Response({"message": "Verification code sent to your email."})
+
+
 @api_view(['GET'])
 def followers_list(request, username):
     try:
@@ -163,7 +194,7 @@ def followers_list(request, username):
         return Response(status=status.HTTP_404_NOT_FOUND)
 
     followers = FollowerHelper.get_followers(user)
-    serializer = UserSerializer(followers, many=True)
+    serializer = UserSerializer(followers, many=True, context={'request': request})
     return Response(serializer.data)
 
 
@@ -175,7 +206,7 @@ def following_list(request, username):
         return Response(status=status.HTTP_404_NOT_FOUND)
 
     following = FollowerHelper.get_following(user)
-    serializer = UserSerializer(following, many=True)
+    serializer = UserSerializer(following, many=True, context={'request': request})
     return Response(serializer.data)
 
 
@@ -593,6 +624,23 @@ class UpdateNotificationSettingsView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class UserNotificationSettingsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        settings = UsersNotificationSettings.objects.get(user=request.user)
+        serializer = UserNotificationSettingsSerializer(settings)
+        return Response(serializer.data)
+
+    def patch(self, request):
+        settings, created = UsersNotificationSettings.objects.get_or_create(user=request.user)
+        serializer = UserNotificationSettingsSerializer(settings, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 class UserNotificationsAPIView(APIView):
     def get(self, request, username, *args, **kwargs):
         user = get_object_or_404(User, username=username)
@@ -605,23 +653,6 @@ class UserNotificationsAPIView(APIView):
         notifications = Notification.objects.filter(recipient=user.profile).order_by('-timestamp')
         serializer = NotificationSerializer(notifications, many=True)
         return Response(serializer.data)
-
-
-class UserNotificationSettingsView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        settings = UsersNotificationSettings.objects.get(user=request.user)
-        serializer = UserNotificationSettingsSerializer(settings)
-        return Response(serializer.data)
-
-    def put(self, request):
-        settings = UsersNotificationSettings.objects.get(user=request.user)
-        serializer = UserNotificationSettingsSerializer(settings, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])
@@ -675,27 +706,16 @@ def notify_author_followers(author, update_type, book=None):
         )
 
 
-'''
-def notifications(request):
-    # get all unread notifications
-    notifications = Notification.objects.filter(recipient=request.user.profile, read=False)
-    return render(request, 'notifications/notifications.html', {'notifications': notifications})
-def read_notification(request, notification_id):
-    # Retrieve the notification by id or return 404 if not found
-    notification = get_object_or_404(Notification, id=notification_id)
+class TokenCheckView(APIView):
+    permission_classes = [IsAuthenticated]
 
-    # Check if the logged-in user is the recipient of the notification
-    if request.user.profile == notification.recipient:
-        notification.read = True
-        notification.save()
-
-    # Redirect back to the notifications page
-    return redirect('notifications')
-@login_required(login_url='signin')
-def notification_count(request):
-    count = request.user.profile.unread_notification_count()
-    return JsonResponse({"unread_count": count})
-'''
+    def get(self, request):
+        # If the token is valid, the request will have a user associated with it
+        return Response({
+            'is_authenticated': True,
+            'user_id': request.user.id,
+            'username': request.user.username
+        })
 
 
 class PrivacySettingsAPIView(APIView):
@@ -714,19 +734,6 @@ class PrivacySettingsAPIView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
 
-
-def privacy_settings(request):
-    if request.method == "POST":
-        auto_add_reading = request.POST.get('auto_add_reading') == 'true'  # Get value from select dropdown
-        request.user.profile.auto_add_reading = auto_add_reading
-        request.user.profile.save()
-
-    if request.method == "POST":
-        library_privacy = request.POST.get('see_my_library')
-        request.user.profile.library_privacy = library_privacy
-        request.user.profile.save()
-
-    return render(request, 'settings/privacy.html')
 
 
 def add_to_blacklist(request, username):

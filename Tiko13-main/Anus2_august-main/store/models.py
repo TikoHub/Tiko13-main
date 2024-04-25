@@ -121,7 +121,7 @@ class Book(models.Model):
                     Notification.objects.create(
                         recipient=user.profile,
                         sender=existing_user.profile,
-                        notification_type='new_book',
+                        notification_type='new_ebook',
                         book=self,
                         message=f'{self.name} has just been released!'
                     )
@@ -215,6 +215,7 @@ class BookLike(models.Model):
 class Chapter(models.Model):
     book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='chapters')
     title = models.CharField(max_length=200, blank=True)  # This will hold the "Chapter X" title
+    chapter_number = models.IntegerField()
     is_free = models.BooleanField(default=False)
     updated = models.DateTimeField(auto_now=True)
     created = models.DateTimeField(auto_now_add=True)
@@ -223,10 +224,8 @@ class Chapter(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.title:
-            # If the title is not provided, generate it automatically
-            # Get the number of existing chapters for the book
-            num_chapters = Chapter.objects.filter(book=self.book).count()
-            self.title = f"Chapter {num_chapters + 1}"
+            # Automatic title generation using chapter number
+            self.title = f"Chapter {self.chapter_number}"
 
         book = self.book
         book.updated = timezone.now()

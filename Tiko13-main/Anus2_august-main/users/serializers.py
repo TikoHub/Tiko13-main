@@ -9,6 +9,7 @@ from django.utils import timezone
 from datetime import timedelta
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
+import re
 
 
 class CustomUserRegistrationSerializer(serializers.Serializer):
@@ -20,6 +21,15 @@ class CustomUserRegistrationSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     password = serializers.CharField(write_only=True, required=True)
     password2 = serializers.CharField(write_only=True, required=True)
+
+    def validate_password(self, value):
+        if len(value) < 8:
+            raise serializers.ValidationError("Password must be at least 8 characters long.")
+        if not re.search(r'[A-Z]', value):
+            raise serializers.ValidationError("Password must contain at least one uppercase letter.")
+        if not re.search(r'\d', value):
+            raise serializers.ValidationError("Password must contain at least one number.")
+        return value
 
     def validate(self, data):
         errors = {}
@@ -67,10 +77,19 @@ class CustomUserLoginSerializer(serializers.Serializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
+    profile_img = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'first_name', 'last_name']
+        fields = ['id', 'username', 'first_name', 'last_name', 'profile_img']
+
+    def get_profile_img(self, obj):
+        if obj.profile.profileimg:
+            request = self.context.get('request')
+            profile_img_url = obj.profile.profileimg.url
+            return request.build_absolute_uri(profile_img_url) if request else profile_img_url
+        return None
+
 
 
 class ProfileSerializer(serializers.ModelSerializer):
@@ -341,6 +360,7 @@ class PasswordChangeVerificationSerializer(serializers.Serializer):
 
 class NotificationSerializer(serializers.ModelSerializer):
     formatted_timestamp = serializers.SerializerMethodField()
+    book_id = serializers.IntegerField(source='book.id', read_only=True)
     message = serializers.SerializerMethodField()
 
     from django.utils import timezone
@@ -379,7 +399,7 @@ class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
         fields = ['id', 'recipient', 'sender', 'notification_type', 'read', 'formatted_timestamp', 'book_name',
-                  'chapter_title', 'message']
+                  'chapter_title', 'message', 'book_id']
 
 
 class NotificationSettingSerializer(serializers.ModelSerializer):
@@ -398,6 +418,21 @@ class NotificationSettingSerializer(serializers.ModelSerializer):
             'show_follower_updates',
             'show_response_updates',
         ]
+
+
+class UserNotificationSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UsersNotificationSettings
+        fields = ['notify_reading', 'notify_liked', 'notify_wishlist', 'notify_favorites', 'chapter_notification_threshold']
+
+    def update(self, instance, validated_data):
+        instance.notify_reading = validated_data.get('notify_reading', instance.notify_reading)
+        instance.notify_liked = validated_data.get('notify_liked', instance.notify_liked)
+        instance.notify_wishlist = validated_data.get('notify_wishlist', instance.notify_wishlist)
+        instance.notify_favorites = validated_data.get('notify_favorites', instance.notify_favorites)
+        instance.chapter_notification_threshold = validated_data.get('chapter_notification_threshold', instance.chapter_notification_threshold)
+        instance.save()
+        return instance
 
 
 class ProfileDescriptionSerializer(serializers.ModelSerializer):
@@ -420,18 +455,6 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Add custom claims
         token['username'] = user.username
         return token
-
-
-class UserNotificationSettingsSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = UsersNotificationSettings
-        fields = [
-            'notify_reading',
-            'notify_liked',
-            'notify_wishlist',
-            'notify_favorites',
-            'chapter_notification_threshold',  # Add this field
-        ]
 
 
 class FollowSerializer(serializers.Serializer):

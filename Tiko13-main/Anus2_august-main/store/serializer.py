@@ -474,6 +474,7 @@ class StudioSeriesBooksSerializer(serializers.ModelSerializer):
 
 
 class StudioCommentSerializer(serializers.ModelSerializer):
+    replies = serializers.SerializerMethodField()
     author_name = serializers.CharField(source='user.username')
     author_profile_img = serializers.SerializerMethodField()
     book_coverpage = serializers.SerializerMethodField()
@@ -482,7 +483,8 @@ class StudioCommentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Comment
-        fields = ('id', 'author_name', 'author_profile_img', 'text', 'rating', 'formatted_timestamp', 'book_coverpage', 'book_name')
+        fields = ('id', 'author_name', 'author_profile_img', 'text', 'rating', 'formatted_timestamp', 'book_coverpage',
+                  'book_name', 'replies')
 
     def get_author_profile_img(self, obj):
         request = self.context.get('request')
@@ -498,6 +500,11 @@ class StudioCommentSerializer(serializers.ModelSerializer):
 
     def get_formatted_timestamp(self, obj):
         return obj.timestamp.strftime('%d.%m.%Y %H:%M')
+
+    def get_replies(self, obj):
+        # This will fetch replies for the comment
+        replies = Comment.objects.filter(parent_comment=obj)
+        return StudioCommentSerializer(replies, many=True, context=self.context).data
 
 
 class AuthorSerializer(serializers.ModelSerializer):
