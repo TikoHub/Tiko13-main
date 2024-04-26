@@ -47,6 +47,7 @@ import fitz
 import zipfile
 from bs4 import BeautifulSoup
 from django.db import transaction
+import filetype
 
 
 class BooksListAPIView(generics.ListAPIView):
@@ -1314,35 +1315,33 @@ class NewsNotificationsView(APIView):
         return Response(serialized_notifications)
 
 
-
 def parse_fb2_and_create_chapters(file_path, book):
-    # Загрузка файла FB2
     tree = etree.parse(file_path)
     root = tree.getroot()
-
-    # Предполагаем, что namespace для элементов FB2, может отличаться
     ns = {'fb': 'http://www.gribuser.ru/xml/fictionbook/2.0'}
 
-    # Итерация по главам в файле
+    last_chapter_number = book.chapters.aggregate(Max('chapter_number'))['chapter_number__max'] or 0
+
     for section in root.findall('.//fb:section', namespaces=ns):
         title_element = section.find('.//fb:title', namespaces=ns)
         title = "".join(title_element.itertext()) if title_element is not None else None
 
-        # Сбор текста из параграфов
         content = ""
         for p in section.findall('.//fb:p', namespaces=ns):
             content += "\n".join(p.itertext())
 
-        # Создание главы
-        chapter = Chapter(
+        next_chapter_number = last_chapter_number + 1
+        last_chapter_number = next_chapter_number  # Update last chapter number for the next iteration
+
+        Chapter.objects.create(
             book=book,
             title=title,
             content=content.strip(),
+            chapter_number=next_chapter_number,  # Добавляем номер главы
             created=timezone.now(),
             updated=timezone.now(),
-            published=False  # или True, если должно быть сразу опубликовано
+            published=False
         )
-        chapter.save()
 
 
 def parse_docx_and_create_chapters(file_path, book):
@@ -1360,8 +1359,19 @@ def parse_pdf_and_create_chapters(file_path, book):
     text = ""
     for page in doc:
         text += page.get_text()
-    # Здесь предполагается, что вы будете делить текст на главы каким-то способом
-    Chapter.objects.create(book=book, title="Full Text", content=text)
+    # Если PDF файл представляет собой одну большую главу
+    last_chapter_number = book.chapters.aggregate(Max('chapter_number'))['chapter_number__max'] or 0
+    next_chapter_number = last_chapter_number + 1
+
+    Chapter.objects.create(
+        book=book,
+        title="Full Text of PDF",
+        content=text,
+        chapter_number=next_chapter_number,  # Добавляем номер главы
+        created=timezone.now(),
+        updated=timezone.now(),
+        published=False
+    )
 
 
 def parse_xml_and_create_chapters(file_path, book):
@@ -1377,41 +1387,97 @@ def parse_txt_and_create_chapters(file_path, book):
     with open(file_path, 'r', encoding='utf-8') as file:
         text = file.read()
         chapters = text.split('Chapter')  # Предполагаем, что главы разделены словом 'Chapter'
-        for i, chapter in enumerate(chapters):
+
+        last_chapter_number = book.chapters.aggregate(Max('chapter_number'))['chapter_number__max'] or 0
+
+        for i, chapter_content in enumerate(chapters):
+            if i == 0 and not chapter_content.strip():
+                continue  # Пропустить пустую секцию перед первой главой, если таковая есть
+
             title = f"Chapter {i+1}"
-            content = chapter.strip()
-            Chapter.objects.create(book=book, title=title, content=content)
+            content = chapter_content.strip()
+            next_chapter_number = last_chapter_number + 1
+            last_chapter_number = next_chapter_number  # Обновить номер последней главы
+
+            Chapter.objects.create(
+                book=book,
+                title=title,
+                content=content,
+                chapter_number=next_chapter_number,
+                created=timezone.now(),
+                updated=timezone.now(),
+                published=False
+            )
+
+    if len(chapters) <= 1:
+        print("No chapters found in the TXT file.")
 
 
 def parse_epub_and_create_chapters(file_path, book):
     with zipfile.ZipFile(file_path, 'r') as zf:
-        for filename in zf.namelist():
-            if filename.endswith('.html'):
-                with zf.open(filename) as file:
-                    soup = BeautifulSoup(file, 'html.parser')
-                    title = soup.title.string if soup.title else "Untitled Chapter"
-                    content = str(soup.body)
-                    Chapter.objects.create(book=book, title=title, content=content)
+        # Предполагаем, что названия файлов глав могут заканчиваться на '.html' или '.xhtml'
+        epub_files = [f for f in zf.namelist() if f.endswith(('.html', '.xhtml'))]
+
+        last_chapter_number = book.chapters.aggregate(Max('chapter_number'))['chapter_number__max'] or 0
+
+        for filename in epub_files:
+            with zf.open(filename) as file:
+                soup = BeautifulSoup(file, 'html.parser')
+                title = soup.title.string if soup.title else "Untitled Chapter"
+
+                # Используем метод get_text() для извлечения чистого текста
+                content = soup.body.get_text(separator=' ', strip=True) if soup.body else ""
+
+                next_chapter_number = last_chapter_number + 1
+                last_chapter_number = next_chapter_number  # Обновляем номер последней главы для следующей итерации
+
+                Chapter.objects.create(
+                    book=book,
+                    title=title,
+                    content=content,
+                    chapter_number=next_chapter_number,
+                    created=timezone.now(),
+                    updated=timezone.now(),
+                    published=False
+                )
+
+    if not epub_files:
+        print("No HTML or XHTML files found in EPUB archive.")
+
+
+def get_file_type_by_extension(file_path):
+    import os
+    extension = os.path.splitext(file_path)[1].lower()
+    return {
+        '.fb2': 'application/x-fictionbook+xml',
+        '.epub': 'application/epub+zip',
+        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.txt': 'text/plain',
+        '.pdf': 'application/pdf',
+        # Добавьте другие расширения и MIME типы
+    }.get(extension, None)
 
 
 class BookFileUploadView(APIView):
     handlers = {
-        'fb2': parse_fb2_and_create_chapters,
-        'epub': parse_epub_and_create_chapters,  # функция обработки EPUB
-        'docx': parse_docx_and_create_chapters,  # функция обработки DOCX
-        'txt': parse_txt_and_create_chapters,    # функция обработки TXT
-        'pdf': parse_pdf_and_create_chapters,    # функция обработки PDF
-        'xml': parse_xml_and_create_chapters     # функция обработки XML (если добавите)
+        'application/epub+zip': parse_epub_and_create_chapters,
+        'application/pdf': parse_pdf_and_create_chapters,
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': parse_docx_and_create_chapters,
+        'text/plain': parse_txt_and_create_chapters,
+        'application/x-fictionbook+xml': parse_fb2_and_create_chapters,
+        # Добавьте другие MIME типы и соответствующие функции обработки
     }
 
     def post(self, request):
         serializer = BookFileSerializer(data=request.data)
         if serializer.is_valid():
-            # Создаем новую книгу с типом по умолчанию
             book = Book.objects.create(author=request.user, book_type='default_type')
             book_file = serializer.save(book=book)
-            # Обработка файла в зависимости от типа
-            handler = self.handlers.get(book_file.file_type)
+            file_type = get_file_type_by_extension(book_file.file.path)  # Используем новую функцию
+            if file_type is None:
+                return Response({"error": "Unsupported file type"}, status=status.HTTP_400_BAD_REQUEST)
+
+            handler = self.handlers.get(file_type)
             if handler:
                 handler(book_file.file.path, book)
                 return Response(serializer.data, status=status.HTTP_201_CREATED)

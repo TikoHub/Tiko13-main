@@ -10,6 +10,7 @@ from django.contrib.auth.models import User
 from django.urls import reverse
 from users.models import Notification
 from django.template.defaultfilters import date as _date
+import filetype
 
 
 class ChapterSerializers(serializers.ModelSerializer):       # Основной Чаптер Сериалайзер
@@ -414,6 +415,7 @@ class BookTypeSerializer(serializers.Serializer):
 
 
 class BookFileSerializer(serializers.ModelSerializer):
+    file_type = serializers.CharField(max_length=100, required=False)
     book = serializers.PrimaryKeyRelatedField(queryset=Book.objects.all(), required=False)
 
     class Meta:
@@ -421,10 +423,20 @@ class BookFileSerializer(serializers.ModelSerializer):
         fields = ['id', 'book', 'file', 'file_type']
 
     def create(self, validated_data):
+        file = validated_data.get('file')
+        kind = filetype.guess(file)  # Определяем тип файла
+        print("Guessed MIME type:", kind.mime if kind else "None")
+        if kind is not None:
+            validated_data['file_type'] = kind.mime  # Обновляем file_type на основе определенного MIME типа
+        else:
+            validated_data['file_type'] = 'unknown'  # Или установите значение по умолчанию, если тип не определен
+
         if 'book' not in validated_data:
-            # Создаем книгу с типом по умолчанию, если не предоставлен book
-            book = Book.objects.create(author=self.context['request'].user, book_type='default_type')
+            # Если книга не указана, создаем новую с типом по умолчанию
+            user = self.context['request'].user
+            book = Book.objects.create(author=user, book_type='default_type')
             validated_data['book'] = book
+
         return super().create(validated_data)
 
 
