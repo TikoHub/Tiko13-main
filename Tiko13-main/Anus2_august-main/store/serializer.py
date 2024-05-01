@@ -20,6 +20,14 @@ class ChapterSerializers(serializers.ModelSerializer):       # Основной 
         fields = ['title', 'content', 'is_free', 'published']
 
 
+class ChapterSideSerializer(serializers.ModelSerializer):
+    book_name = serializers.CharField(source='book.name', read_only=True)  # Assuming the Book model has a 'name' attribute
+
+    class Meta:
+        model = Chapter
+        fields = ('id', 'title', 'book_name', 'is_free', 'published')
+
+
 class ChapterSummarySerializer(serializers.ModelSerializer):      # Для Book_Detail / Content
     added_date = serializers.DateTimeField(source='created', format='%m-%d-%Y')
 
@@ -199,12 +207,19 @@ class CommentSerializer(serializers.ModelSerializer):
 
 
 class CreateCommentSerializer(serializers.ModelSerializer):
+    parent_comment_id = serializers.IntegerField(required=False, allow_null=True, write_only=True)
+
     class Meta:
         model = Comment
-        fields = ['id', 'text', 'parent_comment', 'image']
+        fields = ['id', 'text', 'parent_comment_id', 'image', 'book']
 
     def create(self, validated_data):
-        # Additional logic can be added here if needed
+        parent_comment_id = validated_data.pop('parent_comment_id', None)
+        parent_comment = None
+        if parent_comment_id is not None:
+            parent_comment = Comment.objects.get(id=parent_comment_id)
+        validated_data['parent_comment'] = parent_comment
+        # Include additional data like user and book if needed here
         return Comment.objects.create(**validated_data)
 
 
@@ -448,10 +463,11 @@ class StudioBookSerializer(serializers.ModelSerializer):
         queryset=Series.objects.all(),
         allow_null=True
     )
+    last_chapter_info = serializers.SerializerMethodField()
 
     class Meta:
         model = Book
-        fields = ['id', 'name', 'coverpage', 'volume_number', 'series_id', 'is_adult', 'last_modified_formatted', 'status', 'visibility']
+        fields = ['id', 'name', 'coverpage', 'volume_number', 'series_id', 'is_adult', 'last_modified_formatted', 'status', 'visibility', 'last_chapter_info']
 
     def get_last_modified_formatted(self, obj):
         return _date(obj.last_modified, "d/m/Y, H:i")
@@ -460,6 +476,17 @@ class StudioBookSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if obj.coverpage and request:
             return request.build_absolute_uri(obj.coverpage.url)
+        return None
+
+    def get_last_chapter_info(self, obj):
+        # Fetch the last chapter of the book
+        last_chapter = obj.chapters.order_by('-created').first()
+        if last_chapter:
+            return {
+                'id': last_chapter.id,
+                'title': last_chapter.title,
+                'created': last_chapter.created.strftime('%d.%m.%Y %H:%M')
+            }
         return None
 
 
@@ -487,6 +514,7 @@ class StudioSeriesBooksSerializer(serializers.ModelSerializer):
 
 class StudioCommentSerializer(serializers.ModelSerializer):
     replies = serializers.SerializerMethodField()
+    replies_count = serializers.SerializerMethodField()
     author_name = serializers.CharField(source='user.username')
     author_profile_img = serializers.SerializerMethodField()
     book_coverpage = serializers.SerializerMethodField()
@@ -496,7 +524,7 @@ class StudioCommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = ('id', 'author_name', 'author_profile_img', 'text', 'rating', 'formatted_timestamp', 'book_coverpage',
-                  'book_name', 'replies')
+                  'book_name', 'replies', 'replies_count')
 
     def get_author_profile_img(self, obj):
         request = self.context.get('request')
@@ -517,6 +545,10 @@ class StudioCommentSerializer(serializers.ModelSerializer):
         # This will fetch replies for the comment
         replies = Comment.objects.filter(parent_comment=obj)
         return StudioCommentSerializer(replies, many=True, context=self.context).data
+
+    def get_replies_count(self, obj):
+        # Calculate and return the number of replies to the comment
+        return Comment.objects.filter(parent_comment=obj).count()
 
 
 class AuthorSerializer(serializers.ModelSerializer):

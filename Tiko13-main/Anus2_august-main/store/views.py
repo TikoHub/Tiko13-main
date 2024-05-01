@@ -245,12 +245,19 @@ class StudioCommentsAPIView(APIView):
         serializer = StudioCommentSerializer(comments, many=True, context={'request': request})
         return Response(serializer.data)
 
-    def post(self, request):
-        # Deserialize data to create a new comment or reply
-        serializer = StudioCommentSerializer(data=request.data, context={'request': request})
+    def post(self, request, book_id):
+        book = get_object_or_404(Book, pk=book_id)
+        if not book.can_user_comment(request.user):
+            return Response({'error': 'You are not allowed to comment on this book.'}, status=status.HTTP_403_FORBIDDEN)
+
+        data = request.data.copy()  # Make a mutable copy of the request data
+        data['book'] = book.id  # Ensure the book is correctly associated
+
+        serializer = CreateCommentSerializer(data=data, context={'request': request})
         if serializer.is_valid():
-            comment = serializer.save(user=request.user, parent_comment_id=request.data.get('parent_comment_id'))
-            return Response(StudioCommentSerializer(comment).data, status=status.HTTP_201_CREATED)
+            new_comment = serializer.save(user=request.user)  # User is added here
+            return Response(StudioCommentSerializer(new_comment, context={'request': request}).data,
+                            status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -392,14 +399,14 @@ class ChapterListView(APIView):
 
     def get(self, request, book_id):
         book = Book.objects.get(id=book_id)
-        chapters = book.chapters.all()
-        serializer = ChapterSerializers(chapters, many=True)
+        chapters = book.chapters.all().order_by('created')  # Assuming you want them ordered by creation date
+        serializer = ChapterSideSerializer(chapters, many=True)
         return Response(serializer.data)
 
     def post(self, request, book_id):
-        serializer = ChapterSerializers(data=request.data)
+        serializer = ChapterSerializers(data=request.data, context={'request': request})
         if serializer.is_valid():
-            serializer.save(book_id=book_id)
+            serializer.save(book_id=book_id)  # Ensure the book_id is passed correctly to the save method
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -487,51 +494,19 @@ def toggle_publish_chapter(request, book_id, chapter_id):
         return Response({'error': 'You are not authorized to change the publication status of this chapter.'},
                         status=status.HTTP_403_FORBIDDEN)
 
-    chapter.published = not chapter.published
-    chapter.save()
+    # Check if there are any unpublished chapters before this one
+    if Chapter.objects.filter(book=book_id, chapter_number__lt=chapter.chapter_number, published=False).exists():
+        return Response({'error': 'You cannot publish this chapter until all previous chapters are published.'},
+                        status=status.HTTP_403_FORBIDDEN)
 
-    # Ensure notifications are triggered only for this chapter when it's published
-    if chapter.published:
-        send_book_update_notifications_here(chapter.book, chapter.title)
+    with transaction.atomic():
+        chapter.published = not chapter.published
+        chapter.save()
 
-    return Response({'published': chapter.published})
+        if chapter.published:
+            send_book_update_notifications(chapter.book, chapter.title)  # Ensure this function is correctly defined in your utils
 
-
-def send_book_update_notifications_here(book, chapter_title):
-    from django.apps import apps
-    NotificationModel = apps.get_model('users', 'Notification')
-    UserBookChapterNotificationModel = apps.get_model('users', 'UserBookChapterNotification')
-
-    all_users = set()
-    categories = ['reading', 'liked', 'wishlist', 'favorites']
-    for category in categories:
-        users_in_category = getattr(book, f'{category}_users').all().values_list('user', flat=True)
-        all_users.update(users_in_category)
-
-    all_users = User.objects.filter(id__in=all_users)
-
-    for user in all_users:
-        user_settings = user.user_notification_settings
-        obj, created = UserBookChapterNotificationModel.objects.get_or_create(user=user, book=book)
-        current_chapter_count = book.chapter_count()
-        chapters_since_last_notified = current_chapter_count - obj.chapter_count_at_last_notification
-
-        if chapters_since_last_notified >= user_settings.chapter_notification_threshold:
-            NotificationModel.objects.create(
-                recipient=user.profile,
-                sender=book.author.profile,
-                notification_type='book_update',
-                book=book,
-                book_name=book.name,
-                chapter_title=chapter_title
-            )
-
-            obj.chapter_count_at_last_notification = current_chapter_count
-            obj.save()
-
-            print(f"Notification sent for user {user.username} for chapter {chapter_title}. Updated last notified chapter count to {current_chapter_count}")
-        else:
-            print(f"No notification sent for user {user.username}. Chapters since last notified: {chapters_since_last_notified}, Threshold: {user_settings.chapter_notification_threshold}")
+    return Response({'published': chapter.published, 'message': 'Chapter publication status toggled successfully.'})
 
 
 @api_view(['POST'])
@@ -812,16 +787,14 @@ class CommentListCreateView(APIView):
         if not book.can_user_comment(request.user):
             return Response({'error': 'You are not allowed to comment on this book.'}, status=status.HTTP_403_FORBIDDEN)
 
-        # Check if a parent_comment_id is provided in the request data
-        parent_comment_id = request.data.get('parent_comment_id')
-        parent_comment = None
-        if parent_comment_id:
-            parent_comment = get_object_or_404(Comment, id=parent_comment_id)
+        data = request.data.copy()  # Make a mutable copy of the request data
+        data['book'] = book.id  # Ensure the book is correctly associated
 
-        serializer = CreateCommentSerializer(data=request.data, context={'request': request})
+        serializer = CreateCommentSerializer(data=data, context={'request': request})
         if serializer.is_valid():
-            new_comment = serializer.save(user=request.user, book=book, parent_comment=parent_comment)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            new_comment = serializer.save(user=request.user)  # User is added here
+            return Response(StudioCommentSerializer(new_comment, context={'request': request}).data,
+                            status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

@@ -28,6 +28,7 @@ SECRET_KEY = 'django-insecure-a9x4pgg7vxl+_3l-daz)1ie)ots$*r#x=+npeibx1c#i&628m4
 DEBUG = True
 
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost']  # 02 11 2023 google auth attempt
+REDIRECT_DOMAIN = 'http://127.0.0.1:8000'
 
 
 AUTHENTICATION_BACKENDS = (

@@ -17,7 +17,7 @@ urlpatterns = [
         path('book_detail/<int:book_id>/comments/<int:comment_id>/like/', LikeCommentView.as_view(), name='like_comment'), #Лайк коммента
         path('book_detail/<int:book_id>/comments/<int:comment_id>/dislike/', DislikeCommentView.as_view(), name='dislike_comment'), # Дизлайк коммента
         path('book_detail/<int:book_id>/reviews/<int:review_id>/like/', LikeReviewView.as_view(), name='like_review'),
-        path('api/book_detail/<int:book_id>/illustrations/<int:illustration_id>/', IllustrationView.as_view(), name='update_illustration'),
+      #  path('api/book_detail/<int:book_id>/illustrations/<int:illustration_id>/', IllustrationView.as_view(), name='update_illustration'),
 
 
         path('book/<int:book_id>/chapters/', ChapterContentView.as_view(), name='chapter_content'), # Отдел Глав для писателя
