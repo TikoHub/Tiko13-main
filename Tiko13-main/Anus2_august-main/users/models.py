@@ -59,6 +59,7 @@ class Notification(models.Model):
     book = models.ForeignKey('store.Book', on_delete=models.SET_NULL, null=True, blank=True, related_name='user_book_preference_notification')
     book_name = models.CharField(max_length=255, blank=True, null=True)
     chapter_title = models.CharField(max_length=255, blank=True, null=True)
+    chapter = models.ForeignKey('store.Chapter', on_delete=models.SET_NULL, null=True, blank=True)
     message = models.TextField(blank=True, null=True)
 
     def save(self, *args, **kwargs):

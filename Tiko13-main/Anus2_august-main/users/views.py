@@ -671,8 +671,14 @@ def notification_count(request):
 
 
 def notify_users_of_new_chapter(book):
-    new_chapter_count = book.chapters.filter(published=True).count()  # Assuming you have a published field on your chapter model
-    new_chapter_title = book.chapters.order_by('-created').first().title
+    # Retrieve the latest published chapter
+    new_chapter = book.chapters.filter(published=True).order_by('-created').first()
+    new_chapter_count = book.chapters.filter(published=True).count()
+
+    if new_chapter is None:
+        return  # If no chapter is found or none are published, exit the function
+
+    new_chapter_title = new_chapter.title
 
     # Identify users based on their preferences and relation to the book
     interested_users = User.objects.filter(
@@ -689,7 +695,8 @@ def notify_users_of_new_chapter(book):
             recipient=user.profile,
             notification_type='book_update',
             book=book,
-            message=f"{book.name}: {new_chapter_title}"
+            chapter=new_chapter,  # Now include the chapter in the notification
+            message=f"{book.name}: {new_chapter_title} has been added."
         )
 
 

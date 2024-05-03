@@ -25,7 +25,7 @@ class ChapterSideSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Chapter
-        fields = ('id', 'title', 'book_name', 'is_free', 'published')
+        fields = ('id', 'title', 'book_name', 'is_free', 'published', 'content') #Content был добавлен для умной прогрузки
 
 
 class ChapterSummarySerializer(serializers.ModelSerializer):      # Для Book_Detail / Content
@@ -406,23 +406,6 @@ class NewsInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Book
         fields = ['id', 'name', 'author_username', 'author_profile_img', 'coverpage', 'views_count', 'volume_number', 'is_adult']
-
-
-class NewsSerializer(serializers.Serializer):
-    book = serializers.SerializerMethodField()
-    updates_count = serializers.IntegerField()
-    timestamp = serializers.DateTimeField()  # Ensure this is DateTimeField
-    formatted_timestamp = serializers.SerializerMethodField()
-
-    def get_book(self, obj):
-        book = Book.objects.get(id=obj['book_id'])
-        return NewsInfoSerializer(book, context=self.context).data
-
-    def get_formatted_timestamp(self, obj):
-        return obj['timestamp'].strftime('%m.%d.%Y at %I:%M %p')
-
-    class Meta:
-        fields = ['book', 'updates_count', 'formatted_timestamp']
 
 
 class BookTypeSerializer(serializers.Serializer):

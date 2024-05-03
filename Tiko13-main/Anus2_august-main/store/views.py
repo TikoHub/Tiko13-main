@@ -48,6 +48,7 @@ import zipfile
 from bs4 import BeautifulSoup
 from django.db import transaction
 import filetype
+from django.utils.timezone import now
 
 
 class BooksListAPIView(generics.ListAPIView):
@@ -85,21 +86,33 @@ class BookDetailAPIView(generics.RetrieveAPIView):
         elif book.visibility == 'followers' and not book.author.followers.filter(user=user).exists():
             raise PermissionDenied('You do not have permission to view this book.')
 
+        if book.is_adult:
+            if not user.is_authenticated:
+                raise Http404("This Book is for Adults Only. Please Sign in to Continue.")
+            if user.profile.date_of_birth:
+                age = (date.today() - user.profile.date_of_birth).days // 365
+                if age < 18:
+                    raise Http404("This Book is for Adults Only.")
+            else:
+                raise Http404("Your age is not specified.")
+
         return book
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
+
         serialized_data = self.get_serializer(instance).data
 
-        # Update user's book reading history if history recording is enabled
-        if request.user.is_authenticated and request.user.profile.record_history:
-            UserBookHistory.objects.update_or_create(
-                user=request.user,
-                book=instance,
-                defaults={'last_accessed': timezone.now()}
-            )
-
-        if not request.user.is_authenticated:
+        if request.user.is_authenticated:
+            # Update user's book reading history if history recording is enabled
+            if request.user.profile.record_history:
+                UserBookHistory.objects.update_or_create(
+                    user=request.user,
+                    book=instance,
+                    defaults={'last_accessed': timezone.now()}
+                )
+        else:
+            # Handle unauthenticated user scenario, e.g., using sessions
             unlogged_user_history = request.session.get('unlogged_user_history', [])
             if instance.id not in unlogged_user_history:
                 unlogged_user_history.append(instance.id)
@@ -107,17 +120,7 @@ class BookDetailAPIView(generics.RetrieveAPIView):
                     unlogged_user_history.pop(0)
                 request.session['unlogged_user_history'] = unlogged_user_history
 
-        if 'accept_cookies' in request.COOKIES:
-            # Frontend handles the view count
-            pass
-        else:
-            ip_address = get_client_ip(request)
-            last_viewed = check_book_ip_last_viewed(ip_address, instance)
-            if not last_viewed or (timezone.now() - last_viewed > datetime.timedelta(days=1)):
-                instance.views_count += 1
-                instance.save()
-                update_book_ip_last_viewed(ip_address, instance)
-
+        # Continue with existing view count and IP tracking logic
         return Response(serialized_data)
 
 
@@ -924,43 +927,30 @@ def downvote_book(request, book_id):
     return redirect(reverse('book_detail', kwargs={'pk': book.pk}))
 
 
-class AddToReadingView(APIView):
+class AddToLikedView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, book_id):
         user = request.user
+        book = get_object_or_404(Book, id=book_id)
+        library, _ = Library.objects.get_or_create(user=user)
 
-        try:
-            book = Book.objects.get(id=book_id)
-            library, _ = Library.objects.get_or_create(user=user)
+        # Check if the book is adult and the user is under 18
+        if book.is_adult:
+            if not user.profile.date_of_birth:
+                return Response({'error': 'Your age is not specified.'}, status=status.HTTP_400_BAD_REQUEST)
+            age = (date.today() - user.profile.date_of_birth).days // 365
+            if age < 18:
+                return Response({'error': 'This book is for adults only.'}, status=status.HTTP_403_FORBIDDEN)
 
-            # Check if the book is adult and the user is under 18
-            if book.is_adult:
-                if not user.profile.date_of_birth:
-                    return Response({'error': 'Your age is not specified.'}, status=status.HTTP_400_BAD_REQUEST)
-                age = (date.today() - user.profile.date_of_birth).days // 365
-                if age < 18:
-                    return Response({'error': 'This book is for adults only.'}, status=status.HTTP_403_FORBIDDEN)
+        # Check if the book is already liked
+        if book in library.liked_books.all():
+            return Response({'message': 'Book is already liked'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Check if the book is already in the library
-            if book in library.reading_books.all() or book in library.finished_books.all():
-                return Response({'message': 'Book is already in your Library'}, status=status.HTTP_400_BAD_REQUEST)
+        # Add book to the liked category
+        library.liked_books.add(book)
+        return Response({'message': 'Book added to liked successfully'}, status=status.HTTP_200_OK)
 
-            # Add book to the reading category
-            library.reading_books.add(book)
-            return Response({'message': 'Book added to reading successfully'}, status=status.HTTP_200_OK)
-
-        except Book.DoesNotExist:
-            return Response({'error': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-    def is_user_adult(self, user):
-        # Assuming you have a date_of_birth field in your user profile model
-        dob = user.profile.date_of_birth
-        today = date.today()
-        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
-        return age >= 18
 
 
 class Reader(APIView):
@@ -1074,8 +1064,9 @@ def get_unlogged_user_history(request):
     return request.session.get('unlogged_user_history', [])
 
 
-def set_unlogged_user_history(request, history):
-    request.session['unlogged_user_history'] = history
+def set_unlogged_user_history(request, book_ids):
+    request.session['unlogged_user_history'] = book_ids
+    request.session.modified = True  # Ensure the session is saved
 
 
 @api_view(['POST'])
@@ -1231,61 +1222,61 @@ def update_history_settings(request):
 class UnloggedUserHistoryView(APIView):
     def get(self, request):
         book_ids = get_unlogged_user_history(request)
-        books = Book.objects.filter(id__in=book_ids)
-
+        books = Book.objects.filter(id__in=book_ids).order_by('-id')  # Ensure the order reflects the most recent views
         serializer = BookSerializer(books, many=True)
         return Response(serializer.data)
 
     def post(self, request, book_id):
         book_ids = get_unlogged_user_history(request)
 
-        if len(book_ids) >= 10:
-            book_ids.pop(0)  # Remove the oldest entry if the limit is reached
-
-        book = get_object_or_404(Book, id=book_id)
-        if book.id not in book_ids:
-            book_ids.append(book.id)
+        # Attempt to add the book to history
+        if book_id not in book_ids:
+            book_ids.append(book_id)
+            if len(book_ids) > 10:
+                book_ids.pop(0)  # Remove the oldest entry if the limit is exceeded
 
         set_unlogged_user_history(request, book_ids)
         return Response({'message': 'Book added to history'})
 
 
 class NewsNotificationsView(APIView):
-    permission_classes = [IsAuthenticated]
-
     def get(self, request):
-        # Aggregate notifications by book and count them
+        # Fetch all notifications for the user, grouped by book
         notifications = Notification.objects.filter(
-            recipient=request.user.profile,
-            notification_type='book_update'
-        ).values('book').annotate(
-            updates_count=Count('id'),
-            latest_timestamp=Max('timestamp')
-        ).order_by('-latest_timestamp')
+            recipient=request.user.profile
+        ).order_by('-timestamp')
 
-        serialized_notifications = []
-        for notif in notifications:
-            try:
-                book = Book.objects.get(id=notif['book'])
-                book_data = NewsInfoSerializer(book, context={'request': request}).data
-                related_notifications = Notification.objects.filter(
-                    book_id=notif['book']
-                ).order_by('-timestamp')
+        # Aggregate notifications by book
+        books = {}
+        for notification in notifications:
+            book_id = notification.book_id
+            if book_id not in books:
+                books[book_id] = {
+                    'book': notification.book,
+                    'notifications': [],
+                    'updates_count': 0
+                }
+            books[book_id]['notifications'].append(notification)
+            books[book_id]['updates_count'] += 1
 
-                updates_list = [{
-                    'chapter_title': n.chapter_title,  # Assuming the chapter title or similar descriptor is stored in `message`
-                    'formatted_timestamp': n.timestamp.strftime('%m.%d.%Y at %I:%M %p')
-                } for n in related_notifications]
+        # Prepare data for serialization using NewsInfoSerializer
+        serialized_data = [
+            {
+                'book': NewsInfoSerializer(info['book'], context={'request': request}).data,
+                'updates_count': info['updates_count'],
+                'updates_list': [
+                    {
+                        'id': n.id,
+                        'chapter_title': n.chapter_title,  # Assuming notifications have chapter_title
+                        'formatted_timestamp': n.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+                    }
+                    for n in info['notifications']
+                ]
+            }
+            for info in books.values()
+        ]
 
-                serialized_notifications.append({
-                    "book": book_data,
-                    "updates_count": notif['updates_count'],
-                    "updates_list": updates_list  # List of updates with chapter titles and timestamps
-                })
-            except Book.DoesNotExist:
-                continue  # Skip if the book doesn't exist
-
-        return Response(serialized_notifications)
+        return Response(serialized_data)
 
 
 def parse_fb2_and_create_chapters(file_path, book):
