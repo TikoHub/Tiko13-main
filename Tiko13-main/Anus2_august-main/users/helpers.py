@@ -1,6 +1,8 @@
 from .models import FollowersCount, Notification
 from django.contrib.auth.models import User
 from django.utils import timezone
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 
 
 class FollowerHelper:
@@ -17,28 +19,16 @@ class FollowerHelper:
 
         if not FollowerHelper.is_following(follower, user):
             new_follower = FollowersCount.objects.create(follower=follower, user=user)
-
-            # Check if the user wants to receive new follower notifications
-            if user.notification_settings.show_follower_updates:
-                # Check if there is an existing "new follower" notification
-                notification = Notification.objects.filter(
-                    recipient=user.profile,
-                    sender=follower.profile,
-                    notification_type='new follower'
-                ).first()
-
-                if notification:
-                    # Update the timestamp of the existing notification
-                    notification.timestamp = timezone.now()
-                    notification.save()
-                else:
-                    # Create a new notification
-                    Notification.objects.create(
-                        recipient=user.profile,  # Make sure to use user.profile, not user
-                        sender=follower.profile,  # Use follower.profile, not follower
-                        notification_type='new follower',
-                    )
-
+            # Send WebSocket message
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f'user_follow_{user.id}',  # Target the specific user's group
+                {
+                    'type': 'follow_event',
+                    'event': 'followed',
+                    'follower_id': follower.id
+                }
+            )
             return new_follower
         return None
 
@@ -47,6 +37,16 @@ class FollowerHelper:
         if FollowerHelper.is_following(follower, user):
             delete_follower = FollowersCount.objects.get(follower=follower, user=user)
             delete_follower.delete()
+            # Send WebSocket message
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f'user_follow_{user.id}',  # Target the specific user's group
+                {
+                    'type': 'follow_event',
+                    'event': 'unfollowed',
+                    'follower_id': follower.id
+                }
+            )
 
     @staticmethod
     def get_followers_count(user):

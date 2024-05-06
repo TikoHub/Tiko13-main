@@ -49,6 +49,8 @@ from bs4 import BeautifulSoup
 from django.db import transaction
 import filetype
 from django.utils.timezone import now
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 
 class BooksListAPIView(generics.ListAPIView):
@@ -58,13 +60,26 @@ class BooksListAPIView(generics.ListAPIView):
         user = self.request.user
         base_query = Book.objects.exclude(genre__name='Undefined')  # Exclude books with "Undefined" genre
 
+        # Annotate each book with a flag indicating if it has at least one published chapter
+        has_published_chapters = Chapter.objects.filter(
+            book=OuterRef('pk'),
+            published=True
+        )
+        base_query = base_query.annotate(
+            qualified=Exists(has_published_chapters)
+        )
+
         if user.is_authenticated:
             return base_query.filter(
                 Q(visibility='public') |
-                Q(visibility='followers', author__follower_users__follower=user)
+                Q(visibility='followers', author__follower_users__follower=user),
+                qualified=True  # Only include books that are qualified
             ).distinct().order_by('-views_count')
 
-        return base_query.filter(visibility='public').order_by('-views_count')
+        return base_query.filter(
+            visibility='public',
+            qualified=True  # Only include books that are qualified
+        ).order_by('-views_count')
 
 
 class BookDetailAPIView(generics.RetrieveAPIView):
@@ -790,12 +805,21 @@ class CommentListCreateView(APIView):
         if not book.can_user_comment(request.user):
             return Response({'error': 'You are not allowed to comment on this book.'}, status=status.HTTP_403_FORBIDDEN)
 
-        data = request.data.copy()  # Make a mutable copy of the request data
-        data['book'] = book.id  # Ensure the book is correctly associated
-
+        data = request.data.copy()
+        data['book'] = book.id
         serializer = CreateCommentSerializer(data=data, context={'request': request})
         if serializer.is_valid():
-            new_comment = serializer.save(user=request.user)  # User is added here
+            new_comment = serializer.save(user=request.user)
+            # Send the new comment to all users subscribed to this book's comments
+            channel_layer = get_channel_layer()
+            group_name = f'comments_{book_id}'
+            async_to_sync(channel_layer.group_send)(
+                group_name,
+                {
+                    'type': 'new_comment',
+                    'message': StudioCommentSerializer(new_comment, context={'request': request}).data
+                }
+            )
             return Response(StudioCommentSerializer(new_comment, context={'request': request}).data,
                             status=status.HTTP_201_CREATED)
         else:

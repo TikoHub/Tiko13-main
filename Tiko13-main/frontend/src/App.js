@@ -2495,21 +2495,21 @@ function Login() {
           </span>
         </Link>
         <span className="google">
-          <div className="google_button">
-            <a className="google-button">
-              <img className="google_icon" src={Google} alt="Google" />
-              Sign in via Google
+        <div className="google_button">
+            <a className="google-button" href="http://127.0.0.1:8000/users/api/accounts/google/login/">
+                <img className="google_icon" src={Google} alt="Google" />
+                Sign in via Google
             </a>
-          </div>
-        </span>
-        <span className="google">
-          <div className="face_button">
-            <a className="face-button">
-              <img className="face_icon" src={Face} alt="Facebook" />
-              Sign in via Facebook
+        </div>
+    </span>
+    <span className="facebook">
+        <div className="face_button">
+            <a className="face-button" href="http://127.0.0.1:8000/users/api/accounts/facebook/login/">
+                <img className="face_icon" src={Face} alt="Facebook" />
+                Sign in via Facebook
             </a>
-          </div>
-        </span>
+        </div>
+    </span>
         <hr className="login_hr" />
         <form className="log-form">
           <input

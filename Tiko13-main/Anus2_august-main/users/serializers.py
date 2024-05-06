@@ -344,18 +344,27 @@ class PasswordChangeRequestSerializer(serializers.Serializer):
         return data
 
 
-class PasswordChangeVerificationSerializer(serializers.Serializer):
-    verification_code = serializers.CharField(required=True)
+class PasswordChangeRequestSerializer(serializers.Serializer):
+    current_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True)
+    confirm_new_password = serializers.CharField(required=True)
 
-    def validate_verification_code(self, value):
+    def validate_new_password(self, value):
+        if len(value) < 8:
+            raise serializers.ValidationError("Password must be at least 8 characters long.")
+        if not re.search(r'[A-Z]', value):
+            raise serializers.ValidationError("Password must contain at least one uppercase letter.")
+        if not re.search(r'\d', value):
+            raise serializers.ValidationError("Password must contain at least one number.")
+        return value
+
+    def validate(self, data):
         user = self.context['request'].user
-        try:
-            temp_storage = TemporaryPasswordStorage.objects.get(user=user, verification_code=value)
-            if temp_storage.is_expired:
-                raise serializers.ValidationError("Verification code expired.")
-            return value
-        except TemporaryPasswordStorage.DoesNotExist:
-            raise serializers.ValidationError("Invalid verification code.")
+        if not user.check_password(data['current_password']):
+            raise serializers.ValidationError({"current_password": "Current password is incorrect."})
+        if data['new_password'] != data['confirm_new_password']:
+            raise serializers.ValidationError({"confirm_new_password": "New passwords do not match."})
+        return data
 
 
 class NotificationSerializer(serializers.ModelSerializer):

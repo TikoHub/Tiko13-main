@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.facebook',
     'social_django',
     'paypal.standard.ipn',
+    'websockets',
 
 ]#    'rest_framework_simplejwt',
 
@@ -120,6 +121,8 @@ TEMPLATES = [
 
 
 WSGI_APPLICATION = 'AnusCopy.wsgi.application'
+ASGI_APPLICATION = 'AnusCopy.routing.application'
+
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
@@ -278,6 +281,15 @@ SOCIALACCOUNT_PROVIDERS = {
     },
 }
 
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [('127.0.0.1', 6379)],  # This should be the address of your Redis server
+        },
+    },
+}
+
 SITE_ID = 1
 
 LOGIN_REDIRECT_URL = '/'
@@ -322,7 +334,6 @@ STRIPE_SECRET_KEY_TEST = os.getenv('STRIPE_SECRET_KEY_TEST')
 STRIPE_WEBHOOK_SECRET_TEST = os.getenv('STRIPE_WEBHOOK_SECRET_TEST')
 PRODUCT_PRICE = os.getenv('PRODUCT_PRICE')
 
-REDIRECT_DOMAIN = 'http://127.0.0.1:8000'
 
 # Paypal
 PAYPAL_RECEIVER_EMAIL = 'temudjin@wormates.com'

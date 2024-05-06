@@ -742,7 +742,6 @@ class PrivacySettingsAPIView(APIView):
         return Response(serializer.errors, status=400)
 
 
-
 def add_to_blacklist(request, username):
     user_to_blacklist = get_object_or_404(User, username=username)
     request.user.profile.blacklist.add(user_to_blacklist)

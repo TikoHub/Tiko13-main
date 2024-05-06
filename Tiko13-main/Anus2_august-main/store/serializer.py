@@ -77,15 +77,15 @@ class BookSerializer(serializers.ModelSerializer):     # Основной Сер
     first_chapter_info = serializers.SerializerMethodField()
 
     def get_first_chapter_info(self, obj):
-        first_chapter = obj.chapters.order_by('created').first()
-        if first_chapter:
-            # You can adjust the returned data according to your needs
-            # For example, returning the chapter ID and title
+        # Fetch the first chapter that is published, ordering by 'created' to ensure it's the earliest one
+        first_published_chapter = obj.chapters.filter(published=True).order_by('created').first()
+        if first_published_chapter:
             return {
-                'id': first_chapter.id,
-                'title': first_chapter.title
+                'id': first_published_chapter.id,
+                'title': first_published_chapter.title
             }
-        return None
+        else:
+            return {'error': 'No published chapters are available for this book.'}
 
     def get_author_profile_img(self, obj):
         request = self.context.get('request')
