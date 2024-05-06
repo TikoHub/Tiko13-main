@@ -6,7 +6,8 @@ from django.contrib.auth.models import User
 from datetime import date
 from allauth.socialaccount.models import SocialAccount
 from django.utils import timezone
-
+from allauth.socialaccount.signals import social_account_added
+from .utils import generate_unique_username
 
 @receiver(post_save, sender=User)
 def create_user_profile_and_other_settings(sender, instance, created, **kwargs):
@@ -43,3 +44,21 @@ def create_user_profile_and_other_settings(sender, instance, created, **kwargs):
         )
 
 
+@receiver(social_account_added)
+def create_social_username(request, sociallogin, **kwargs):
+    # Assuming 'first_name' is fetched from the social account
+    first_name = sociallogin.account.extra_data.get('first_name', 'user')
+    last_name = sociallogin.account.extra_data.get('last_name', '')
+
+    base_username = f"{first_name}{last_name}".strip().lower()
+    if not base_username:
+        base_username = sociallogin.account.extra_data.get('email').split('@')[0]
+
+    unique_username = generate_unique_username(base_username, is_social=True)
+
+    # Create or update the user model
+    user = sociallogin.user
+    user.username = unique_username
+    user.save()
+
+    # You might want to handle other profile settings or signals here

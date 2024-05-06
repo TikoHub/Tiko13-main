@@ -32,6 +32,7 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 import stripe
 import requests
+from .utils import generate_unique_username
 
 
 from .models import Achievement, Notification, Conversation, Message, \
@@ -79,43 +80,32 @@ class RegisterView(generics.CreateAPIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-def generate_unique_username(base_username):
-    # Generate a unique username using a base username and appending a random number
-    username = f"{base_username}{random.randint(1000, 9999)}"
-    while User.objects.filter(username=username).exists():
-        username = f"{base_username}{random.randint(1000, 9999)}"
-    return username
-
-
 class VerifyRegistrationView(APIView):
     def post(self, request, *args, **kwargs):
         code = request.data.get('verification_code')
-
         if not code:
             return Response({'error': 'Verification code is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             temp_reg = TemporaryRegistration.objects.get(verification_code=code)
             if not temp_reg.is_expired:
-                # Generate a unique username using a utility function
-                base_username = temp_reg.first_name.lower()
+                # Attempt to create a username using first and last names
+                base_username = f"{temp_reg.first_name}{temp_reg.last_name}".strip().lower()
+                if not base_username:  # Fallback if no name provided
+                    base_username = temp_reg.email.split('@')[0]
                 unique_username = generate_unique_username(base_username)
 
-                # Create the actual User record with the plain text password
                 user = User.objects.create_user(
                     username=unique_username,
                     email=temp_reg.email,
-                    password=temp_reg.password  # Use the plain text password
+                    password=temp_reg.password,
+                    first_name=temp_reg.first_name,
+                    last_name=temp_reg.last_name
                 )
 
-                # Set first and last names
-                user.first_name = temp_reg.first_name
-                user.last_name = temp_reg.last_name
-                user.save()
+                # Additional user setup like sending welcome emails or logging can be done here
 
-                # Delete the temporary registration
-                temp_reg.delete()
-
+                temp_reg.delete()  # Cleanup after successful registration
                 return Response({'status': 'User registered successfully'}, status=status.HTTP_201_CREATED)
             else:
                 return Response({'error': 'Verification code expired'}, status=status.HTTP_400_BAD_REQUEST)
