@@ -292,11 +292,11 @@ CHANNEL_LAYERS = {
 
 SITE_ID = 1
 
-LOGIN_REDIRECT_URL = 'users/login/'
-LOGOUT_REDIRECT_URL = '/api'
+LOGIN_REDIRECT_URL = 'http://localhost:3000/'
+LOGOUT_REDIRECT_URL = '/api/'
 
-LOGIN_URL = 'login'
-LOGOUT_URL = 'logout'
+LOGIN_URL = '/users/login/'
+LOGOUT_URL = '/api/'
 
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_EMAIL_REQUIRED = True
