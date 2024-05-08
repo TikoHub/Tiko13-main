@@ -1157,12 +1157,15 @@ class HistoryView(APIView):
     def get(self, request):
         now = timezone.now()
         search_query = request.query_params.get('search', None)
+        category_query = request.query_params.get('category', None)  # New query param for time category
+
         user_history = UserBookHistory.objects.filter(user=request.user).order_by('-last_accessed')
 
         if search_query:
             user_history = user_history.filter(book__name__icontains=search_query)
 
-        history_dict = {
+        # Define the time categories
+        time_categories = {
             "Today": user_history.filter(last_accessed__date=now.date()),
             "Yesterday": user_history.filter(last_accessed__date=(now - timedelta(days=1)).date()),
             "Last Week": user_history.filter(
@@ -1188,11 +1191,18 @@ class HistoryView(APIView):
             "A Long Time Ago": user_history.filter(last_accessed__date__lte=now.date() - timedelta(days=1096)),
         }
 
-        # Serialize each queryset and add to response
-        for time_category, queryset in history_dict.items():
-            history_dict[time_category] = BookViewSerializer(queryset, many=True, context={'request': request}).data
+        # Check if a specific category filter is applied
+        if category_query and category_query in time_categories:
+            filtered_history = time_categories[category_query]
+            serialized_data = BookViewSerializer(filtered_history, many=True, context={'request': request}).data
+            return Response({category_query: serialized_data})
+        else:
+            # Serialize each queryset if no specific filter is applied
+            for time_category, queryset in time_categories.items():
+                time_categories[time_category] = BookViewSerializer(queryset, many=True,
+                                                                    context={'request': request}).data
 
-        return Response(history_dict)
+            return Response(time_categories)
 
 
 def record_history_view(request, book_id):

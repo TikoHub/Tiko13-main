@@ -292,7 +292,7 @@ CHANNEL_LAYERS = {
 
 SITE_ID = 1
 
-LOGIN_REDIRECT_URL = 'http://localhost:3000/'
+LOGIN_REDIRECT_URL = 'https://wormates.com'
 LOGOUT_REDIRECT_URL = '/api/'
 
 LOGIN_URL = '/users/login/'

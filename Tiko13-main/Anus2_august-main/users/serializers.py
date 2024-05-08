@@ -270,28 +270,27 @@ class CustomUserSerializer(serializers.ModelSerializer):
 
 
 class CustomProfileSerializer(serializers.ModelSerializer):
-    id = serializers.ReadOnlyField()
+    profileimg = serializers.ImageField(required=False)  # Allow non-required upload
+    banner_image = serializers.ImageField(required=False)  # Allow non-required upload
+
     class Meta:
         model = Profile
-        fields = ('about', 'profileimg', 'id', 'banner_image')  # Only include the fields you want from Profile
+        fields = ('id', 'about', 'profileimg', 'banner_image')
 
 
 class WebPageSettingsSerializer(serializers.ModelSerializer):
-    profile = CustomProfileSerializer()  # Nested serializer for profile
+    profile = CustomProfileSerializer()
 
     def update(self, instance, validated_data):
-        profile_data = validated_data.pop('profile', None)
+        profile_data = validated_data.pop('profile', {})
+        profile_serializer = CustomProfileSerializer(instance.profile, data=profile_data, partial=True)
+        if profile_serializer.is_valid():
+            profile_serializer.save()
+        else:
+            raise serializers.ValidationError(profile_serializer.errors)
 
-        if profile_data is not None:
-            profile_serializer = CustomProfileSerializer(instance.profile, data=profile_data, partial=True)
-            if profile_serializer.is_valid():
-                profile_serializer.save()
-            else:
-                raise serializers.ValidationError(profile_serializer.errors)
-
-        # Update WebPageSettings instance fields
-        for field, value in validated_data.items():
-            setattr(instance, field, value)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
         instance.save()
 
         return instance

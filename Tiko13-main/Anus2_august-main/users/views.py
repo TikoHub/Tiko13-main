@@ -33,6 +33,7 @@ from rest_framework import status
 import stripe
 import requests
 from .utils import generate_unique_username
+from rest_framework.parsers import MultiPartParser, FormParser
 
 
 from .models import Achievement, Notification, Conversation, Message, \
@@ -523,24 +524,22 @@ def achievements(request, username):
 
 class WebPageSettingsAPIView(APIView):
     permission_classes = [IsAuthenticated]
+    parser_classes = (MultiPartParser, FormParser)  # Add parsers for file upload
 
     def get(self, request, *args, **kwargs):
-        profile = get_object_or_404(Profile, user=request.user)
+        profile = request.user.profile
         webpage_settings = get_object_or_404(WebPageSettings, profile=profile)
         serializer = WebPageSettingsSerializer(webpage_settings)
         return Response(serializer.data)
 
     def put(self, request, *args, **kwargs):
-        print("PUT request data:", request.data)
         profile = request.user.profile
         webpage_settings = WebPageSettings.objects.get(profile=profile)
         serializer = WebPageSettingsSerializer(webpage_settings, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            print("Serializer data after save:", serializer.data)
             return Response(serializer.data)
         else:
-            print("Serializer errors:", serializer.errors)
             return Response(serializer.errors, status=400)
 
 
