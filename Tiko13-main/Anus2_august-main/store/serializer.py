@@ -358,7 +358,7 @@ class BookSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Book
         fields = ['name', 'book_type', 'co_author', 'co_author2', 'genre', 'subgenres', 'description', 'authors_note',
-                  'is_adult', 'visibility', 'comment_access', 'download_access', 'confirm_adult_content']
+                  'is_adult', 'visibility', 'comment_access', 'download_access', 'confirm_adult_content', 'demo_version']
         extra_kwargs = {
             'name': {'required': True},
             'book_type': {'required': True}
