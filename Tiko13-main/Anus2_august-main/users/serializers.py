@@ -151,6 +151,14 @@ class LibraryBookSerializer(serializers.ModelSerializer):
         queryset=Genre.objects.all()
     )
     subgenres = serializers.StringRelatedField(many=True)
+    upvotes = serializers.SerializerMethodField()
+    downvotes = serializers.SerializerMethodField()
+
+    def get_upvotes(self, obj):
+        return obj.upvote_count()
+
+    def get_downvotes(self, obj):
+        return obj.downvote_count()
 
     class Meta:
         model = Book
@@ -162,6 +170,8 @@ class LibraryBookSerializer(serializers.ModelSerializer):
             'genre',
             'subgenres',
             'volume_number',
+            'upvotes',
+            'downvotes'
         ]
 
 
