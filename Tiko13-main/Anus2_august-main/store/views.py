@@ -26,7 +26,7 @@ from rest_framework import status
 from rest_framework import generics
 from rest_framework.response import Response
 from .models import Book, Comment, Review, BookLike, ReviewView, UserBookHistory
-from .utils import get_client_ip, is_book_purchased_by_user
+from .utils import get_client_ip, is_book_purchased_by_user, log_book_access
 from .ip_views import check_book_ip_last_viewed, update_book_ip_last_viewed, check_review_ip_last_viewed, update_review_ip_last_viewed
 from .serializer import *
 from .converters import create_fb2, parse_fb2
@@ -1205,12 +1205,26 @@ class HistoryView(APIView):
             return Response(time_categories)
 
 
-def record_history_view(request, book_id):
+'''def record_history_view(request, book_id):
     if request.user.is_authenticated and request.user.profile.record_history:
         book = get_object_or_404(Book, id=book_id)
         update_user_book_history(request.user, book)
         return Response({'message': 'History recorded successfully'})
-    return Response({'error': 'History recording is disabled or user is not authenticated'}, status=status.HTTP_403_FORBIDDEN)
+    return Response({'error': 'History recording is disabled or user is not authenticated'}, status=status.HTTP_403_FORBIDDEN)'''
+
+
+def record_history_view(request, book_id): # Alter record history, надо потестить позже
+    book = get_object_or_404(Book, id=book_id)
+
+    # Всегда логируем доступ
+    log_book_access(request.user, book, request)
+
+    # Записываем в историю пользователя, только если это разрешено
+    if request.user.is_authenticated and request.user.profile.record_history:
+        update_user_book_history(request.user, book)
+        return Response({'message': 'History recorded successfully'})
+
+    return Response({'message': 'Access logged'})
 
 
 @api_view(['POST'])

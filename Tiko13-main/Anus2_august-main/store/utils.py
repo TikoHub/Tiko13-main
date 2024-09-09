@@ -1,5 +1,5 @@
 from django.utils import timezone
-
+from .models import AnonymousBookAccess
 
 def get_client_ip(request):
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
@@ -16,4 +16,10 @@ def is_book_purchased_by_user(book, user):
     return False
 
 
+def log_book_access(user, book, request):
+    AnonymousBookAccess.objects.create(
+        user_id=user.id if user.is_authenticated else None,
+        book=book,
+        ip_address=request.META.get('REMOTE_ADDR')
+    )
 

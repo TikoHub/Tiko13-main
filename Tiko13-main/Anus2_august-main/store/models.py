@@ -4,7 +4,6 @@ from django.utils import timezone
 from datetime import timedelta, datetime
 from django.db.models import Max
 from django.conf import settings
-from .utils import get_client_ip
 from django.core.validators import MinValueValidator, MaxValueValidator
 
 User = get_user_model()
@@ -388,4 +387,10 @@ class Illustration(models.Model):
     def __str__(self):
         return f"{self.description} (Illustration for {self.book.name})"
 
+
+class AnonymousBookAccess(models.Model): # Запись истории посещения книги
+    user_id = models.IntegerField(null=True, blank=True)  # Можем хранить ID пользователя, если нужно
+    book = models.ForeignKey(Book, on_delete=models.CASCADE)
+    accessed_at = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
 

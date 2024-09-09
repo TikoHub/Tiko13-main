@@ -122,7 +122,7 @@ class CustomUserLoginView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        email = serializer.validated_data['email']
+        email = serializer.validated_data['email'].lower()  # Преобразование email в нижний регистр
         password = serializer.validated_data['password']
         user = authenticate(request, username=email, password=password)
 
@@ -146,8 +146,6 @@ class CustomUserLoginView(APIView):
             else:
                 return Response({'error': 'Invalid email or password.'}, status=status.HTTP_400_BAD_REQUEST)
 
-
-# views.py
 
 @api_view(['POST'])
 def forgot_password(request):

@@ -1,0 +1,151 @@
+.register-title_mobile{
+    color: #BD00FF;
+    font-size: 32px;
+}
+
+.register-name_mobile{
+    width: 100%;
+    height: 52px;
+    padding: 0;
+    margin: 0;
+  display: block;
+  border-radius: 20px;
+  border: 1px solid #858585;
+  background: #000;
+  margin-top: 20px;
+  text-align: center;
+  color: white;
+  font-size: 20px;
+}
+.register-name_mobile::placeholder{
+    color: #858585;
+}
+
+.dob_container{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 30px;
+    width: 250px;
+}
+.register-date_mobile{
+    color: #858585;
+    width: 30%;
+    font-size: 12px;
+}
+
+
+.dob_month_mobile{
+    padding: 0;
+    width: 30%;
+    height: 58px;
+    border: 1px solid #858585;
+    background: #000;
+    font-size: 16px;
+    color: #858585;
+    text-align: center;
+    border-radius: 20px;
+}
+.dob_year_mobile{
+    width: 30%;
+    height: 52px;
+    border: 1px solid #858585;
+    background: #000;
+    font-size: 16px;
+    color: #ffffff;
+    text-align: center;
+    border-radius: 20px;
+}
+.dob_year_mobile::placeholder{
+    color: #858585;
+}
+
+.next-button_first_mobile{
+    width: 100%;
+    height: 52px;
+    padding: 0;
+    margin: 0;
+  display: block;
+  border-radius: 20px;
+  border: 1px solid #858585;
+  background: #000;
+  margin-top: 20px;
+  text-align: center;
+  color: #858585;
+  font-size: 24px;
+  margin-top: 30px;
+}
+
+.next-button_mobile{
+    width: 40%;
+    height: 52px;
+    padding: 0;
+    margin: 0;
+  display: block;
+  border-radius: 20px;
+  border: 1px solid #858585;
+  background: #000;
+  margin-top: 20px;
+  text-align: center;
+  color: #858585;
+  font-size: 24px;
+  margin-top: 30px;
+}
+
+.register_button_container{
+    display: flex;
+    justify-content: space-between;
+}
+
+.finish-title_mobile{
+    display: flex;
+    text-align: center;
+    justify-content: center;
+    color: #ffffff;
+    margin-top: 50px;
+    font-size: 24px;
+}
+.register-code_mobile {
+    border-radius: 20px;
+    border: 1px solid #FFF;
+    background: #000;
+    width: 100px;
+    height: 52px;
+    color: #fff;
+    margin-top: 40px;
+    margin-bottom: 40px;
+  }
+
+  .code_container{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+
+  .button_finish_container{
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .button_finish_container a{
+    width: 40%;
+  }
+
+  .finsh-button_mobile{
+    width: 100%;
+    height: 52px;
+    padding: 0;
+    margin: 0;
+  display: block;
+  border-radius: 20px;
+  border: 1px solid #858585;
+  background: #540071;
+  margin-top: 20px;
+  text-align: center;
+  color: #858585;
+  font-size: 24px;
+  margin-top: 30px;
+  }
+

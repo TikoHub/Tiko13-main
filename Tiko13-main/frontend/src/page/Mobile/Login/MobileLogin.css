@@ -1,0 +1,235 @@
+.formContainer_mobile{
+    display: flex;
+    height: 100vh;
+    align-items: center;
+    justify-content: center;
+    background: black;
+  }
+
+.formWrapper_mobile{
+  background: black;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px;
+}
+
+.logo-register_mobile {
+  width: 227px;
+  height: 100px;
+  margin-top: 54px;
+}
+.logo-register_mobile svg:active {
+  transform: translateY(2px);
+}
+
+.logo-register_mobile svg {
+  fill: #fff;
+}
+
+.logo-register_mobile svg:hover {
+  fill: #858585;
+}
+
+.google_mobile {
+  display: flex;
+  align-items: center;
+  border: 1px solid white;
+  border-radius: 20px;
+  width: 40%;
+  height: 52px;
+  justify-content: center;
+  margin-left: 10px;
+}
+
+.google_mobile img {
+  width: 42px;
+  height: 42px;
+}
+
+.facebook_mobile {
+    display: flex;
+    align-items: center;
+    border: 1px solid white;
+    border-radius: 20px;
+    width: 40%;
+    height: 52px;
+    justify-content: center;
+    margin-left: 10px;
+}
+.face_button {
+  display: flex;
+  border-radius: 40px;
+  border: 1px solid #2B2B2B;
+  background: #000;
+  width: 310px;
+  height: 42px;
+  color: #FFF;
+  font-family: Telex;
+  font-size: 24px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+  margin-top: 10px;
+}
+
+.face_icon {
+  width: 42px;
+  height: 42px;
+  margin-right: 22px;
+}
+
+.login_hr {
+  height: 1px;
+  border: none;
+  margin-top: 38px;
+  background-color: white;
+  width: 390px;
+}
+
+.em-log_mobile{
+    padding: 0;
+    margin: 0;
+  display: block;
+  border-radius: 20px;
+  border: 1px solid #858585;
+  background: #000;
+  width: 100%;
+  height: 52px;
+  margin-top: 32px;
+  color: #FFF;
+  font-family: Telex;
+  font-size: 24px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+  text-align: center;
+}
+.em-log_mobile::placeholder{
+    color: #858585;
+    text-align: center;
+}
+
+.pas-log_mobile{
+    padding: 0;
+    margin: 0;
+  display: block;
+  border-radius: 20px;
+  border: 1px solid #858585;
+  background: #000;
+  width: 100%;
+  height: 52px;
+  margin-top: 20px;
+  color: #FFF;
+  font-family: Telex;
+  font-size: 24px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+  text-align: center;
+}
+
+.pas-log_mobile::placeholder{
+    color: #858585;
+    text-align: center;
+}
+
+.forgot-log_mobile{
+  display: block;
+  color: #FFF;
+  font-family: Telex;
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+  text-decoration-line: underline;
+  margin-top: 18px;
+  margin-left: 210px;
+}
+.forgot-log:hover{
+  color: #858585;
+}
+
+.create-log {
+  color: #FFF;
+  font-family: Telex;
+  font-size: 22px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+  text-decoration-line: underline;
+  }
+
+  .create-log:hover{
+    color: #858585;
+    }
+
+.button-log_mobile {
+  padding: 0;
+  margin: 0;
+  border-radius: 20px;
+  border: 1px solid #858585;
+  background: #540071;
+  width: 100%;
+  height: 52px;
+  color: #fff;
+  font-family: Telex;
+  font-size: 24px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+  margin-top: 20px;
+}
+
+.button-log:hover {
+  border: 1px solid #fff;
+}
+
+.button-log:active {
+  border: 1px solid #2B2B2B;
+  color: #858585;
+}
+.log_hr_container{
+    display: flex;
+    width: 100%;
+    flex-direction: row;
+    margin-top: 20px;
+    align-items: center;
+}
+.log_hr {
+    background-color: white; 
+    height: 1px; 
+    width: 100%; margin-top: 3px;
+}
+
+.log_hr_view{
+    color: white;
+    font-size: 16px;
+    margin-left: 10px;
+    margin-right: 10px;
+}
+
+.log_buttons{
+    display: flex;
+    justify-content: space-between;
+    flex-direction: row;
+    width: 100%;
+    margin-top: 10px;
+}
+
+.create_accaout_container{
+    display: flex;
+    margin-top: 20px;
+    justify-content: center;
+    font-size: 14px;
+}
+
+.create_view{
+    color: white;
+    text-decoration: underline;
+    margin-right: 3px;
+}
+
+.create_purple{
+    color: #BD00FF;
+}

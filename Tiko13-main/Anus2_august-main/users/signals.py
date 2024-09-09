@@ -9,6 +9,7 @@ from django.utils import timezone
 from allauth.socialaccount.signals import social_account_added
 from .utils import generate_unique_username
 
+
 @receiver(post_save, sender=User)
 def create_user_profile_and_other_settings(sender, instance, created, **kwargs):
     if created:

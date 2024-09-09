@@ -91,7 +91,6 @@ class UserSerializer(serializers.ModelSerializer):
         return None
 
 
-
 class ProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     unread_notification_count = serializers.IntegerField(read_only=True)
