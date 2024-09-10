@@ -2759,11 +2759,19 @@ scrollbar-width: none;
 }
 .textstudio-input {
   width: 100%;
+  min-height: 600px;
   border: none;
   background: transparent;
   outline: none;
   color: #fff;
   font-size: 20px;
+}
+
+.text_save_button{
+  width: 50px;
+  height: 30px;
+  background-color: #BD00FF;
+  border-radius: 25px;
 }
 .chapters_studio_maps{
   margin: 10px;
