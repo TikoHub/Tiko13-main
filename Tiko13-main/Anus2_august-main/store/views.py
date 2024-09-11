@@ -190,22 +190,11 @@ class StudioWelcomeAPIView(APIView):
                     chapter_number=1
                 )
 
-                # Генерируем URL для редактирования первой главы
-                edit_chapter_url = f"/studio/{new_book.id}/chapter/1"
-
-                welcome_data = {
+                return Response({
                     'message': 'Book created successfully',
                     'book_id': new_book.id,
                     'first_chapter_id': first_chapter.id,
-                    'edit_chapter_url': edit_chapter_url
-                }
-
-                welcome_serializer = WelcomeSerializer(data=welcome_data)
-                if welcome_serializer.is_valid():
-                    return Response(welcome_serializer.data, status=status.HTTP_201_CREATED)
-                else:
-                    return Response(welcome_serializer.errors, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+                }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -1575,21 +1564,45 @@ class BookFileUploadView(APIView):
             book_file = serializer.save(book=book)
             file_type = get_file_type_by_extension(book_file.file.path)
             if file_type is None:
+                book.delete()
+                book_file.file.delete()
                 return Response({"error": "Unsupported file type"}, status=status.HTTP_400_BAD_REQUEST)
 
             handler = self.handlers.get(file_type)
             if handler:
                 try:
                     handler(book_file.file.path, book)
-                    return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+                    # Получаем ID первой главы
+                    first_chapter = book.chapters.order_by('chapter_number').first()
+                    if first_chapter:
+                        first_chapter_id = first_chapter.id
+                    else:
+                        # Если главы не созданы, возвращаем ошибку
+                        book.delete()
+                        book_file.file.delete()
+                        return Response({"error": "Failed to create chapters"},
+                                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+                    # Создаем простой ответ без использования дополнительных сериализаторов
+                    response_data = {
+                        "message": "Book uploaded and processed successfully",
+                        "book_id": book.id,
+                        "first_chapter_id": first_chapter_id
+                    }
+                    return Response(response_data, status=status.HTTP_201_CREATED)
                 except Exception as e:
                     # Удаляем книгу и файл в случае ошибки
                     book.delete()
                     book_file.file.delete()
-                    return Response({"error": f"Error processing file: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                    return Response({"error": f"Error processing file: {str(e)}"},
+                                    status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             else:
+                book.delete()
+                book_file.file.delete()
                 return Response({"error": "No handler for file type"}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 
