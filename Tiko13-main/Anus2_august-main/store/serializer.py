@@ -544,3 +544,10 @@ class BookVisibilitySerializer(serializers.ModelSerializer):
     class Meta:
         model = Book
         fields = ['visibility']
+
+
+class WelcomeSerializer(serializers.Serializer):
+    message = serializers.CharField()
+    book_id = serializers.IntegerField()
+    first_chapter_id = serializers.IntegerField()
+    edit_chapter_url = serializers.CharField()

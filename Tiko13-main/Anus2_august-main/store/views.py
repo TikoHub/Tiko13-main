@@ -1,3 +1,5 @@
+import re
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, View, TemplateView
 from rest_framework.decorators import api_view, permission_classes, action
@@ -172,12 +174,38 @@ class BookSearch(ListView):
 
 
 class StudioWelcomeAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
         serializer = BookTypeSerializer(data=request.data)
         if serializer.is_valid():
             book_type = serializer.validated_data.get('book_type')
-            new_book = Book.objects.create(author=request.user, book_type=book_type)
-            return Response({'message': 'Book created successfully', 'book_id': new_book.id}, status=status.HTTP_201_CREATED)
+
+            with transaction.atomic():
+                new_book = Book.objects.create(author=request.user, book_type=book_type)
+
+                # Создаем первую главу
+                first_chapter = Chapter.objects.create(
+                    book=new_book,
+                    chapter_number=1
+                )
+
+                # Генерируем URL для редактирования первой главы
+                edit_chapter_url = f"/studio/{new_book.id}/chapter/1"
+
+                welcome_data = {
+                    'message': 'Book created successfully',
+                    'book_id': new_book.id,
+                    'first_chapter_id': first_chapter.id,
+                    'edit_chapter_url': edit_chapter_url
+                }
+
+                welcome_serializer = WelcomeSerializer(data=welcome_data)
+                if welcome_serializer.is_valid():
+                    return Response(welcome_serializer.data, status=status.HTTP_201_CREATED)
+                else:
+                    return Response(welcome_serializer.errors, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -1358,32 +1386,85 @@ def parse_fb2_and_create_chapters(file_path, book):
 
 def parse_docx_and_create_chapters(file_path, book):
     doc = Document(file_path)
-    for i, _ in enumerate(doc.paragraphs):
-        if doc.paragraphs[i].text.startswith('Chapter'):
-            title = doc.paragraphs[i].text
-            content = '\n'.join(p.text for p in doc.paragraphs[i+1:])
-            Chapter.objects.create(book=book, title=title, content=content)
-            break
+    chapters = []
+    current_chapter = []
+    chapter_number = 0
+
+    for para in doc.paragraphs:
+        if re.match(r'Chapter \d+|CHAPTER \d+|\d+\.', para.text.strip()):
+            if current_chapter:
+                chapters.append((f"Chapter {chapter_number}", '\n'.join(current_chapter)))
+            chapter_number += 1
+            current_chapter = [para.text]
+        else:
+            current_chapter.append(para.text)
+
+    if current_chapter:
+        chapters.append((f"Chapter {chapter_number}", '\n'.join(current_chapter)))
+
+    if not chapters:
+        # Если главы не найдены, создаем одну главу с полным текстом
+        full_text = '\n'.join(para.text for para in doc.paragraphs)
+        Chapter.objects.create(
+            book=book,
+            title="Full Text",
+            content=full_text.strip(),
+            chapter_number=1,
+            created=timezone.now(),
+            updated=timezone.now(),
+            published=False
+        )
+    else:
+        for i, (title, content) in enumerate(chapters, start=1):
+            Chapter.objects.create(
+                book=book,
+                title=title,
+                content=content.strip(),
+                chapter_number=i,
+                created=timezone.now(),
+                updated=timezone.now(),
+                published=False
+            )
+
+    if not chapters:
+        print("No chapters found in the DOCX file. Created a single chapter with full content.")
 
 
 def parse_pdf_and_create_chapters(file_path, book):
     doc = fitz.open(file_path)
-    text = ""
+    full_text = ""
     for page in doc:
-        text += page.get_text()
-    # Если PDF файл представляет собой одну большую главу
-    last_chapter_number = book.chapters.aggregate(Max('chapter_number'))['chapter_number__max'] or 0
-    next_chapter_number = last_chapter_number + 1
+        full_text += page.get_text()
 
-    Chapter.objects.create(
-        book=book,
-        title="Full Text of PDF",
-        content=text,
-        chapter_number=next_chapter_number,  # Добавляем номер главы
-        created=timezone.now(),
-        updated=timezone.now(),
-        published=False
-    )
+    # Пытаемся разделить на главы
+    chapters = re.split(r'\bChapter \d+|\bCHAPTER \d+', full_text)
+
+    if len(chapters) <= 1:
+        # Если главы не найдены, создаем одну главу с полным текстом
+        Chapter.objects.create(
+            book=book,
+            title="Full Text of PDF",
+            content=full_text.strip(),
+            chapter_number=1,
+            created=timezone.now(),
+            updated=timezone.now(),
+            published=False
+        )
+    else:
+        # Создаем главы
+        for i, chapter_content in enumerate(chapters[1:],
+                                            start=1):  # Пропускаем первый элемент, так как он может быть пустым
+            Chapter.objects.create(
+                book=book,
+                title=f"Chapter {i}",
+                content=chapter_content.strip(),
+                chapter_number=i,
+                created=timezone.now(),
+                updated=timezone.now(),
+                published=False
+            )
+
+    doc.close()
 
 
 def parse_xml_and_create_chapters(file_path, book):
@@ -1398,31 +1479,39 @@ def parse_xml_and_create_chapters(file_path, book):
 def parse_txt_and_create_chapters(file_path, book):
     with open(file_path, 'r', encoding='utf-8') as file:
         text = file.read()
-        chapters = text.split('Chapter')  # Предполагаем, что главы разделены словом 'Chapter'
 
-        last_chapter_number = book.chapters.aggregate(Max('chapter_number'))['chapter_number__max'] or 0
+    # Пытаемся найти главы по разным паттернам
+    chapters = re.split(r'\bChapter \d+|\bCHAPTER \d+|\n\d+\.\s', text)
 
-        for i, chapter_content in enumerate(chapters):
-            if i == 0 and not chapter_content.strip():
-                continue  # Пропустить пустую секцию перед первой главой, если таковая есть
-
-            title = f"Chapter {i+1}"
+    if len(chapters) <= 1:
+        # Если главы не найдены, создаем одну главу с полным текстом
+        Chapter.objects.create(
+            book=book,
+            title="Full Text",
+            content=text.strip(),
+            chapter_number=1,
+            created=timezone.now(),
+            updated=timezone.now(),
+            published=False
+        )
+    else:
+        for i, chapter_content in enumerate(chapters[1:],
+                                            start=1):  # Пропускаем первый элемент, так как он может быть пустым
+            title = f"Chapter {i}"
             content = chapter_content.strip()
-            next_chapter_number = last_chapter_number + 1
-            last_chapter_number = next_chapter_number  # Обновить номер последней главы
 
             Chapter.objects.create(
                 book=book,
                 title=title,
                 content=content,
-                chapter_number=next_chapter_number,
+                chapter_number=i,
                 created=timezone.now(),
                 updated=timezone.now(),
                 published=False
             )
 
     if len(chapters) <= 1:
-        print("No chapters found in the TXT file.")
+        print("No chapters found in the TXT file. Created a single chapter with full content.")
 
 
 def parse_epub_and_create_chapters(file_path, book):
@@ -1477,7 +1566,6 @@ class BookFileUploadView(APIView):
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document': parse_docx_and_create_chapters,
         'text/plain': parse_txt_and_create_chapters,
         'application/x-fictionbook+xml': parse_fb2_and_create_chapters,
-        # Добавьте другие MIME типы и соответствующие функции обработки
     }
 
     def post(self, request):
@@ -1485,16 +1573,23 @@ class BookFileUploadView(APIView):
         if serializer.is_valid():
             book = Book.objects.create(author=request.user, book_type='default_type')
             book_file = serializer.save(book=book)
-            file_type = get_file_type_by_extension(book_file.file.path)  # Используем новую функцию
+            file_type = get_file_type_by_extension(book_file.file.path)
             if file_type is None:
                 return Response({"error": "Unsupported file type"}, status=status.HTTP_400_BAD_REQUEST)
 
             handler = self.handlers.get(file_type)
             if handler:
-                handler(book_file.file.path, book)
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
+                try:
+                    handler(book_file.file.path, book)
+                    return Response(serializer.data, status=status.HTTP_201_CREATED)
+                except Exception as e:
+                    # Удаляем книгу и файл в случае ошибки
+                    book.delete()
+                    book_file.file.delete()
+                    return Response({"error": f"Error processing file: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             else:
                 return Response({"error": "No handler for file type"}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
