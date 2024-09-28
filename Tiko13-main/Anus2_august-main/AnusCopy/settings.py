@@ -322,8 +322,8 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_USE_TLS = True
 EMAIL_PORT = 587
-EMAIL_HOST_USER = 'temudjin@wormates.com'
-EMAIL_HOST_PASSWORD = 'ptvgcsrfwpacwppu'
+EMAIL_HOST_USER = 'tikooobest@gmail.com'
+EMAIL_HOST_PASSWORD = 'rjxy gfiu zgjy wsjo'
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 RECAPTCHA_SITE_KEY = '6LcXX8YpAAAAAIO34Y0NXPEHkBh5o1OTXi9jGF6k'
@@ -339,3 +339,8 @@ PRODUCT_PRICE = os.getenv('PRODUCT_PRICE')
 # Paypal
 PAYPAL_RECEIVER_EMAIL = 'temudjin@wormates.com'
 PAYPAL_TEST = True
+
+
+# Celery broker
+CELERY_BROKER_URL = 'redis://localhost:6379/0' 
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
