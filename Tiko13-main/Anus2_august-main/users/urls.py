@@ -1,10 +1,12 @@
 from django.urls import path, include, re_path
 from . import views
-from .views import CustomUserLoginView, ProfileAPIView, RegisterView, WebPageSettingsAPIView, PrivacySettingsAPIView, \
-    PasswordChangeRequestView, PasswordChangeVerificationView, VerifyRegistrationView, NotificationSettingsAPIView, \
+from .views import (CustomUserLoginView, ProfileAPIView, RegisterView, WebPageSettingsAPIView, PrivacySettingsAPIView, \
+    PasswordChangeRequestView, PasswordChangeVerificationView, NotificationSettingsAPIView, \
     AddToLibraryView, WalletBalanceView, DepositView, TransactionHistoryView, UpdateNotificationSettingsView, \
-    UserUpdateAPIView, UserNotificationsAPIView, FollowView, UserNotificationSettingsView, TokenCheckView
-
+    UserUpdateAPIView, UserNotificationsAPIView, FollowView, UserNotificationSettingsView, TokenCheckView, \
+    VerifyEmailCodeView, ResendVerificationCodeView
+                    )
+    #VerifyRegistrationView
 from django.views.generic import TemplateView
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -16,7 +18,8 @@ from rest_framework_simplejwt.views import (
 urlpatterns = [
     path('api/', include([
         path('register/', RegisterView.as_view(), name='register'), #Регистрация
-        path('register_verification/', VerifyRegistrationView.as_view(), name='verify_registration'), #Подтверждение регистрации (Код)
+        path('register_verification/', VerifyEmailCodeView.as_view(), name='verify_registration'), #Подтверждение регистрации (Код)
+        path('resend-code/', ResendVerificationCodeView.as_view(), name='resend-code'),
         path('login/', CustomUserLoginView.as_view(), name='custom_user_login'), # Логин
         path('drf-auth/', include('rest_framework.urls')), # Логин для меня, не используется в проекте
         path('social-auth/', include('social_django.urls', namespace='social')),       #Пока сюда смотри

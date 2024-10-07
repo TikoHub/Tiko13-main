@@ -3422,12 +3422,13 @@ function TwoStepRegistration() {
     e.preventDefault();
     try {
       await axios.post(`${apiUrl}/users/api/register_verification/`, {
-        verification_code: verification_code
+        email: email,
+        code: verification_code
       });
       setCurrentStep(3);
-  
+
       navigate('/login')
-  
+
     } catch (error) {
       console.error('Ошибка регистрации:', error);
     }

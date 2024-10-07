@@ -1,52 +1,91 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Profile, WebPageSettings, TemporaryPasswordStorage, TemporaryRegistration, Notification, \
+from .models import Profile, WebPageSettings, TemporaryPasswordStorage, Notification, \
     NotificationSetting, WalletTransaction, UsersNotificationSettings
 from store.models import Book, Genre, Series, Comment, BookUpvote, Review
 from .helpers import FollowerHelper
 from django.utils.formats import date_format
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, date
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 import re
+import random
 
 
+# serializers.py
 class CustomUserRegistrationSerializer(serializers.Serializer):
     first_name = serializers.CharField(required=True)
     last_name = serializers.CharField(required=False, allow_blank=True)
-    dob_month = serializers.IntegerField(required=True)
-    dob_year = serializers.IntegerField(required=True)
-
     email = serializers.EmailField(required=True)
     password = serializers.CharField(write_only=True, required=True)
     password2 = serializers.CharField(write_only=True, required=True)
+    dob_month = serializers.IntegerField(write_only=True, required=True)
+    dob_year = serializers.IntegerField(write_only=True, required=True)
 
     def validate_password(self, value):
         if len(value) < 8:
-            raise serializers.ValidationError("Password must be at least 8 characters long.")
+            raise serializers.ValidationError("Пароль должен быть не менее 8 символов.")
         if not re.search(r'[A-Z]', value):
-            raise serializers.ValidationError("Password must contain at least one uppercase letter.")
+            raise serializers.ValidationError("Пароль должен содержать хотя бы одну заглавную букву.")
         if not re.search(r'\d', value):
-            raise serializers.ValidationError("Password must contain at least one number.")
+            raise serializers.ValidationError("Пароль должен содержать хотя бы одну цифру.")
         return value
 
     def validate(self, data):
         errors = {}
         if User.objects.filter(email=data['email']).exists():
-            errors['email'] = 'This email is already registered.'
+            errors['email'] = 'Этот email уже зарегистрирован.'
         if data['password'] != data['password2']:
-            errors['password'] = 'Passwords do not match.'
+            errors['password2'] = 'Пароли не совпадают.'
         if data['dob_month'] < 1 or data['dob_month'] > 12:
-            errors['dob_month'] = 'Invalid month.'
+            errors['dob_month'] = 'Неверный месяц.'
         current_year = timezone.now().year
         if data['dob_year'] > current_year or data['dob_year'] < (current_year - 100):
-            errors['dob_year'] = 'Invalid year.'
-
+            errors['dob_year'] = 'Неверный год.'
         if errors:
             raise serializers.ValidationError(errors)
-
         return data
+
+    def create(self, validated_data):
+        validated_data.pop('password2')
+        password = validated_data.pop('password')
+        dob_month = validated_data.pop('dob_month')
+        dob_year = validated_data.pop('dob_year')
+
+        email = validated_data['email']
+        base_username = email.split('@')[0]
+
+        # Функция для генерации 4-значного случайного числа
+        def generate_random_suffix():
+            return str(random.randint(1000, 9999))
+
+        # Генерируем первое имя пользователя
+        username = f"{base_username}{generate_random_suffix()}"
+
+        # Проверяем уникальность имени пользователя
+        attempts = 0
+        max_attempts = 10  # Максимальное количество попыток
+        while User.objects.filter(username=username).exists() and attempts < max_attempts:
+            username = f"{base_username}{generate_random_suffix()}"
+            attempts += 1
+
+        if attempts == max_attempts:
+            # Если не удалось сгенерировать уникальное имя пользователя за указанное количество попыток
+            raise serializers.ValidationError("Не удалось создать уникальное имя пользователя. Попробуйте снова.")
+
+        user = User(
+            username=username,
+            email=email,
+            first_name=validated_data.get('first_name', ''),
+            last_name=validated_data.get('last_name', ''),
+            is_active=False
+        )
+        user.set_password(password)
+        user.save()
+
+        # Профиль создается сигналом
+        return user
 
 
 class VerificationCodeSerializer(serializers.Serializer):

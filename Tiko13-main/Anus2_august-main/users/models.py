@@ -23,14 +23,9 @@ class Achievement(models.Model):
         return self.name
 
 
-class TemporaryRegistration(models.Model):
-    first_name = models.CharField(max_length=32)
-    last_name = models.CharField(max_length=32, blank=True)
-    email = models.EmailField(unique=True)
-    password = models.CharField(max_length=128)
-    dob_month = models.IntegerField()
-    dob_year = models.IntegerField()
-    verification_code = models.CharField(max_length=6)
+class VerificationCode(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    code = models.CharField(max_length=6)
     created_at = models.DateTimeField(auto_now_add=True)
 
     @property

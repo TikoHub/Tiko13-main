@@ -1,7 +1,6 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from .models import Profile, Wallet, UsersNotificationSettings, Notification, Library, WebPageSettings, \
-    TemporaryRegistration
+from .models import Profile, Wallet, UsersNotificationSettings, Notification, Library, WebPageSettings
 from django.contrib.auth.models import User
 from datetime import date
 from allauth.socialaccount.models import SocialAccount
@@ -28,20 +27,11 @@ def create_user_profile_and_other_settings(sender, instance, created, **kwargs):
         )
 
         # Now handle the date of birth
-        if not SocialAccount.objects.filter(user=instance).exists():
-            try:
-                temp_reg = TemporaryRegistration.objects.get(email=instance.email)
-                dob = date(year=temp_reg.dob_year, month=temp_reg.dob_month, day=1)
-                temp_reg.delete()  # Clean up temporary data
-            except TemporaryRegistration.DoesNotExist:
-                dob = None  # Fallback if no temp registration found
-        else:
-            dob = None  # For social accounts, may need additional handling to set DOB
+
 
         # Ensure WebPageSettings object is created with the correct DOB
         WebPageSettings.objects.update_or_create(
             profile=profile,
-            defaults={'date_of_birth': dob}
         )
 
 

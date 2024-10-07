@@ -19,7 +19,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from rest_framework import status, generics
 from rest_framework.decorators import permission_classes, api_view
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, AllowAny
 from rest_framework.response import Response
 from rest_framework.status import HTTP_404_NOT_FOUND
 from rest_framework.views import APIView
@@ -34,11 +34,14 @@ import stripe
 import requests
 from .utils import generate_unique_username
 from rest_framework.parsers import MultiPartParser, FormParser
-
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.urls import reverse
+from django.utils.encoding import force_bytes
 
 from .models import Achievement, Notification, Conversation, Message, \
-    WebPageSettings, Library, EmailVerification, TemporaryRegistration, Wallet, StripeCustomer, \
-    UsersNotificationSettings
+    WebPageSettings, Library, EmailVerification, Wallet, StripeCustomer, \
+    UsersNotificationSettings, VerificationCode
 
 from .serializers import *
 
@@ -48,70 +51,80 @@ class RegisterView(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            # Extract validated data
-            validated_data = serializer.validated_data
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        self.send_verification_code(user)
+        return Response({'status': 'Пользователь успешно зарегистрирован. Пожалуйста, подтвердите свой email.'}, status=status.HTTP_201_CREATED)
 
-            # Generate a verification code
-            verification_code = str(random.randint(1000, 9999))
-
-            # Store the registration data temporarily
-            temp_reg = TemporaryRegistration.objects.create(
-                first_name=validated_data['first_name'],
-                last_name=validated_data.get('last_name', ''),
-                email=validated_data['email'],
-                password=validated_data['password'],  # Password lives in temporary storage on server for 10 minutes
-                dob_month=validated_data.get('dob_month'),
-                dob_year=validated_data.get('dob_year'),
-                verification_code=verification_code,
-            )
-            # Send verification email
-            send_mail(
-                'Verify your account',
-                f'Your verification code is {verification_code}.',
-                'from@example.com',  # Use your actual sender email address here
-                [validated_data['email']],
-                fail_silently=False,
-            )
-
-            # Return a response indicating that the user needs to verify their email
-            return Response({'status': 'Please verify your email'}, status=status.HTTP_200_OK)
-
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def send_verification_code(self, user):
+        code = str(random.randint(1000, 9999))
+        # Сохраняем код в VerificationCode
+        VerificationCode.objects.create(user=user, code=code)
+        # Отправляем код на email
+        subject = 'Код подтверждения регистрации'
+        message = f'Ваш код подтверждения: {code}'
+        send_mail(subject, message, 'from@example.com', [user.email])
 
 
-class VerifyRegistrationView(APIView):
-    def post(self, request, *args, **kwargs):
-        code = request.data.get('verification_code')
-        if not code:
-            return Response({'error': 'Verification code is required'}, status=status.HTTP_400_BAD_REQUEST)
+class ResendVerificationCodeView(APIView):
+    permission_classes = [AllowAny]
 
+    def post(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response({'error': 'Необходимо указать email.'}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            temp_reg = TemporaryRegistration.objects.get(verification_code=code)
-            if not temp_reg.is_expired:
-                # Attempt to create a username using first and last names
-                base_username = f"{temp_reg.first_name}{temp_reg.last_name}".strip().lower()
-                if not base_username:  # Fallback if no name provided
-                    base_username = temp_reg.email.split('@')[0]
-                unique_username = generate_unique_username(base_username)
+            user = User.objects.get(email=email)
+            if user.is_active:
+                return Response({'error': 'Учетная запись уже активирована.'}, status=status.HTTP_400_BAD_REQUEST)
+            # Генерируем новый код и отправляем
+            code = str(random.randint(1000, 9999))
+            VerificationCode.objects.update_or_create(user=user, defaults={'code': code, 'created_at': timezone.now()})
+            subject = 'Новый код подтверждения регистрации'
+            message = f'Ваш новый код подтверждения: {code}'
+            send_mail(subject, message, 'from@example.com', [user.email])
+            return Response({'status': 'Новый код отправлен на ваш email.'}, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            return Response({'error': 'Пользователь с таким email не найден.'}, status=status.HTTP_400_BAD_REQUEST)
 
-                user = User.objects.create_user(
-                    username=unique_username,
-                    email=temp_reg.email,
-                    password=temp_reg.password,
-                    first_name=temp_reg.first_name,
-                    last_name=temp_reg.last_name
-                )
 
-                # Additional user setup like sending welcome emails or logging can be done here
+class VerifyEmailCodeView(APIView):
+    permission_classes = [AllowAny]
 
-                temp_reg.delete()  # Cleanup after successful registration
-                return Response({'status': 'User registered successfully'}, status=status.HTTP_201_CREATED)
-            else:
-                return Response({'error': 'Verification code expired'}, status=status.HTTP_400_BAD_REQUEST)
-        except TemporaryRegistration.DoesNotExist:
-            return Response({'error': 'Invalid verification code'}, status=status.HTTP_400_BAD_REQUEST)
+    def post(self, request):
+        email = request.data.get('email')
+        code = request.data.get('code')
+        if not email or not code:
+            return Response({'error': 'Необходимо указать email и код.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            user = User.objects.get(email=email)
+            verification_code = VerificationCode.objects.get(user=user, code=code)
+            if verification_code.is_expired:
+                return Response({'error': 'Код истек. Пожалуйста, запросите новый код.'}, status=status.HTTP_400_BAD_REQUEST)
+            user.is_active = True
+            user.save()
+            verification_code.delete()  # Удаляем использованный код
+            return Response({'status': 'Email успешно подтвержден.'}, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            return Response({'error': 'Пользователь с таким email не найден.'}, status=status.HTTP_400_BAD_REQUEST)
+        except VerificationCode.DoesNotExist:
+            return Response({'error': 'Неверный код подтверждения.'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ActivateAccountView(APIView):
+    def get(self, request, uidb64, token):
+        try:
+            uid = urlsafe_base64_decode(uidb64).decode()
+            user = get_object_or_404(User, pk=uid)
+        except (TypeError, ValueError, OverflowError):
+            user = None
+
+        if user is not None and default_token_generator.check_token(user, token):
+            user.is_active = True
+            user.save()
+            return Response({'status': 'Аккаунт успешно активирован'}, status=status.HTTP_200_OK)
+        else:
+            return Response({'error': 'Неверная ссылка активации или она уже была использована.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CustomUserLoginView(APIView):
