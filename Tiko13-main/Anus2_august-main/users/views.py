@@ -33,7 +33,7 @@ from rest_framework import status
 import stripe
 import requests
 from .utils import generate_unique_username
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.urls import reverse
@@ -533,7 +533,7 @@ def achievements(request, username):
     return render(request, 'achievements.html', context)
 
 
-class WebPageSettingsAPIView(APIView):
+'''class WebPageSettingsAPIView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser)  # Add parsers for file upload
 
@@ -563,19 +563,37 @@ class UserUpdateAPIView(APIView):
         return Response(serializer.data)
 
     def put(self, request, *args, **kwargs):
-        user = request.user
-        serializer = CustomUserSerializer(user, data=request.data, partial=True)
+        profile = request.user.profile
+        webpage_settings = WebPageSettings.objects.get(profile=profile)
+        serializer = WebPageSettingsSerializer(webpage_settings, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            # Reissue tokens
-            refresh = RefreshToken.for_user(user)
-            return Response({
-                'user': serializer.data,
-                'refresh': str(refresh),
-                'access': str(refresh.access_token),
-            })
+            return Response(serializer.data)
         else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            print(serializer.errors)  # Выводим ошибки в консоль
+            return Response(serializer.errors, status=400)'''
+
+
+class UserProfileSettingsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
+
+    def get(self, request, *args, **kwargs):
+        profile = request.user.profile
+        webpage_settings, _ = WebPageSettings.objects.get_or_create(profile=profile)
+        serializer = UserProfileSettingsSerializer(webpage_settings)
+        return Response(serializer.data)
+
+    def put(self, request, *args, **kwargs):
+        profile = request.user.profile
+        webpage_settings, _ = WebPageSettings.objects.get_or_create(profile=profile)
+        serializer = UserProfileSettingsSerializer(webpage_settings, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'status': 'Settings updated successfully'})
+        else:
+            print(serializer.errors)  # Для отладки
+            return Response(serializer.errors, status=400)
 
 
 @api_view(['POST'])

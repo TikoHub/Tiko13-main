@@ -993,7 +993,6 @@ class AddToLikedView(APIView):
         return Response({'message': 'Book added to liked successfully'}, status=status.HTTP_200_OK)
 
 
-
 class Reader(APIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
 

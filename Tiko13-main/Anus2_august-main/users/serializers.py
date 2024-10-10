@@ -303,7 +303,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             return obj.created.strftime('%d.%m.%Y')
 
 
-class CustomUserSerializer(serializers.ModelSerializer):
+'''class CustomUserSerializer(serializers.ModelSerializer):
     id = serializers.ReadOnlyField()
 
     def update(self, instance, validated_data):
@@ -345,7 +345,83 @@ class WebPageSettingsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = WebPageSettings
-        fields = ('profile', 'display_dob_option', 'gender', 'date_of_birth')
+        fields = ('profile', 'display_dob_option', 'gender', 'date_of_birth')'''
+
+
+class UserProfileSettingsSerializer(serializers.Serializer):
+    # Поля из модели User
+    first_name = serializers.CharField(required=False, allow_blank=True)
+    last_name = serializers.CharField(required=False, allow_blank=True)
+
+    # Поля из модели Profile
+    profileimg = serializers.ImageField(required=False, allow_null=True)
+    banner_image = serializers.ImageField(required=False, allow_null=True)
+
+    # Поля из модели WebPageSettings
+    date_of_birth_day = serializers.IntegerField(required=False, allow_null=True)
+    date_of_birth_month = serializers.IntegerField(required=False, allow_null=True)
+    date_of_birth_year = serializers.IntegerField(required=False, allow_null=True)
+    display_dob_option = serializers.IntegerField(required=False)
+    gender = serializers.CharField(required=False, allow_blank=True)
+
+    def update(self, instance, validated_data):
+        # Обновляем поля модели User
+        user = instance.profile.user
+        user.first_name = validated_data.get('first_name', user.first_name)
+        user.last_name = validated_data.get('last_name', user.last_name)
+        user.save()
+
+        # Обновляем поля модели Profile
+        profile = instance.profile
+        profileimg = validated_data.get('profileimg')
+        if profileimg is not None:
+            profile.profileimg = profileimg
+
+        banner_image = validated_data.get('banner_image')
+        if banner_image is not None:
+            profile.banner_image = banner_image
+
+        profile.save()
+
+        # Обновляем поля модели WebPageSettings
+        day = validated_data.get('date_of_birth_day')
+        month = validated_data.get('date_of_birth_month')
+        year = validated_data.get('date_of_birth_year')
+
+        if day and month and year:
+            try:
+                instance.date_of_birth = date(year=int(year), month=int(month), day=int(day))
+            except ValueError:
+                raise serializers.ValidationError("Invalid date of birth.")
+
+        display_dob_option = validated_data.get('display_dob_option')
+        if display_dob_option is not None:
+            instance.display_dob_option = display_dob_option
+
+        gender = validated_data.get('gender')
+        if gender is not None:
+            instance.gender = gender
+
+        instance.save()
+
+        return instance
+
+    def to_representation(self, instance):
+        user = instance.profile.user
+        profile = instance.profile
+        dob = instance.date_of_birth
+        data = {
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'profileimg': profile.profileimg.url if profile.profileimg else None,
+            'banner_image': profile.banner_image.url if profile.banner_image else None,
+            'date_of_birth_day': dob.day if dob else None,
+            'date_of_birth_month': dob.month if dob else None,
+            'date_of_birth_year': dob.year if dob else None,
+            'display_dob_option': instance.display_dob_option,
+            'gender': instance.gender,
+        }
+        return data
 
 
 class PrivacySettingsSerializer(serializers.ModelSerializer):

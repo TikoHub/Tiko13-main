@@ -1,12 +1,12 @@
 from django.urls import path, include, re_path
 from . import views
-from .views import (CustomUserLoginView, ProfileAPIView, RegisterView, WebPageSettingsAPIView, PrivacySettingsAPIView, \
+from .views import (CustomUserLoginView, ProfileAPIView, RegisterView, PrivacySettingsAPIView, \
     PasswordChangeRequestView, PasswordChangeVerificationView, NotificationSettingsAPIView, \
     AddToLibraryView, WalletBalanceView, DepositView, TransactionHistoryView, UpdateNotificationSettingsView, \
-    UserUpdateAPIView, UserNotificationsAPIView, FollowView, UserNotificationSettingsView, TokenCheckView, \
-    VerifyEmailCodeView, ResendVerificationCodeView
+    UserNotificationsAPIView, FollowView, UserNotificationSettingsView, TokenCheckView, \
+    VerifyEmailCodeView, ResendVerificationCodeView, UserProfileSettingsAPIView
                     )
-    #VerifyRegistrationView
+    #VerifyRegistrationView WebPageSettingsAPIView UserUpdateAPIView
 from django.views.generic import TemplateView
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -51,8 +51,9 @@ urlpatterns = [
         path('<str:username>/description/', views.update_profile_description, name='api_update_profile_description'), # Описание пользователя
         path('upload_temp_profile_img/', views.upload_temp_profile_image, name='upload_temp_profile_img'), # Возможно создаёт темпорари сторейдж для обновы аватарки
 
-        path('settings/web_page_settings/', WebPageSettingsAPIView.as_view(), name='api_web_settings'), # Настройки пользователя
-        path('settings/user_settings/', UserUpdateAPIView.as_view(), name='test-user'),
+       # path('settings/web_page_settings/', WebPageSettingsAPIView.as_view(), name='api_web_settings'), # Настройки пользователя
+       # path('settings/user_settings/', UserUpdateAPIView.as_view(), name='test-user'),
+        path('settings/web_page_settings/', UserProfileSettingsAPIView.as_view(), name='user_profile_settings'),
 
         path('settings/privacy/', PrivacySettingsAPIView.as_view(), name='privacy_settings'), # Настройки Приватности (надо объединить с security)
         path('settings/security/', PasswordChangeRequestView.as_view(), name='request-password-change'), #Настройки безопасности (надо объединить с privacy)
