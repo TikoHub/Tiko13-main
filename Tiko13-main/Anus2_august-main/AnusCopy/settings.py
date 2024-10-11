@@ -257,6 +257,11 @@ SOCIALACCOUNT_PROVIDERS = {
     'google': {
         'SCOPE': ['profile', 'email'],
         'AUTH_PARAMS': {'access_type': 'online'},
+        'APP': {
+            'client_id': os.getenv('GOOGLE_CLIENT_ID'),
+            'secret': os.getenv('GOOGLE_CLIENT_SECRET'),
+            'key': ''
+        }
     },
     'facebook': {
         'METHOD': 'oauth2',
@@ -301,6 +306,9 @@ LOGOUT_URL = '/api/'
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_EMAIL_VERIFICATION = 'none' #Поменять на Mandatory
+ACCOUNT_USERNAME_REQUIRED = False
+ACCOUNT_AUTHENTICATION_METHOD = 'email'
+
 SOCIALACCOUNT_QUERY_EMAIL = True
 SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_EMAIL_REQUIRED = True
@@ -310,9 +318,6 @@ SOCIALACCOUNT_ADAPTER = 'users.adapters.CustomSocialAccountAdapter'
 
 CORS_ALLOW_ALL_ORIGINS = True
 
-#SOCIAL AUTH
-SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = '<1001464138599-8corijje4u9vojhej9q4uo524fboqn5b.apps.googleusercontent.com>'
-SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = '<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>'
 
 SOCIAL_AUTH_FACEBOOK_KEY = '324062583678664'
 SOCIAL_AUTH_FACEBOOK_SECRET = '2fd18cf8d16966fd00e85b12acfbdb4f'
@@ -342,5 +347,7 @@ PAYPAL_TEST = True
 
 
 # Celery broker
-CELERY_BROKER_URL = 'redis://localhost:6379/0' 
+CELERY_BROKER_URL = 'redis://localhost:6379/0'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+
+
