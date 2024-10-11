@@ -29,7 +29,9 @@ urlpatterns = [
         path('book/<int:book_id>/chapter/<int:chapter_id>/add_note/', views.add_author_note, name='add_note'), # Добавить заметку / комментарий (для автора)
         path('book/<int:book_id>/notes/', BookNotesView.as_view(), name='book_notes'),
         path('book/<int:book_id>/chapter/<int:chapter_id>/notes/', ChapterNotesView.as_view(), name='chapter_notes'),
-        path('book/<int:book_id>/chapter/<int:chapter_id>/toggle_publish/', toggle_publish_chapter, name='toggle-publish-chapter'),
+
+        path('book/<int:book_id>/chapter/<int:chapter_id>/publish/', publish_action, name='publish-chapter-action'),
+        path('book/<int:book_id>/publish/', publish_action, name='publish-book-action'),
 
         path('book/<int:book_id>/booksale/', BookSaleView.as_view(), name='book_sale'), # Книги на Продажу (возможно скидка) (Еще нету)
 

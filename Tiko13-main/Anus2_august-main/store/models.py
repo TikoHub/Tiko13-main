@@ -114,7 +114,7 @@ class Book(models.Model):
             if old_book.visibility != 'public' and self.visibility == 'public' and self.genre.name != 'Undefined':
                 # The book's visibility has been changed to public and the genre is defined
                 existing_user = User.objects.get(
-                    username='Tika')  # Replace 'admin' with the username of an existing user
+                    username='wormates')  # Replace 'admin' with the username of an existing user
                 users = User.objects.filter(notification_settings__newbooks=True)
                 for user in users:
                     Notification.objects.create(

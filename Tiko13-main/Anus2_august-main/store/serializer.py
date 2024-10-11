@@ -333,9 +333,11 @@ class BookSettingsSerializer(serializers.ModelSerializer):
 
     co_author = serializers.SlugRelatedField(
         slug_field='username',
-        queryset=User.objects.none(),  # Initially set to none
-        required=False
+        queryset=User.objects.none(),
+        required=False,
+        allow_null=True
     )
+
     co_author2 = serializers.SlugRelatedField(
         slug_field='username',
         queryset=User.objects.none(),
@@ -432,7 +434,7 @@ class BookFileSerializer(serializers.ModelSerializer):
         if 'book' not in validated_data:
             # Если книга не указана, создаем новую с типом по умолчанию
             user = self.context['request'].user
-            book = Book.objects.create(author=user, book_type='default_type')
+            book = Book.objects.create(author=user, book_type='epic_novel')
             validated_data['book'] = book
 
         return super().create(validated_data)

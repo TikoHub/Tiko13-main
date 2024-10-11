@@ -523,25 +523,61 @@ class StudioChapterView(APIView):
 
 
 @api_view(['POST'])
-def toggle_publish_chapter(request, book_id, chapter_id):
-    chapter = get_object_or_404(Chapter, id=chapter_id, book__id=book_id)
-    if request.user != chapter.book.author:
-        return Response({'error': 'You are not authorized to change the publication status of this chapter.'},
+def publish_action(request, book_id, chapter_id=None):
+    action = request.data.get('action')
+    user = request.user
+
+    book = get_object_or_404(Book, id=book_id)
+
+    # Проверяем, что пользователь является автором книги
+    if user != book.author:
+        return Response({'error': 'You are not authorized to change the publication status of this book.'},
                         status=status.HTTP_403_FORBIDDEN)
 
-    # Check if there are any unpublished chapters before this one
-    if Chapter.objects.filter(book=book_id, chapter_number__lt=chapter.chapter_number, published=False).exists():
-        return Response({'error': 'You cannot publish this chapter until all previous chapters are published.'},
-                        status=status.HTTP_403_FORBIDDEN)
+    if action == 'not_published':
+        # Установить published = False для указанной главы
+        if not chapter_id:
+            return Response({'error': 'Chapter ID is required for this action.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        chapter = get_object_or_404(Chapter, id=chapter_id, book=book)
+        chapter.published = False
+        chapter.save()
+        return Response({'published': chapter.published, 'message': 'Chapter unpublished successfully.'})
 
-    with transaction.atomic():
-        chapter.published = not chapter.published
+    elif action == 'publish_chapter':
+        # Установить published = True для указанной главы
+        if not chapter_id:
+            return Response({'error': 'Chapter ID is required for this action.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        chapter = get_object_or_404(Chapter, id=chapter_id, book=book)
+
+        # Проверяем, что все предыдущие главы опубликованы
+        if Chapter.objects.filter(book=book, chapter_number__lt=chapter.chapter_number, published=False).exists():
+            return Response({'error': 'You cannot publish this chapter until all previous chapters are published.'},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        chapter.published = True
         chapter.save()
 
-        if chapter.published:
-            send_book_update_notifications(chapter.book, chapter.title)  # Ensure this function is correctly defined in your utils
+        # Отправляем уведомление
+        send_book_update_notifications(book, chapter.title)
+        return Response({'published': chapter.published, 'message': 'Chapter published successfully.'})
 
-    return Response({'published': chapter.published, 'message': 'Chapter publication status toggled successfully.'})
+    elif action == 'publish_book':
+        # Установить published = True для всех глав в книге
+        unpublished_chapters = Chapter.objects.filter(book=book, published=False).order_by('chapter_number')
+
+        with transaction.atomic():
+            for chapter in unpublished_chapters:
+                chapter.published = True
+                chapter.save()
+                # Опционально: отправлять уведомление для каждой главы
+                send_book_update_notifications(book, chapter.title)
+
+        return Response({'message': 'All chapters published successfully.'})
+
+    else:
+        return Response({'error': 'Invalid action.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])
@@ -717,6 +753,33 @@ class BookSettingsView(APIView):
             return Response(serializer.data)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def post(self, request, book_id, format=None):
+        action = request.data.get('action')
+        if action == 'reset_settings':
+            book = get_object_or_404(Book, pk=book_id)
+            if book.author != request.user:
+                return Response({'error': 'You do not have permission to edit this book'},
+                                status=status.HTTP_403_FORBIDDEN)
+
+            # Сбрасываем настройки книги
+            book.name = "Book Name"
+            book.co_author = None
+            book.co_author2 = None
+            book.genre = Genre.objects.get_or_create(name='Undefined')[0]
+            book.subgenres.clear()
+            book.description = "Book's Description"
+            book.authors_note = "Author's Note"
+            book.visibility = 'private'
+            book.comment_access = 'public'
+            book.download_access = 'public'
+            book.demo_version = False
+            book.save()
+
+            return Response({'status': 'Book settings have been reset to default values.'}, status=status.HTTP_200_OK)
+
+        # Обработка других действий или возвращение ошибки
+        return Response({'error': 'Invalid action.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class IllustrationView(APIView):
@@ -1559,7 +1622,7 @@ class BookFileUploadView(APIView):
     def post(self, request):
         serializer = BookFileSerializer(data=request.data)
         if serializer.is_valid():
-            book = Book.objects.create(author=request.user, book_type='default_type')
+            book = Book.objects.create(author=request.user, book_type='epic_novel')
             book_file = serializer.save(book=book)
             file_type = get_file_type_by_extension(book_file.file.path)
             if file_type is None:
