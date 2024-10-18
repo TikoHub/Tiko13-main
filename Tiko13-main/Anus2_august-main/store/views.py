@@ -106,8 +106,9 @@ class BookDetailAPIView(generics.RetrieveAPIView):
         if book.is_adult:
             if not user.is_authenticated:
                 raise Http404("This Book is for Adults Only. Please Sign in to Continue.")
-            if user.profile.date_of_birth:
-                age = (date.today() - user.profile.date_of_birth).days // 365
+            if hasattr(user.profile, 'webpagesettings') and user.profile.webpagesettings.date_of_birth:
+                date_of_birth = user.profile.webpagesettings.date_of_birth
+                age = (date.today() - date_of_birth).days // 365
                 if age < 18:
                     raise Http404("This Book is for Adults Only.")
             else:
