@@ -1,5 +1,8 @@
 import random
 from django.contrib.auth import get_user_model
+from django.core.files.storage import FileSystemStorage
+from django.conf import settings
+import os
 
 User = get_user_model()
 
@@ -16,3 +19,10 @@ def generate_unique_username(base, is_social=False):
             break
 
     return username
+
+
+class TemporaryStorage(FileSystemStorage):
+    def __init__(self, location=None, base_url=None):
+        location = location or os.path.join(settings.MEDIA_ROOT, 'tmp')
+        base_url = base_url or os.path.join(settings.MEDIA_URL, 'tmp/')
+        super().__init__(location, base_url)

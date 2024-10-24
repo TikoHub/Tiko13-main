@@ -17,6 +17,9 @@ from rest_framework_simplejwt.views import (
 # http://127.0.0.1:8000/users/api/accounts/facebook/login/ FACEBOOK URLS
 urlpatterns = [
     path('api/', include([
+        path('upload_temp_profile_image/', views.upload_temp_profile_image, name='upload_temp_profile_image'),
+        path('upload_temp_banner_image/', views.upload_temp_banner_image, name='upload_temp_banner_image'),
+
         path('register/', RegisterView.as_view(), name='register'), #Регистрация
         path('register_verification/', VerifyEmailCodeView.as_view(), name='verify_registration'), #Подтверждение регистрации (Код)
         path('resend-code/', ResendVerificationCodeView.as_view(), name='resend-code'),
@@ -49,7 +52,6 @@ urlpatterns = [
         path('<str:username>/comments/', views.get_user_comments, name='api_get_user_comments'), # Комментарии пользователя
         path('<str:username>/reviews/', views.get_user_reviews, name='user-reviews'), # Отзывы пользователя
         path('<str:username>/description/', views.update_profile_description, name='api_update_profile_description'), # Описание пользователя
-        path('upload_temp_profile_img/', views.upload_temp_profile_image, name='upload_temp_profile_img'), # Возможно создаёт темпорари сторейдж для обновы аватарки
 
        # path('settings/web_page_settings/', WebPageSettingsAPIView.as_view(), name='api_web_settings'), # Настройки пользователя
        # path('settings/user_settings/', UserUpdateAPIView.as_view(), name='test-user'),

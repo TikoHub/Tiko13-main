@@ -1,0 +1,31 @@
+{
+  "files": {
+    "main.css": "/static/css/main.0e41880e.css",
+    "main.js": "/static/js/main.9906cc46.js",
+    "static/js/787.72e6b618.chunk.js": "/static/js/787.72e6b618.chunk.js",
+    "static/media/RalewayDots-6pgv.ttf": "/static/media/RalewayDots-6pgv.fc475d20cadccf5fe744.ttf",
+    "static/media/seach.svg": "/static/media/seach.c7741427ea5aa0f9755248007fafd42b.svg",
+    "static/media/a.svg": "/static/media/a.995616a86bb941416f52e1e2ec9cb420.svg",
+    "static/media/avatar.jpg": "/static/media/avatar.37755ac968a760c0c67a.jpg",
+    "static/media/avatart.svg": "/static/media/avatart.97afc9179ab32fc135e94e176c1399b4.svg",
+    "static/media/icon-setting.svg": "/static/media/icon-setting.420591a8225b32f8512b76992bb94af3.svg",
+    "static/media/google.svg": "/static/media/google.2f305e5a616933f256b91d4e03c22f62.svg",
+    "static/media/icon-help.svg": "/static/media/icon-help.61ca441ba82d7eb4cc3048ca27387ae2.svg",
+    "static/media/icon-book.svg": "/static/media/icon-book.5d51322399546717cc750103b8a6bba4.svg",
+    "static/media/icon-history.svg": "/static/media/icon-history.fbd333d951414c7dc98121ae39f1b16d.svg",
+    "static/media/face.svg": "/static/media/face.a9f7a82fa2e795038358081081d9e3eb.svg",
+    "static/media/icon-home.svg": "/static/media/icon-home.3e10e5de079eb227794025d7de87a8a1.svg",
+    "static/media/icon-library.svg": "/static/media/icon-library.a57dda7bc862b2f448a8facee9802650.svg",
+    "static/media/drop.svg": "/static/media/drop.01721cf2af1ddfa7a190385c463acb42.svg",
+    "static/media/bell.svg": "/static/media/bell.565ddffb0595687871d40e342fc9f349.svg",
+    "index.html": "/index.html",
+    "static/media/comment.svg": "/static/media/comment.79d442120c6a60b22c314ce66ffeaaa2.svg",
+    "main.0e41880e.css.map": "/static/css/main.0e41880e.css.map",
+    "main.9906cc46.js.map": "/static/js/main.9906cc46.js.map",
+    "787.72e6b618.chunk.js.map": "/static/js/787.72e6b618.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.0e41880e.css",
+    "static/js/main.9906cc46.js"
+  ]
+}

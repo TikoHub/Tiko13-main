@@ -17,7 +17,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.http import HttpResponse, HttpResponseRedirect
 from django.http import JsonResponse
-from django.db.models import Count, Max
+from django.db.models import Count, Max, F
 from django.urls import reverse_lazy, reverse
 from django.views.generic.edit import FormView
 from django.contrib import messages
@@ -118,19 +118,64 @@ class BookDetailAPIView(generics.RetrieveAPIView):
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
+        user = request.user
+        should_increment_view = False
+
+        # Логика увеличения счётчика просмотров
+        if user.is_authenticated:
+            # Для аутентифицированных пользователей
+            last_view, created = BookView.objects.get_or_create(
+                user=user,
+                book=instance,
+                defaults={'last_viewed': timezone.now()}
+            )
+            if not created:
+                time_since_last_view = timezone.now() - last_view.last_viewed
+                if time_since_last_view > timedelta(hours=24):
+                    should_increment_view = True
+                    last_view.last_viewed = timezone.now()
+                    last_view.save()
+            else:
+                should_increment_view = True
+        else:
+            # Для неаутентифицированных пользователей
+            ip_address = get_client_ip(request)
+            if ip_address:
+                last_view, created = BookView.objects.get_or_create(
+                    ip_address=ip_address,
+                    book=instance,
+                    defaults={'last_viewed': timezone.now()}
+                )
+                if not created:
+                    time_since_last_view = timezone.now() - last_view.last_viewed
+                    if time_since_last_view > timedelta(hours=12):
+                        should_increment_view = True
+                        last_view.last_viewed = timezone.now()
+                        last_view.save()
+                else:
+                    should_increment_view = True
+            else:
+                # Не удалось получить IP-адрес
+                pass
+
+        if should_increment_view:
+            # Атомарно увеличиваем счётчик просмотров
+            Book.objects.filter(id=instance.id).update(views_count=F('views_count') + 1)
+            # Обновляем объект instance
+            instance.refresh_from_db()
 
         serialized_data = self.get_serializer(instance).data
 
-        if request.user.is_authenticated:
-            # Update user's book reading history if history recording is enabled
-            if request.user.profile.record_history:
+        # Ваш существующий код по обновлению истории чтения
+        if user.is_authenticated:
+            if user.profile.record_history:
                 UserBookHistory.objects.update_or_create(
-                    user=request.user,
+                    user=user,
                     book=instance,
                     defaults={'last_accessed': timezone.now()}
                 )
         else:
-            # Handle unauthenticated user scenario, e.g., using sessions
+            # Логика для неаутентифицированных пользователей
             unlogged_user_history = request.session.get('unlogged_user_history', [])
             if instance.id not in unlogged_user_history:
                 unlogged_user_history.append(instance.id)
@@ -138,7 +183,6 @@ class BookDetailAPIView(generics.RetrieveAPIView):
                     unlogged_user_history.pop(0)
                 request.session['unlogged_user_history'] = unlogged_user_history
 
-        # Continue with existing view count and IP tracking logic
         return Response(serialized_data)
 
 
@@ -331,6 +375,9 @@ class StudioIllustrationsAPIView(APIView):
         })
 
     def post(self, request, *args, **kwargs):
+        print("request.FILES:", request.FILES)
+        print("request.data:", request.data)
+
         book_id = kwargs.get('book_id')
         try:
             book = Book.objects.get(id=book_id)
@@ -338,16 +385,16 @@ class StudioIllustrationsAPIView(APIView):
             return Response({'error': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
 
         # Set the book's cover page
-        cover_image = request.data.get('cover_image')
+        cover_image = request.FILES.get('cover_image')
         if cover_image:
             book.coverpage = cover_image
             book.save()
 
         # Add illustrations with descriptions
-        for key in request.data.keys():
+        for key in request.FILES.keys():
             if key.startswith('illustration_image_'):
                 index = key.split('_')[-1]
-                image = request.data[key]
+                image = request.FILES[key]
                 description = request.data.get(f'illustration_description_{index}', '')
 
                 serializer = IllustrationSerializer(data={'image': image, 'description': description},
@@ -355,6 +402,7 @@ class StudioIllustrationsAPIView(APIView):
                 if serializer.is_valid():
                     serializer.save(book=book)
                 else:
+                    print(serializer.errors)  # Добавьте эту строку для отладки
                     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({'message': 'Cover page and illustrations updated successfully'},

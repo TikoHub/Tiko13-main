@@ -1,3 +1,4 @@
+import os
 import uuid
 from datetime import datetime, timedelta, timezone, date
 import time
@@ -32,7 +33,7 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 import stripe
 import requests
-from .utils import generate_unique_username
+from .utils import generate_unique_username, TemporaryStorage
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
@@ -574,6 +575,41 @@ class UserUpdateAPIView(APIView):
             return Response(serializer.errors, status=400)'''
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_temp_profile_image(request):
+    if 'profileimg' in request.FILES:
+        profile_img = request.FILES['profileimg']
+        fs = TemporaryStorage(location=os.path.join(settings.MEDIA_ROOT, 'tmp', 'profile_img'),
+                              base_url=os.path.join(settings.MEDIA_URL, 'tmp', 'profile_img/'))
+        filename = fs.save(profile_img.name, profile_img)
+        uploaded_file_url = fs.url(filename)
+
+        # Возвращаем путь к временному файлу
+        return Response({
+            'temp_img_url': uploaded_file_url,
+            'temp_img_path': fs.path(filename)
+        })
+    return Response({'error': 'No file uploaded.'}, status=400)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_temp_banner_image(request):
+    if 'banner_image' in request.FILES:
+        banner_img = request.FILES['banner_image']
+        fs = TemporaryStorage(location=os.path.join(settings.MEDIA_ROOT, 'tmp', 'banner'),
+                              base_url=os.path.join(settings.MEDIA_URL, 'tmp', 'banner/'))
+        filename = fs.save(banner_img.name, banner_img)
+        uploaded_file_url = fs.url(filename)
+
+        # Возвращаем путь к временному файлу
+        return Response({
+            'temp_img_url': uploaded_file_url,
+            'temp_img_path': fs.path(filename)
+        })
+    return Response({'error': 'No file uploaded.'}, status=400)
+
+
 class UserProfileSettingsAPIView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser, JSONParser)
@@ -585,31 +621,37 @@ class UserProfileSettingsAPIView(APIView):
         return Response(serializer.data)
 
     def put(self, request, *args, **kwargs):
+        print("request.FILES:", request.FILES)
+        print("request.data:", request.data)
+
         profile = request.user.profile
         webpage_settings, _ = WebPageSettings.objects.get_or_create(profile=profile)
         serializer = UserProfileSettingsSerializer(webpage_settings, data=request.data, partial=True)
+
+        temp_profile_img_path = request.data.get('temp_profile_img_path')
+        temp_banner_img_path = request.data.get('temp_banner_img_path')
+
+        import os
+        from django.core.files import File
+
+        if temp_profile_img_path and os.path.exists(temp_profile_img_path):
+            with open(temp_profile_img_path, 'rb') as f:
+                profile.profileimg.save(os.path.basename(temp_profile_img_path), File(f))
+            os.remove(temp_profile_img_path)
+
+        if temp_banner_img_path and os.path.exists(temp_banner_img_path):
+            with open(temp_banner_img_path, 'rb') as f:
+                profile.banner_image.save(os.path.basename(temp_banner_img_path), File(f))
+            os.remove(temp_banner_img_path)
+
+        profile.save()
+
         if serializer.is_valid():
             serializer.save()
             return Response({'status': 'Settings updated successfully'})
         else:
             print(serializer.errors)  # Для отладки
             return Response(serializer.errors, status=400)
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def upload_temp_profile_image(request):
-    if 'profile_img' in request.FILES:
-        profile_img = request.FILES['profile_img']
-        fs = FileSystemStorage(location='/path/to/temp/storage')  # Specify your temp storage
-        filename = fs.save(profile_img.name, profile_img)
-        uploaded_file_url = fs.url(filename)
-
-        # Optionally, store this temp file info in the session or a temporary field
-        request.session['temp_profile_img_path'] = fs.path(filename)
-
-        return Response({'temp_img_url': uploaded_file_url})
-    return Response({'error': 'No file uploaded.'}, status=400)
 
 
 class NotificationSettingsAPIView(generics.RetrieveUpdateAPIView):

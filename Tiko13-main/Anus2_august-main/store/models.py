@@ -5,6 +5,8 @@ from datetime import timedelta, datetime
 from django.db.models import Max
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.exceptions import ValidationError
+
 
 User = get_user_model()
 
@@ -245,8 +247,14 @@ class BookView(models.Model):
     last_viewed = models.DateTimeField(auto_now=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
 
-    def is_authenticated_view(self):
-        return self.user is not None
+    def __str__(self):
+        return f"BookView: {self.user or self.ip_address} viewed {self.book.name}"
+
+    def clean(self):
+        if not self.user and not self.ip_address:
+            raise ValidationError('Either user or ip_address must be set.')
+        if self.user and self.ip_address:
+            raise ValidationError('Only one of user or ip_address must be set.')
 
 
 class Review(models.Model):

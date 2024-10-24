@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Profile, WebPageSettings, TemporaryPasswordStorage, Notification, \
+from .models import Profile, WebPageSettings, Notification, \
     NotificationSetting, WalletTransaction, UsersNotificationSettings
 from store.models import Book, Genre, Series, Comment, BookUpvote, Review
 from .helpers import FollowerHelper
@@ -86,28 +86,6 @@ class CustomUserRegistrationSerializer(serializers.Serializer):
 
         # Профиль создается сигналом
         return user
-
-
-class VerificationCodeSerializer(serializers.Serializer):
-    email = serializers.EmailField(required=True)
-    verification_code = serializers.CharField(required=True)
-
-    def validate(self, data):
-        # Add validation to check if the TemporaryRegistration with the provided
-        # email and verification_code exists and is not expired.
-        try:
-            temp_reg = TemporaryRegistration.objects.get(
-                email=data['email'],
-                verification_code=data['verification_code']
-            )
-            if temp_reg.is_expired:
-                raise serializers.ValidationError("The verification code has expired.")
-        except TemporaryRegistration.DoesNotExist:
-            raise serializers.ValidationError("Invalid verification code or email.")
-
-        # You can add additional validation here if needed
-
-        return data
 
 
 class CustomUserLoginSerializer(serializers.Serializer):
@@ -353,10 +331,6 @@ class UserProfileSettingsSerializer(serializers.Serializer):
     first_name = serializers.CharField(required=False, allow_blank=True)
     last_name = serializers.CharField(required=False, allow_blank=True)
 
-    # Поля из модели Profile
-    profileimg = serializers.ImageField(required=False, allow_null=True)
-    banner_image = serializers.ImageField(required=False, allow_null=True)
-
     # Поля из модели WebPageSettings
     date_of_birth_day = serializers.IntegerField(required=False, allow_null=True)
     date_of_birth_month = serializers.IntegerField(required=False, allow_null=True)
@@ -370,18 +344,6 @@ class UserProfileSettingsSerializer(serializers.Serializer):
         user.first_name = validated_data.get('first_name', user.first_name)
         user.last_name = validated_data.get('last_name', user.last_name)
         user.save()
-
-        # Обновляем поля модели Profile
-        profile = instance.profile
-        profileimg = validated_data.get('profileimg')
-        if profileimg is not None:
-            profile.profileimg = profileimg
-
-        banner_image = validated_data.get('banner_image')
-        if banner_image is not None:
-            profile.banner_image = banner_image
-
-        profile.save()
 
         # Обновляем поля модели WebPageSettings
         day = validated_data.get('date_of_birth_day')
@@ -422,6 +384,7 @@ class UserProfileSettingsSerializer(serializers.Serializer):
             'gender': instance.gender,
         }
         return data
+
 
 
 class PrivacySettingsSerializer(serializers.ModelSerializer):
@@ -474,20 +437,6 @@ class PasswordChangeRequestSerializer(serializers.Serializer):
         if data['new_password'] != data['confirm_new_password']:
             raise serializers.ValidationError({"confirm_new_password": "New passwords do not match."})
         return data
-
-
-class PasswordChangeVerificationSerializer(serializers.Serializer):
-    verification_code = serializers.CharField(required=True)
-
-    def validate_verification_code(self, value):
-        user = self.context['request'].user
-        try:
-            temp_storage = TemporaryPasswordStorage.objects.get(user=user, verification_code=value)
-            if temp_storage.is_expired:
-                raise serializers.ValidationError("Verification code expired.")
-            return value
-        except TemporaryPasswordStorage.DoesNotExist:
-            raise serializers.ValidationError("Invalid verification code.")
 
 
 class NotificationSerializer(serializers.ModelSerializer):

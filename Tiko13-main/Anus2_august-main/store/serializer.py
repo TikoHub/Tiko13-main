@@ -477,6 +477,7 @@ class StudioBookSerializer(serializers.ModelSerializer):
 
 class IllustrationSerializer(serializers.ModelSerializer):
     book = serializers.ReadOnlyField(source='book.id')
+    description = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = Illustration

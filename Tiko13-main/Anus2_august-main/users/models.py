@@ -280,30 +280,6 @@ class EmailVerification(models.Model):
     verified = models.BooleanField(default=False)
 
 
-class TemporaryPasswordStorage(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    hashed_new_password = models.CharField(max_length=128)
-    verification_code = models.CharField(max_length=6)
-    expires_at = models.DateTimeField()
-
-    @property
-    def is_expired(self):
-        return timezone.now() > self.expires_at
-
-    @staticmethod
-    def create_for_user(user, hashed_password, code):
-        expiration_duration = datetime.timedelta(hours=1)  # Adjust as needed
-        instance, _ = TemporaryPasswordStorage.objects.update_or_create(
-            user=user,
-            defaults={
-                'hashed_new_password': hashed_password,
-                'verification_code': code,
-                'expires_at': timezone.now() + expiration_duration
-            }
-        )
-        return instance
-
-
 class NotificationSetting(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='notification_settings')
     group_by_author = models.BooleanField(default=True)

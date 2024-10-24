@@ -45,11 +45,7 @@ button:active {
   width: 100%;
 }
 
-@media screen and (max-width:1260px) {
-  .sidebar{
-    width: 20%;
-  }
-}
+
 @media screen and (min-width:2560px) {
   .sidebar{
     width: 300px;
@@ -87,6 +83,16 @@ button:active {
 .sidebar-menu{
   padding-left: 0;
   width: 100%;
+}
+.sidebar-menu_chapter{
+  padding-left: 0;
+  width: 100%;
+  max-height: 520px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.sidebar-menu_chapter:hover {
+  scrollbar-width: auto; /* Показать полосу прокрутки при наведении */
 }
 
 .logo {
@@ -143,7 +149,10 @@ scrollbar-width: none;
 .bookpage__books {
   width: 100%;
 }
-
+.bookpage__books{
+  width: 80%;
+  margin-bottom: 100px;
+}
 .pool-button {
   display: flex;
   padding-bottom: 5px;
@@ -1114,7 +1123,9 @@ input:-internal-autofill-selected {
   margin: 0;
 }
 
-
+.mdy-input{
+  display: flex;
+}
 
 .change-input {
   width: 414px;
@@ -1123,6 +1134,33 @@ input:-internal-autofill-selected {
   background: #3F3F3F;
   color: #858585;
 }
+.change-month-input {
+  width: 118px;
+  height: 27px;
+  border-radius: 20px;
+  margin-right: 49px;
+  background: #3F3F3F;
+  color: #858585;
+  text-align: center;
+}
+.change-date-input {
+  width: 92px;
+  height: 27px;
+  border-radius: 20px;
+  margin-right:  49px;
+  background: #3F3F3F;
+  color: #858585;
+  text-align: center;
+}
+.change-year-input {
+  width: 112px;
+  height: 27px;
+  border-radius: 20px;
+  background: #3F3F3F;
+  color: #858585;
+  text-align: center;
+}
+
 
 .change {
   width: 60%;
@@ -1803,6 +1841,11 @@ input:-internal-autofill-selected {
   padding-bottom: 50px; 
 }
 
+.label_avatar{
+  font-size: 24px;
+  margin-left: 10px;
+}
+
 .profile__book-img {
   width: 350px;
   height: 200px;
@@ -1811,7 +1854,9 @@ input:-internal-autofill-selected {
   object-fit: cover;
   margin-top: 24px;
 }
-
+.profile_book {
+  padding-bottom: 5px;
+}
 .profile__book {
   display: flex;
 }
@@ -2770,8 +2815,11 @@ scrollbar-width: none;
 .text_save_button{
   width: 50px;
   height: 30px;
-  background-color: #BD00FF;
+  background-color: #290038;
   border-radius: 25px;
+  font-size: 12px;
+  color: #fff;
+  border: 1px solid #fff;
 }
 .chapters_studio_maps{
   margin: 10px;
@@ -2785,6 +2833,14 @@ scrollbar-width: none;
   border-radius: 15px;
   display: flex;
   align-items: center;
+}
+.chapters__studio_title_add{
+  width: 100%;
+  min-height: 42px;
+  color: white;
+  background: none;
+  align-items: center;
+  font-size: 42px;
 }
 .chapters__studio_title svg{
   margin-left: 5px;
@@ -4462,12 +4518,12 @@ a {
   width: 10%;
   display: flex;
   align-items: center;
-  justify-content: center;
 }
 
 .studio__comments_view_3 {
   color: #888;
   font-size: 24px;
+  margin-left: 20px;
   width: 20%;
   display: flex;
   align-items: center;
@@ -4515,7 +4571,7 @@ a {
   width: 100%;
 }
 .studio__comments_view_1{
-  width: 70%;
+  width: 65%;
   color: #888;
   font-size: 24px;
   padding-right: 10px;
@@ -5097,7 +5153,7 @@ rect {
   height: 200px;
   background: linear-gradient(to left, #000000 85%, #290038);
   border-radius: 25px;
-  border: #fff 1px solid;
+  border: #565656 1px solid;
   margin-right: 40px;
   margin-bottom: 40px;
   display: flex;
@@ -5148,12 +5204,70 @@ rect {
 
 .bookpage__coverpage_new{
   width: 100%;
-  height: 450px;
+  height: 550px;
   position: relative;
   overflow: hidden;
   object-fit: cover;
   background-size: cover;
   background-position: center;
+}
+.Read_button_new{
+  width: 51px;
+  height: 28px;
+  background: #290038;
+  color: white;
+  border: 1px solid #3F3F3F;
+  border-radius: 4px;
+  font-size: 18px;
+  display: flex;
+  justify-content: center;
+
+}
+.about_book_new{
+  display: flex;
+  margin-top: 40px;
+  width: 80%;
+  align-items: center;
+}
+.about_bookpage_new{
+  background-color: #101010;
+  min-height: 350px;
+}
+.about_book_views_new{
+  color: #fff;
+  margin-left: 10px;
+  margin-right: 10px;
+  font-size: 18px;
+}
+.genres_new{
+  display: flex;
+  flex-wrap: wrap;
+  padding-top: 20px;
+}
+.genre_new{
+  color: #fff;
+  background-color: #101010;
+  width: 160px;
+  height: 34px;
+  border: #858585 1px solid;
+  border-radius: 15px;
+  margin-left: 10px;
+  margin-right: 10px;
+  text-align: center;
+  font-size: 20px; 
+  margin-top: 4px;
+}
+
+.about_description_new{
+  font-size: 15px;
+  margin-top: 15px;
+  margin-left: 10px;
+  color: #fff;
+}
+.about_volum_new{
+  color: #fff;
+  font-size: 18px;
+  margin-right: 10px;
 }
 
 .bookpage__menu_new{
@@ -5165,8 +5279,11 @@ rect {
   background-color: rgba(0, 0, 0, 0.5); 
   display: flex;
   align-items: center;
+  justify-content: space-between;
 }
-
+.bookpage__menu_first{
+  display: flex;
+}
 .bookpage__menu_new div{
   margin-left: 10px;
 }
@@ -5198,4 +5315,72 @@ rect {
   margin-top: 5px;
   margin-left: 5px;
   border-radius: 10px;
+}
+
+.sale_content{
+  display: flex;
+  justify-content: center;
+  margin-left: -100px;
+}
+.sale_view{
+  font-size: 28px;
+  color: #565656;
+  margin-top: 200px;
+}
+.sale_setting_content{
+  width: 71%;
+}
+.sale_setting_inputs{
+  display: flex;
+  justify-content: space-between;
+  margin-top: 30px;
+}
+.sale_setting_first{
+  display: flex;
+}
+.sale_first_views{
+  color: #fff;
+  font-size: 24px;
+}
+
+.sale_first_input{
+  width: 70px;
+  height: 32px;
+  background-color: #3f3f3f;
+  color: #858585;
+  font-size: 20px;
+  align-items: center;
+  border-radius: 20px;
+  border: none;
+  margin-left: 75px;
+  text-align: center;
+}
+
+.sale_first_select{
+  width: 200px;
+  background-color: #3f3f3f;
+  color: #858585;
+  font-size: 20px;
+  align-items: center;
+  border-radius: 10px;
+  border: none;
+  margin-left: 75px;
+}
+
+.sale_start_button{
+  width: 200px;
+  height: 75px;
+  font-size: 28px;
+  color: #fff;
+  background: linear-gradient(180deg, #000 0%, #290038 100%);
+  font-weight: 600;
+  border-radius: 20px;
+  align-items: center;
+  text-align: center;
+  border: 1px solid #fff;
+}
+.sale_start{
+  justify-content: center;
+  display: flex;
+  margin-top: 280px;
 }
