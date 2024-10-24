@@ -1,5 +1,9 @@
+import mimetypes
+import os
 import re
+import traceback
 
+import magic
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, View, TemplateView
 from rest_framework.decorators import api_view, permission_classes, action
@@ -1647,16 +1651,14 @@ def parse_epub_and_create_chapters(file_path, book):
 
 
 def get_file_type_by_extension(file_path):
-    import os
-    extension = os.path.splitext(file_path)[1].lower()
-    return {
-        '.fb2': 'application/x-fictionbook+xml',
-        '.epub': 'application/epub+zip',
-        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        '.txt': 'text/plain',
-        '.pdf': 'application/pdf',
-        # Добавьте другие расширения и MIME типы
-    }.get(extension, None)
+    mime_type, _ = mimetypes.guess_type(file_path)
+    return mime_type
+
+
+def get_file_type_by_magic(file_path):
+    mime = magic.Magic(mime=True)
+    mime_type = mime.from_file(file_path)
+    return mime_type
 
 
 class BookFileUploadView(APIView):
@@ -1666,6 +1668,9 @@ class BookFileUploadView(APIView):
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document': parse_docx_and_create_chapters,
         'text/plain': parse_txt_and_create_chapters,
         'application/x-fictionbook+xml': parse_fb2_and_create_chapters,
+        'application/xml': parse_fb2_and_create_chapters,  # Добавьте этот MIME-тип
+        'text/xml': parse_fb2_and_create_chapters,  # Добавьте этот MIME-тип
+        # ... другие MIME-типы ...
     }
 
     def post(self, request):
@@ -1673,7 +1678,19 @@ class BookFileUploadView(APIView):
         if serializer.is_valid():
             book = Book.objects.create(author=request.user, book_type='epic_novel')
             book_file = serializer.save(book=book)
-            file_type = get_file_type_by_extension(book_file.file.path)
+
+            file_path = book_file.file.path
+            print(f"Uploaded file path: {file_path}")
+            extension = os.path.splitext(file_path)[1].lower()
+            print(f"File extension: {extension}")
+
+            file_type = get_file_type_by_extension(file_path)
+            print(f"Guessed file type: {file_type}")
+
+            # Используем python-magic для определения MIME-типа
+            file_type = get_file_type_by_magic(book_file.file.path)
+            print(f"Guessed file type using magic: {file_type}")
+
             if file_type is None:
                 book.delete()
                 book_file.file.delete()
@@ -1703,6 +1720,7 @@ class BookFileUploadView(APIView):
                     }
                     return Response(response_data, status=status.HTTP_201_CREATED)
                 except Exception as e:
+                    traceback.print_exc()
                     # Удаляем книгу и файл в случае ошибки
                     book.delete()
                     book_file.file.delete()
