@@ -1666,8 +1666,12 @@ def parse_epub_and_create_chapters(file_path, book):
 
 
 def get_file_type_by_extension(file_path):
-    mime_type, _ = mimetypes.guess_type(file_path)
-    return mime_type
+    import os
+    extension = os.path.splitext(file_path)[1].lower()
+    return {
+        '.fb2': 'fb2',  # Используем свой тип для FB2
+        # Добавьте другие расширения и MIME типы
+    }.get(extension, None)
 
 
 def get_file_type_by_magic(file_path):
@@ -1685,6 +1689,7 @@ class BookFileUploadView(APIView):
         'application/x-fictionbook+xml': parse_fb2_and_create_chapters,
         'application/xml': parse_fb2_and_create_chapters,  # Добавьте этот MIME-тип
         'text/xml': parse_fb2_and_create_chapters,  # Добавьте этот MIME-тип
+        'fb2': parse_fb2_and_create_chapters,
         # ... другие MIME-типы ...
     }
 
@@ -1735,6 +1740,7 @@ class BookFileUploadView(APIView):
                     }
                     return Response(response_data, status=status.HTTP_201_CREATED)
                 except Exception as e:
+                    print(f"Error in handler: {e}")
                     traceback.print_exc()
                     # Удаляем книгу и файл в случае ошибки
                     book.delete()
