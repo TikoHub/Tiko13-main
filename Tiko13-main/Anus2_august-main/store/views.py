@@ -1460,32 +1460,47 @@ class NewsNotificationsView(APIView):
 
 
 def parse_fb2_and_create_chapters(file_path, book):
-    tree = etree.parse(file_path)
-    root = tree.getroot()
-    ns = {'fb': 'http://www.gribuser.ru/xml/fictionbook/2.0'}
+    try:
+        print(f"Parsing FB2 file at: {file_path}")
+        tree = etree.parse(file_path)
+        root = tree.getroot()
+        ns = {'fb': 'http://www.gribuser.ru/xml/fictionbook/2.0'}
+        print("Successfully parsed XML tree.")
 
-    last_chapter_number = book.chapters.aggregate(Max('chapter_number'))['chapter_number__max'] or 0
+        last_chapter_number = book.chapters.aggregate(Max('chapter_number'))['chapter_number__max'] or 0
 
-    for section in root.findall('.//fb:section', namespaces=ns):
-        title_element = section.find('.//fb:title', namespaces=ns)
-        title = "".join(title_element.itertext()) if title_element is not None else None
+        sections = root.findall('.//fb:section', namespaces=ns)
+        print(f"Found {len(sections)} sections in the FB2 file.")
 
-        content = ""
-        for p in section.findall('.//fb:p', namespaces=ns):
-            content += "\n".join(p.itertext())
+        for section in sections:
+            title_element = section.find('.//fb:title', namespaces=ns)
+            title = "".join(title_element.itertext()) if title_element is not None else "Untitled Chapter"
 
-        next_chapter_number = last_chapter_number + 1
-        last_chapter_number = next_chapter_number  # Update last chapter number for the next iteration
+            content = ""
+            paragraphs = section.findall('.//fb:p', namespaces=ns)
+            for p in paragraphs:
+                content += "\n".join(p.itertext()) + "\n"
 
-        Chapter.objects.create(
-            book=book,
-            title=title,
-            content=content.strip(),
-            chapter_number=next_chapter_number,  # Добавляем номер главы
-            created=timezone.now(),
-            updated=timezone.now(),
-            published=False
-        )
+            next_chapter_number = last_chapter_number + 1
+            last_chapter_number = next_chapter_number  # Update last chapter number for the next iteration
+
+            Chapter.objects.create(
+                book=book,
+                title=title,
+                content=content.strip(),
+                chapter_number=next_chapter_number,
+                created=timezone.now(),
+                updated=timezone.now(),
+                published=False
+            )
+            print(f"Created chapter {next_chapter_number}: {title}")
+
+    except Exception as e:
+        print(f"Error parsing FB2 file: {e}")
+        import traceback
+        traceback.print_exc()
+        raise e  # Пробрасываем исключение, чтобы оно было обработано выше
+
 
 
 def parse_docx_and_create_chapters(file_path, book):
