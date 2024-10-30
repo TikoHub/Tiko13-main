@@ -6,6 +6,8 @@ from . import views
 urlpatterns = [
     path('api/', include([
         path('', BooksListAPIView.as_view(), name='books_list_api'),  # Главная Страница
+        path('genres/', GenreListAPIView.as_view(), name='genre-list'),
+
         path('book_detail/<int:book_id>/', BookDetailAPIView.as_view(), name='book_detail_api'),  #Страница Книги
         path('book_detail/<int:book_id>/info/', views.get_book_info, name='get_book_info'), # Описание книги, кол-во глав,страниц
         path('book_detail/<int:book_id>/content/', views.get_book_content, name='get_book_content'), # Главы с датой добавления

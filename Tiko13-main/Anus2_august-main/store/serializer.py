@@ -548,3 +548,9 @@ class BookVisibilitySerializer(serializers.ModelSerializer):
         model = Book
         fields = ['visibility']
 
+
+class GenreSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Genre
+        fields = ['id', 'name']
+

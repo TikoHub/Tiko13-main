@@ -1,43 +1,31 @@
-import mimetypes
 import os
 import re
 import traceback
 
 import magic
-from django.shortcuts import render, redirect, get_object_or_404
-from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, View, TemplateView
-from rest_framework.decorators import api_view, permission_classes, action
+from django.shortcuts import redirect
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, AllowAny
-from datetime import timedelta
-from django.utils import timezone
-from .models import CommentLike, CommentDislike, ReviewLike, ReviewDislike, Series, Genre, BookUpvote, BookDownvote, Chapter, AuthorNote, Illustration
-from django.contrib.auth.models import User, auth
+from .models import CommentLike, CommentDislike, BookUpvote, BookDownvote
 from django.contrib.auth.mixins import LoginRequiredMixin
-from .forms import BooksForm, CommentForm, ReviewCreateForm, BookTypeForm, SeriesForm, ChapterForm
+from .forms import BooksForm, SeriesForm
 from .filters import BookFilter
 from django.utils.decorators import method_decorator
-from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
-from django.http import HttpResponse, HttpResponseRedirect
-from django.http import JsonResponse
-from django.db.models import Count, Max, F
-from django.urls import reverse_lazy, reverse
-from django.views.generic.edit import FormView
-from django.contrib import messages
-from users.models import Notification, Library, Wallet
+from django.http import HttpResponse
+from django.db.models import Max, F
+from users.models import Notification, Wallet
 from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework import status
 from rest_framework import generics
 from rest_framework.response import Response
-from .models import Book, Comment, Review, BookLike, ReviewView, UserBookHistory
+from .models import  BookLike, UserBookHistory
 from .utils import get_client_ip, is_book_purchased_by_user, log_book_access
-from .ip_views import check_book_ip_last_viewed, update_book_ip_last_viewed, check_review_ip_last_viewed, update_review_ip_last_viewed
 from .serializer import *
 from .converters import create_fb2, parse_fb2
 from django.core.files.storage import default_storage
-import datetime
 from datetime import date
 from users.models import WebPageSettings, Library, Profile, FollowersCount, PurchasedBook, NotificationSetting
 from django.db.models import Exists, OuterRef
@@ -53,8 +41,6 @@ import fitz
 import zipfile
 from bs4 import BeautifulSoup
 from django.db import transaction
-import filetype
-from django.utils.timezone import now
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
@@ -64,7 +50,23 @@ class BooksListAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
+        genre_id = self.request.query_params.get('genre_id', None)
+        free_only = self.request.query_params.get('free_only', None)
+        first_in_series = self.request.query_params.get('first_in_series',
+                                                        None)
+
         base_query = Book.objects.exclude(genre__name='Undefined')  # Exclude books with "Undefined" genre
+
+        # Фильтрация по жанру, если указан
+        if genre_id:
+            base_query = base_query.filter(genre__id=genre_id)
+
+        if free_only == 'true':
+            base_query = base_query.filter(
+                price=0)
+
+        if first_in_series == 'true':
+            base_query = base_query.filter(volume_number=1)
 
         # Annotate each book with a flag indicating if it has at least one published chapter
         has_published_chapters = Chapter.objects.filter(
@@ -210,6 +212,11 @@ def get_book_content(request, book_id):
 
     serializer = BookContentSerializer(book)
     return Response(serializer.data)
+
+
+class GenreListAPIView(generics.ListAPIView):
+    queryset = Genre.objects.all()
+    serializer_class = GenreSerializer
 
 
 class BookSearch(ListView):
@@ -1472,12 +1479,20 @@ def parse_fb2_and_create_chapters(file_path, book):
         sections = root.findall('.//fb:section', namespaces=ns)
         print(f"Found {len(sections)} sections in the FB2 file.")
 
+        if not sections:
+            print("No sections found in the FB2 file.")
+            raise ValueError("No sections found in the FB2 file.")
+
         for section in sections:
             title_element = section.find('.//fb:title', namespaces=ns)
             title = "".join(title_element.itertext()) if title_element is not None else "Untitled Chapter"
 
             content = ""
             paragraphs = section.findall('.//fb:p', namespaces=ns)
+            if not paragraphs:
+                print(f"No paragraphs found in section titled '{title}'.")
+                continue  # Пропускаем секцию без содержимого
+
             for p in paragraphs:
                 content += "\n".join(p.itertext()) + "\n"
 
@@ -1486,7 +1501,7 @@ def parse_fb2_and_create_chapters(file_path, book):
 
             Chapter.objects.create(
                 book=book,
-                title=title,
+                title=title.strip(),
                 content=content.strip(),
                 chapter_number=next_chapter_number,
                 created=timezone.now(),
@@ -1499,8 +1514,7 @@ def parse_fb2_and_create_chapters(file_path, book):
         print(f"Error parsing FB2 file: {e}")
         import traceback
         traceback.print_exc()
-        raise e  # Пробрасываем исключение, чтобы оно было обработано выше
-
+        raise e  # Пробрасываем исключение для обработки в вызывающем коде
 
 
 def parse_docx_and_create_chapters(file_path, book):
@@ -1586,15 +1600,6 @@ def parse_pdf_and_create_chapters(file_path, book):
     doc.close()
 
 
-def parse_xml_and_create_chapters(file_path, book):
-    tree = etree.parse(file_path)
-    root = tree.getroot()
-    for chapter in root.findall('.//chapter'):
-        title = chapter.find('title').text
-        content = "".join(p.text for p in chapter.findall('.//paragraph'))
-        Chapter.objects.create(book=book, title=title, content=content)
-
-
 def parse_txt_and_create_chapters(file_path, book):
     with open(file_path, 'r', encoding='utf-8') as file:
         text = file.read()
@@ -1665,15 +1670,6 @@ def parse_epub_and_create_chapters(file_path, book):
         print("No HTML or XHTML files found in EPUB archive.")
 
 
-def get_file_type_by_extension(file_path):
-    import os
-    extension = os.path.splitext(file_path)[1].lower()
-    return {
-        '.fb2': 'fb2',  # Используем свой тип для FB2
-        # Добавьте другие расширения и MIME типы
-    }.get(extension, None)
-
-
 def get_file_type_by_magic(file_path):
     mime = magic.Magic(mime=True)
     mime_type = mime.from_file(file_path)
@@ -1704,8 +1700,6 @@ class BookFileUploadView(APIView):
             extension = os.path.splitext(file_path)[1].lower()
             print(f"File extension: {extension}")
 
-            file_type = get_file_type_by_extension(file_path)
-            print(f"Guessed file type: {file_type}")
 
             # Используем python-magic для определения MIME-типа
             file_type = get_file_type_by_magic(book_file.file.path)
